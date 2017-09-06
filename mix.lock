@@ -1,0 +1,3 @@
+%{"abci_server": {:git, "https://github.com/KrzysiekJ/abci_server.git", "9902821020a6c7681367e7c0a08c38d9b8a619a0", []},
+  "ranch": {:git, "https://github.com/ninenines/ranch.git", "55c2a9d623454f372a15e99721a37093d8773b48", []},
+  "remix": {:hex, :remix, "0.0.2", "f06115659d8ede8d725fae1708920ef73353a1b39efe6a232d2a38b1f2902109", [], [], "hexpm"}}
