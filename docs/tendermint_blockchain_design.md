@@ -20,6 +20,10 @@ The `honted` ABCI app is going to be responsible for the following:
 
 The first two are a straightforward implication of how Tendermint (ABCI) works the latter are a little less standard and will be explored in detail in subsequent sections.
 
+As an addition to the Tendermint consnsus, there is a necessity of having an **issuer's signoff** mechanism.
+Regardless of the validator set, for every token issued, its issuer should sign off blocks which they find finalized.
+Only after such signoff should the account balances and transactions involving that token be considered finalized. (TODO: explain why, and what if not)
+
 ### `honted` ABCI app state
 
 The state that the application will manage (and distribute per Tendermint) consists of the following items (among other, TODO: make list exhaustive):
@@ -101,13 +105,13 @@ The scope and order of the no-transaction state transition is (TODO: make list e
   - payout fee pots after end of old epoch
   - order book: timeouts - old orders should be removed after timeout Tendermint block height
   - order book: cancellation - canceled orders should be removed after cancellation block height
-  - order book: matching - batch matching should be performed according to (TODO full specs).
+  - order book: matching - batch execution should be performed according to [matching and execution specs](docs/batch_matching.md).
   In a nutshell:
     - only orders after their timein may match. The reason to explicitly have timein and defer all matching to in-between blocks (i.e. to no-tx state transitions) is limit the manipulability of matching by the validators
-    - the crossed pool of liquidity is determined and it all crosses at VWAP
-    - orders might be partially filled (TODO: rethink: only one partially matched order possible every batch matching?)
+    - the crossed pool of liquidity is determined and it all executes at VWAP
+    - orders might be partially filled
 
-**NOTE:** additions to the order book, soft-slashing proofs are transaction state transitions
+**NOTE:** additions to the order book, soft-slashing proofs are _transaction_ state transitions.
 
 ## Fee structure
 
@@ -117,16 +121,20 @@ The fees are paid on transaction send in any token available on Honte-OmiseGO
 A **fee pot** is a special account that is specific to a particular `public address` and a particular epoch.
 To illustrate that, in `honted` ABCI app's state one will have entries like (exact structure pending):
   - `balance/<token>/<public address>` - normal spendable balance of `public address`
-  - `feepot/<token>/<epoch>/<public address>` - balance spendable after `epoch` has ended
+  - `feepot/<token>/<epoch>/<public address>` - balance spendable after `epoch` has ended.
+  That epoch should be the epoch that begins at least after the current one, i.e. each validator earn fees that will be spendable after at least one full epoch.
 
 Every fee is split and credited to fee pots according to:
   - **`proposer share`** - to proposer's fee pot
   - **`validator share`** (` == 100% - proposer share`) - to all (non-slashed) validators, proportionate to validators' powers
 
-Whenever a validator is soft-slashed, all its fee pots are zeroed.
-It is expected that all validators will pay out their fee pots to regular accounts.
+Whenever a validator is soft-slashed, all its fee pots are zeroed, the fees accumulated are redistributed to other validators (TODO: how exactly).
+It is expected that all validators will pay out their fee pots to regular accounts periodically to minimize risk.
 
 ## Soft-slashing conditions
+
+TODO: this is grossly under-specified.
+Need answers from Tendermint team
 
 As mentioned before, the effect of every correct soft-slashing is twofold:
   - removal from the validator set
@@ -145,18 +153,28 @@ The conditions on which soft-slashing occurs are multiple:
 
     Proven with (TODO)
 
-# un-edited dumps from the meeting
-
-## AML-KYC cert (TODO)
+## AML-KYC certification
 
 For a token like USD-backed token there will be requirements to KYC on-chain holders of the token.
-The issuer should specify aml-kyc authority address for such a token.
-aml-kyc authority address has the power to register (and unregister) other addresses as kyc-ed.
-the ledger restricts the ability to hold the token only to registered addresses.
+The issuer should specify **KYC address** for such a token, and this address should be in control of a suitable AML-KYC authority
+KYC address has the power to register (and unregister) other addresses as KYC-ed.
+The ledger, as part of transaction validity determined by `honted` ABCI app, restricts the ability to hold the token only to registered addresses.
 This is important for the phase when users can reclaim custody of the tokens on-chain.
 
-TODO: what if address is unregistered and has tokens?
+TODO: what if address is unregistered while holding tokens?
 
-## chain naming (TODO)
+## Chain naming
 
-domain-like system both for Plasma and Honte-OmiseGO
+Since both for Plasma blockchain (Tesuji milestone) and Honte-OmiseGO network there are possible many chains, 
+there needs to be a consistent naming scheme for these chains.
+This will allow applications to refer to a particular chain.
+
+The naming scheme is going to be:
+
+`address.[chain_id].[parent_chain_1_id]. ... .[parent_chain_n_id]`
+
+Where address is the actual address, and `chain_id` is always the address of contract (or other chain id for Plasma) of the chain on its parent chain. Top-most `parent_chain_n_id` should be the address of an Ethereum smart contract.
+
+For the Honte-OmiseGO we restrict to single-tier equivalent:
+
+`address.[smart_contract_on_Ethereum_address]`
