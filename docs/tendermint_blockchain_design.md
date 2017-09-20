@@ -62,27 +62,41 @@ There are two conditions, on which the validator set will change:
 #### Changing the validator set on epochs
 
 Each epoch will have a sub-range of Ethereum blocks called the join window.
-**Join window** begins with every epoch and lasts for the length of epoch minus the finality margin.
-**Finality margin** should be thought of as the number of blocks which need to pass for a block to be considered final.
+**Join/exit window** begins with every epoch and lasts for the length of epoch minus the maturity margin.
+**Maturity margin** should be thought of as the number of Ethereum blocks which need to pass for a block to be considered mature (final),
+for the sake of changing of validator set.
 
-At the end of every join window we specify an Ethereum block height **validator block**.
+At the end of every join window we specify a specific Ethereum block height called the **validator block**.
 
 During the join/exit window OMG holders are allowed to bond and unbond their OMGs into the **Honte-OmiseGO contract**.
 At validator block, the bonds are considered to be "locked in" to be effective and determine the validator set in the upcoming epoch.
 
-TODO: ensure the next works
-
 After the validator block is seen, the Tendermint block proposer should alter the validator set accordingly.
-To do that we employ the **PoW finality proof**.
-Such proposer should enclose the proof-of-work ranging from previous validator block (as embedded in `honted` ABCI app's state) to block **finality margin** blocks ahead of **validator block**.
-Proposer thereby attest to having seen enough confirmations of the **validator block**.
+To do that we employ the **PoW maturity proof**.
+Such proposer should enclose the proof-of-work ranging from previous validator block (as embedded in `honted` ABCI app's state) to block ahead of **validator block** by the **maturity margin**.
+Proposer thereby provably attests to having seen enough confirmations of the **validator block** on the Ethereum blockchain.
+This attestation is necessary for all validators to unanimously agree on time, when the validators set should change.
 This is necessary to prevent disputes and synchronization failures around the accessibility of Ethereum blocks.
 
-TODO: diagram needed
+[diagram](https://docs.google.com/drawings/d/1NHazCFyTx0iQuLLYu4dGmcJnP80GkpjL4Xm8r5JprJg/edit)
 
 The epoch change resets all validator changes arising from soft-slashing.
 
 The amount of voting power every validator gets is equal to the amount of OMG bonded.
+
+A hypothetical edge case, that the PoW maturity proof prevents, is illustrated below:
+
+##### Example: edge case with validators disagreeing on Ethereum blockchain tip
+
+Let's assume that:
+  - an epoch begins at Ethereum block height 50
+  - the maturity margin is 10 blocks (validator block is then block at height 40)
+  
+Proposer sees Ethereum block 50 mined and should process the validator set change,
+setting the validator set to whatever is implied by the Honte-OmiseGO contract at height 40.
+Another validator will see this processing happen, but it has only seen Ethereum block height 49,
+so according to that the epoch has not yet begun.
+Allowing for leeway in that validator's assessment ("everyone has seen block 50, maybe I should believe them") doesn't solve this.
 
 #### Changing the validator set on soft-slashing
 
