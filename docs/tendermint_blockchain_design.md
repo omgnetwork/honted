@@ -61,15 +61,16 @@ There are two conditions, on which the validator set will change:
 
 #### Changing the validator set on epochs
 
-Each epoch will have a sub-range of Ethereum blocks called the join window.
+Each epoch will have a sub-range of Ethereum blocks called the join/exit window.
 **Join/exit window** begins with every epoch and lasts for the length of epoch minus the maturity margin.
 **Maturity margin** should be thought of as the number of Ethereum blocks which need to pass for a block to be considered mature (final),
 for the sake of changing of validator set.
 
-At the end of every join window we specify a specific Ethereum block height called the **validator block**.
+At the end of every join/exit window we specify a specific Ethereum block height called the **validator block**.
 
 During the join/exit window OMG holders are allowed to bond and unbond their OMGs into the **Honte-OmiseGO contract**.
 At validator block, the bonds are considered to be "locked in" to be effective and determine the validator set in the upcoming epoch.
+The unbonded OMG tokens are spendable after another some additional amount of time had passed **unbonding period**.
 
 After the validator block is seen, the Tendermint block proposer should alter the validator set accordingly.
 To do that we employ the **PoW maturity proof**.
@@ -78,11 +79,16 @@ Proposer thereby provably attests to having seen enough confirmations of the **v
 This attestation is necessary for all validators to unanimously agree on time, when the validators set should change.
 This is necessary to prevent disputes and synchronization failures around the accessibility of Ethereum blocks.
 
-[diagram](https://docs.google.com/drawings/d/1NHazCFyTx0iQuLLYu4dGmcJnP80GkpjL4Xm8r5JprJg/edit)
+[diagram](https://docs.google.com/drawings/d/1NHazCFyTx0iQuLLYu4dGmcJnP80GkpjL4Xm8r5JprJg/edit?usp=sharing)
 
 The epoch change resets all validator changes arising from soft-slashing.
 
 The amount of voting power every validator gets is equal to the amount of OMG bonded.
+
+**NOTE**: the reason why validators would want to process the change at all is that 
+the payout of fee-pots is correlated with changing the validator set.
+So in case that change implies relinquishing control, validators need to do it to claim earned fees.
+Secondary reason is that failure to process the change could jeopardize value of bonded OMG tokens.
 
 A hypothetical edge case, that the PoW maturity proof prevents, is illustrated below:
 
@@ -137,6 +143,7 @@ To illustrate that, in `honted` ABCI app's state one will have entries like (exa
   - `balance/<token>/<public address>` - normal spendable balance of `public address`
   - `feepot/<token>/<epoch>/<public address>` - balance spendable after `epoch` has ended.
   That epoch should be the epoch that begins at least after the current one, i.e. each validator earns fees that will be spendable after at least one full epoch.
+  This is a required delay that increases the value at stake for validators, i.e. misbehaving could lead them to lose fees earned in previous epoch.
 
 Every fee is split and credited to fee pots according to:
   - **`proposer share`** - to proposer's fee pot
