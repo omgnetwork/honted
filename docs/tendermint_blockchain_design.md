@@ -22,7 +22,7 @@ The first two are a straightforward implication of how Tendermint (ABCI) works t
 
 As an addition to the Tendermint consnsus, there is a necessity of having an **issuer's signoff** mechanism.
 Regardless of the validator set, for every token issued, its issuer should sign off blocks which they find finalized.
-Only after such signoff should the account balances and transactions involving that token be considered finalized. (TODO: explain why, and what if not)
+Only after such signoff should the account balances and transactions involving that token be considered final.
 
 ### `honted` ABCI app state
 
@@ -107,7 +107,7 @@ Any validator that attempts to damage the consensus should be removed from the v
 The `honted` ABCI app state makes transitions on transactions sent by peers but also there is a canonical set of state transitions that **must** be made by the block proposer on every block.
 Failure to do the state transition in a canonical manner (i.e. obtaining the same result as other validators) should result in soft-slashing.
 
-The input state to the state transition is always the state on the preceeding (commited) block, and should be recognized on the `BeginBlock` call to the `honted` ABCI app (from Tendermint core)
+The input state to the state transition is always the state on the preceding (committed) block, and should be recognized on the `BeginBlock` call to the `honted` ABCI app (from Tendermint core)
 
 The state transition will be performed in the `BeginBlock` too.
 The output state of the state transition is a state that should be digested to a hash and embedded in the block being proposed.
@@ -125,7 +125,7 @@ The scope and order of the no-transaction state transition is (TODO: make list e
     - the crossed pool of liquidity is determined and it all executes at VWAP
     - orders might be partially filled
 
-**NOTE:** additions to the order book, soft-slashing proofs are _transaction_ state transitions.
+**NOTE:** In contrast to the above, things like additions to the order book, soft-slashing proofs are _transaction_ state transitions.
 
 ## Fee structure
 
@@ -136,19 +136,28 @@ A **fee pot** is a special account that is specific to a particular `public addr
 To illustrate that, in `honted` ABCI app's state one will have entries like (exact structure pending):
   - `balance/<token>/<public address>` - normal spendable balance of `public address`
   - `feepot/<token>/<epoch>/<public address>` - balance spendable after `epoch` has ended.
-  That epoch should be the epoch that begins at least after the current one, i.e. each validator earn fees that will be spendable after at least one full epoch.
+  That epoch should be the epoch that begins at least after the current one, i.e. each validator earns fees that will be spendable after at least one full epoch.
 
 Every fee is split and credited to fee pots according to:
   - **`proposer share`** - to proposer's fee pot
   - **`validator share`** (` == 100% - proposer share`) - to all (non-slashed) validators, proportionate to validators' powers
 
-Whenever a validator is soft-slashed, all its fee pots are zeroed, the fees accumulated are redistributed to other validators (TODO: how exactly).
+Whenever a validator is soft-slashed, all its fee pots are zeroed, the fees accumulated are redistributed to other validators (TODO: how exactly?).
+
+Some portion of the accumulated and slashed fees should be burnt or distributed to someone different than validators.
+This is required to make the overall result from soft-slashing a "negative outcome gain", 
+i.e. validators cannot collude to attempt to cheat for free.
+
 It is expected that all validators will pay out their fee pots to regular accounts periodically to minimize risk.
+
+There should be a possibility of setting fee equal to zero and specifying no (nil) token to pay fee in,
+for any transaction.
+This is required to allow to create the first token in a valid transaction.
 
 ## Soft-slashing conditions
 
 TODO: this is grossly under-specified.
-Need answers from Tendermint team
+Need answers from Tendermint team, see relevant task
 
 As mentioned before, the effect of every correct soft-slashing is twofold:
   - removal from the validator set
