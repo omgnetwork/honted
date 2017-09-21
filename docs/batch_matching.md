@@ -1,5 +1,8 @@
 # Batch matching and execution for Honte-OmiseGO
 
+**NOTE**: both drafts are obsolete: first is broken and second hasn't really been delivered.
+FIXME: fix following link from posted in comments
+
 ## VWAP execution draft
 
 We give a generic description of the expected batch matching done by the exchange.
@@ -48,7 +51,7 @@ All operations must be deterministic.
 `sell_2`: 60 `X`, at 35/100, 171 `Y`
 `sell_3`: 100 `X`, at 25/100, 400 `Y`
 
-`buy_min` is 3/100, `sell_max` is 45/100.
+`buy_min` is 30/100, `sell_max` is 45/100.
 
 `buy_volume` is 160, `sell_volume` is 100, so `crossed_volume` is 100, `sell_1` and `_2` are shallower_orders.
 Buy side is `deeper_side`
