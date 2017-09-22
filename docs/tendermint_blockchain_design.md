@@ -163,25 +163,36 @@ This is required to allow to create the first token in a valid transaction.
 
 ## Soft-slashing conditions
 
-TODO: this is grossly under-specified.
-Need answers from Tendermint team, see relevant task
-
 As mentioned before, the effect of every correct soft-slashing is twofold:
   - removal from the validator set
   - forfeiture of all fees accumulated in the fee pot
 
 The conditions on which soft-slashing occurs are multiple:
-  - double-signing
+  - double-signing or other malfeasance in boundaries of Tendermint consensus
 
-    Proven with (TODO)
+    Tendermint might provide tools to handle this, see:
+      - https://github.com/tendermint/tendermint/issues/569
+      - https://github.com/tendermint/tendermint/issues/338
+      
+    In general this should be detected by Tendermint.
+    More or less `BeginBlock` would feed a list of misbehaving validators into the `honted` ABCI app.
+    
+    Otherwise handling of a "double-signing slashing condition" transaction would need to replicate Tendermint's consensus logic,
+    to determine the legitimacy of a slashing condition submitted.
+    Probably handling of this would need to be interactive (i.e. validator may defend by revealing some justification for a particular signature).
+    Most likely quite hard.
 
   - proposing a block with an invalid transaction
-
-    Proven with (TODO)
+  
+    Tendermint might provide tools: see above
+    
+    This can be done in `DeliverTx` call to the `honted` ABCI app.
+    At that stage, an invalid transaction should not have the effect it attempts to introduce,
+    but have the effect of slashing the proposer (assuming we do have proposer address at this stage, see discussion in issues mentioned)
 
   - invalid no-tx state transition
-
-    Proven with (TODO)
+  
+    (TODO)
 
 ## AML-KYC certification
 
