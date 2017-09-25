@@ -192,7 +192,10 @@ The conditions on which soft-slashing occurs are multiple:
 
   - invalid no-tx state transition
   
-    (TODO)
+    No provisions to do this in Tendermint.
+    Block with an invalid no-tx state transition will not be voted on by the validators.
+    No way of detecting this at this stage of Tendermint.
+    See [issue in Tendermint repo](https://github.com/tendermint/tendermint/issues/679).
 
 ## AML-KYC certification
 
