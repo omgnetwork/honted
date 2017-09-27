@@ -62,20 +62,16 @@ VWAP `execution_price` is 39/10. 100 `X` will be exchanged for 256 `Y`.
 
 **Alternative:**
 
-## Alternate best offer execution draft:
+## Iterative, best offer execution draft:
 
 1. Sort buy and sell orders for the pair
   - primary key: price - best price comes first
-  - secondary keys (TBD): timein, timeout, volume, random
-2. Randomly select the starting list: either start with buy orders or start with sell orders
-  - for the sake of explanation assume we start with buy orders
-3. Take first buy order, match it against first sell order in the buy order's entirety
-  - match only if such pair of orders have their VWAP price not worse than both prices quoted by the orders
-  - execute at that VWAP price
-  - we assume that the first buy order executes completely and partially matches the sell order.
-  In case the buy order is matched partially only (because the first sell order is smaller) - end matching
-4. Take first sell order, match it against first buy order in the sell order's entirety
-  - as above 
-5. Repeat matching, giving priority to buy orders and sell orders alternatively.
+  - secondary keys (TBD): timein, timeout, X volume, Y volume, random
+2. Take first buy and sell orders, attempt to match
+  - of no match - end matching
+  - if matched, execute at the VWAP price of both orders' prices.
+  One of the orders might match partially, the unmatched portion remains as the new first order
+3. Goto 2.
 
-
+**NOTE** since the execution price might be better than the order limit,
+it is expected, that untraded tokens will be transferred back to seller's account.
