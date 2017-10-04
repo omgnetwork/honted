@@ -15,6 +15,7 @@ defmodule HonteD.Mixfile do
   def application do
     [
       extra_applications: extra_applications(Mix.env),
+      applications: [:jsonrpc2, :poison, :plug, :cowboy, :hackney],
       mod: {HonteD.Application, []}
     ]
   end
@@ -26,8 +27,14 @@ defmodule HonteD.Mixfile do
   defp deps do
     [
       {:abci_server, github: 'KrzysiekJ/abci_server'},
-      {:ranch, github: 'ninenines/ranch'},
-      {:remix, "~> 0.0.1", only: :dev}
+      {:ranch, "~> 1.3.2"},
+      {:remix, "~> 0.0.1", only: :dev},
+      {:jsonrpc2, "~> 1.0"},
+      {:poison, "~> 3.1"},
+      {:plug, "~> 1.3"},
+      {:cowboy, "~> 1.1"},
+      {:hackney, "~> 1.7"},
+      {:tesla, "~>0.8.0"}
     ]
   end
 end

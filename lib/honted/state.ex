@@ -1,5 +1,12 @@
 defmodule HonteD.State do
-  def exec(state, {:mint, asset, amount, dest}) do
+  @moduledoc """
+  Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
+  """
+
+  @type t :: map()
+  def empty(), do: %{}
+
+  def exec(state, {:issue, asset, amount, dest}) do
     key = "accounts/#{asset}/#{dest}"
     state = Map.update(state, key, amount, &(&1 + amount))
     {:ok, state}

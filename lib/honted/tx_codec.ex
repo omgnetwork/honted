@@ -1,10 +1,15 @@
-defmodule HonteD.TxDecoder do
+defmodule HonteD.TxCodec do
+  @moduledoc """
+  Handles transforming correctly formed transaction encodings to tuples and vice versa
+
+  Encoded transactions are handled by Tendermint core
+  """
 
   def decode(line) do
     case String.split(line) do
       ["ISSUE", asset, amount, dest] ->
         case Integer.parse(amount) do
-          {int_amount, _} -> {:ok, {:mint, asset, int_amount, dest}}
+          {int_amount, _} -> {:ok, {:issue, asset, int_amount, dest}}
           _ -> {:error, :malformed_amount}
         end
       ["SEND", asset, amount, from, to] ->
@@ -22,4 +27,18 @@ defmodule HonteD.TxDecoder do
       _ -> {:error, :malformed_transaction}
     end
   end
+
+  @doc """
+  Encodes a generic list of terms into a Tendermint transaction
+
+  Note that correctness of terms should be checked elsewhere
+  """
+  def encode([last_term]), do: _encode(last_term)
+  def encode([terms_head | terms_tail]) do
+    _encode(terms_head) <> " " <> encode(terms_tail)
+  end
+
+  defp _encode(term) when is_binary(term), do: term
+  defp _encode(term) when is_atom(term), do: String.upcase(to_string(term))
+  defp _encode(term) when is_number(term), do: "#{term}"
 end

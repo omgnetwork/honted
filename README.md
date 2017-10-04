@@ -1,20 +1,13 @@
 # HonteD
 
-**TODO: Add description**
+**Quick guide**:
 
-## Installation
+  - `git clone ...`
+  - `mix deps.get`
+  - `iex -S mix`
+  - elsewhere: `tendermint init`
+  -
+        iex(1)> HonteD.API.submit_transaction("ISSUE asset 5 bob")
+        iex(2)> HonteD.API.create_send_transaction("asset", 5, "bob", "alice") |> HonteD.API.submit_transaction
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `honted` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:honted, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/honted](https://hexdocs.pm/honted).
+Some chaotic messages will print to the REPL, among them the crude state of the application
