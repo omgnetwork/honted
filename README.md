@@ -16,4 +16,6 @@
 
 Do `tendermint unsafe_reset_all` everytime you want to clean the databases and start from scratch.
 
+To run second node - `mix run --config config/config.exs --no-halt`
+
 Some chaotic messages will print to the REPL, among them the crude state of the application
