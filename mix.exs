@@ -14,6 +14,7 @@ defmodule HonteD.Mixfile do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      env: [abci_port: 46658],
       extra_applications: extra_applications(Mix.env),
       applications: [:jsonrpc2, :poison, :plug, :cowboy, :hackney],
       mod: {HonteD.Application, []}
