@@ -4,15 +4,20 @@ defmodule HonteD.TendermintRPC do
   """
   use Tesla
 
-  plug Tesla.Middleware.BaseUrl, "http://localhost:46657"
-  plug Tesla.Middleware.JSON
-
-  def broadcast_tx_sync(tx) do
-    _result_of get("/broadcast_tx_sync", query: [tx: "\"" <> tx <> "\""])
+  def client() do
+    rpc_port = Application.get_env(:honted, :rpc_port)
+    Tesla.build_client [
+      {Tesla.Middleware.BaseUrl, "http://localhost:#{rpc_port}"},
+      Tesla.Middleware.JSON
+    ]
   end
 
-  def abci_query(data, path) do
-    _result_of get("abci_query", query: [
+  def broadcast_tx_sync(client, tx) do
+    _result_of get(client, "/broadcast_tx_sync", query: [tx: "\"" <> tx <> "\""])
+  end
+
+  def abci_query(client, data, path) do
+    _result_of get(client, "abci_query", query: [
       data: "\"#{data}\"",
       path: "\"#{path}\""
     ])
