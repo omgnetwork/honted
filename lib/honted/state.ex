@@ -15,7 +15,8 @@ defmodule HonteD.State do
   def exec(state, {nonce, :send, asset, amount, src, dest}) do
     key_src = "accounts/#{asset}/#{src}"
     key_dest = "accounts/#{asset}/#{dest}"
-    if Map.get(state, key_src, 0) < amount or
+    if amount <= 0 or
+       Map.get(state, key_src, 0) < amount or
        Map.get(state, "nonces/#{src}", 0) != nonce do
       {:error, state}
     else

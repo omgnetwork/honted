@@ -95,8 +95,12 @@ defmodule HonteD.ABCI do
   """
   def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
     "/" <> key = to_string(path)
-    value = state[key]
-    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, 'query log'}, state}
+    # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
+    {code, value} = case state[key] do
+      nil -> {1, ""}
+      value -> {0, value}
+    end
+    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, 'query log'}, state}
   end
 
   @doc """
