@@ -20,23 +20,41 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call({:RequestInfo}, _from, state) do
-    {:reply, {:ResponseInfo, '','',0,''}, state}
+    {:reply, {
+      :ResponseInfo,
+      'arbitrary information',
+      'version info',
+      0,  # latest block height - always start from zero
+      '', # latest app hash - because we start from zero this _must_ be empty charlist
+    }, state}
   end
 
   def handle_call({:RequestEndBlock, _block_number}, _from, state) do
     {:reply, {:ResponseEndBlock, []}, state}
   end
 
-  def handle_call({:RequestBeginBlock, _hash, _header}, _from, state) do
+  def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, height, _timestamp, _some_zero_value,
+ _block_id, _something1, _something2, _something3, app_hash}}, _from, state) do
+
+    # consistency check after genesis block is required
+    if height > 1 do
+      ^app_hash = HonteD.State.hash(state)
+    end
+
     {:reply, {:ResponseBeginBlock}, state}
   end
 
   def handle_call({:RequestCommit}, _from, state) do
-    {:reply, {:ResponseCommit, 0, '3D8D0F663CD3C8093532EEF65958A8C243313D82', 'yo!'}, state}
+    {:reply, {
+      :ResponseCommit,
+      0,
+      (state |> HonteD.State.hash |> to_charlist),
+      'commit log: yo!'
+    }, state}
   end
 
   def handle_call({:RequestCheckTx, tx}, _from, state) do
-    case IO.inspect HonteD.TxCodec.decode(tx) do
+    case HonteD.TxCodec.decode(tx) do
       {:ok, decoded} -> case HonteD.State.exec(state, decoded) do
         # no change to state! we don't allow to build upon uncommited transactions
         {:ok, _} ->
@@ -54,20 +72,45 @@ defmodule HonteD.ABCI do
     {:reply, {:ResponseDeliverTx, 0, 'answer deliver tx', 'log deliver tx'}, IO.inspect state}
   end
 
-  def handle_call({:RequestQuery, _data, _path, height, _prove}, _from, state) do
-    {:reply, {:ResponseQuery, 0, 0, 'key', 'value', 'proof', height, 'query log'}, state}
+  @doc """
+  Not implemented: we don't yet support tendermint's standard queries to /store
+  """
+  def handle_call({:RequestQuery, _data, '/store', 0, :false}, _from, state) do
+    {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'query to /store not implemented'}, state}
+  end
+
+  @doc """
+  Specific query for nonces which provides zero for unknown senders
+  """
+  def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, state) do
+    key = "nonces" <> to_string(address)
+    value = Map.get(state, key, 0)
+    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, 'query log'}, state}
+  end
+
+  @doc """
+  Generic raw query for any key in state.
+  
+  TODO: interface querying the state out, so that state remains implementation detail
+  """
+  def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
+    "/" <> key = to_string(path)
+    value = state[key]
+    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, 'query log'}, state}
+  end
+
+  @doc """
+  Dissallow queries with non-empty-string data field for now
+  """
+  def handle_call({:RequestQuery, _data, _path, _height, _prove}, _from, state) do
+    {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'unrecognized query'}, state}
   end
 
   # FIXME: all-matching clause to keep tendermint from complaining, remove!
-  def handle_call(_request, _from, state) do
+  def handle_call(request, from, state) do
+    IO.puts "UNHANDLED"
+    IO.inspect request
+    IO.inspect from
     {:reply, {}, state}
-  end
-
-  def handle_cast(_request, state) do
-    {:noreply, state}
-  end
-
-  def handle_info(_msg, state) do
-    {:noreply, state}
   end
 end

@@ -11,6 +11,13 @@ defmodule HonteD.TendermintRPC do
     _result_of get("/broadcast_tx_sync", query: [tx: "\"" <> tx <> "\""])
   end
 
+  def abci_query(data, path) do
+    _result_of get("abci_query", query: [
+      data: "\"#{data}\"",
+      path: "\"#{path}\""
+    ])
+  end
+
   defp _result_of(response) do
     case response.body do
       %{"error" => "", "result" => result} -> {:ok, result}

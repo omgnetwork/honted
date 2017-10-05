@@ -12,10 +12,10 @@ defmodule HonteD.TxCodec do
           {int_amount, _} -> {:ok, {:issue, asset, int_amount, dest}}
           _ -> {:error, :malformed_amount}
         end
-      ["SEND", asset, amount, from, to] ->
-        case Integer.parse(amount) do
-          {int_amount, _ } -> {:ok, {:send, asset, int_amount, from, to}}
-          _ -> {:error, :malformed_amount}
+      [nonce, "SEND", asset, amount, from, to] ->
+        case {Integer.parse(amount), Integer.parse(nonce)} do
+          {{int_amount, _}, {int_nonce, _}} -> {:ok, {int_nonce, :send, asset, int_amount, from, to}}
+          _ -> {:error, :malformed_numbers}
         end
       ["ORDER", buy_asset, sell_asset, buy_amount, price, initiate_at, ttl, buyer] ->
         case {Integer.parse(buy_amount), Float.parse(price)} do

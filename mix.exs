@@ -34,7 +34,8 @@ defmodule HonteD.Mixfile do
       {:plug, "~> 1.3"},
       {:cowboy, "~> 1.1"},
       {:hackney, "~> 1.7"},
-      {:tesla, "~>0.8.0"}
+      {:tesla, "~>0.8.0"},
+      {:ojson, "~> 1.0.0"},
     ]
   end
 end

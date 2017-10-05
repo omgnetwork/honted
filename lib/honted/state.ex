@@ -12,14 +12,15 @@ defmodule HonteD.State do
     {:ok, state}
   end
 
-  def exec(state, {:send, asset, amount, src, dest}) do
+  def exec(state, {nonce, :send, asset, amount, src, dest}) do
     key_src = "accounts/#{asset}/#{src}"
     key_dest = "accounts/#{asset}/#{dest}"
-    balance_prior_src = Map.get(state, key_src, 0)
-    if balance_prior_src < amount do
+    if Map.get(state, key_src, 0) < amount or
+       Map.get(state, "nonces/#{src}", 0) != nonce do
       {:error, state}
     else
-      {:ok, state |> Map.put(key_src, balance_prior_src - amount)
+      {:ok, state |> Map.update("nonces/#{src}", 1, &(&1 + 1))
+                  |> Map.update!(key_src, &(&1 - amount))
                   |> Map.update(key_dest, amount, &(&1 + amount))}
     end
 
@@ -44,5 +45,13 @@ defmodule HonteD.State do
           {:ok, Map.put(state, key_order, {:buyer, buyer})}
       end
     end
+  end
+
+  def hash(state) do
+    # FIXME: crudest of all app state hashes
+    state |>
+    OJSON.encode! |>  # using OJSON instead of inspect to have crypto-ready determinism
+    (fn b -> :crypto.hash(:sha256, b) end).() |>
+    Base.encode16
   end
 end

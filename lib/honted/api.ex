@@ -9,7 +9,11 @@ defmodule HonteD.API do
        is_integer(amount) and
        is_binary(from) and
        is_binary(to) do
-    HonteD.TxCodec.encode([:send, asset, amount, from, to])
+    case HonteD.TendermintRPC.abci_query("", "/nonces/#{from}") do
+      {:ok, %{"response" => %{"code" => 0, "value" => nonce}}} ->
+        HonteD.TxCodec.encode([Base.decode16!(nonce), :send, asset, amount, from, to])
+      result -> result
+    end
   end
 
   def submit_transaction(transaction) do
