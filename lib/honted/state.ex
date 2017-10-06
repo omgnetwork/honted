@@ -15,18 +15,15 @@ defmodule HonteD.State do
   def exec(state, {nonce, :send, asset, amount, src, dest}) do
     key_src = "accounts/#{asset}/#{src}"
     key_dest = "accounts/#{asset}/#{dest}"
-    if amount <= 0 or
-       Map.get(state, key_src, 0) < amount or
-       Map.get(state, "nonces/#{src}", 0) != nonce do
-      {:error, state}
-    else
-      {:ok, state |> Map.update("nonces/#{src}", 1, &(&1 + 1))
-                  |> Map.update!(key_src, &(&1 - amount))
-                  |> Map.update(key_dest, amount, &(&1 + amount))}
-    end
+
+    with {:ok} <- positive?(amount),
+         {:ok} <- account_has_at_least?(state, key_src, amount),
+         {:ok} <- nonce_valid?(state, src, nonce),
+         do: {:ok, state |> apply_send(amount, src, key_src, key_dest)}
 
   end
 
+  # FIXME: don't look at this, very very obsolete, for reference only
   def exec(state, {:order, buy_asset, sell_asset, buy_amount, price, _initiate_at, _ttl, buyer}) do
     key_src = "accounts/#{sell_asset}/#{buyer}"
     key_order = "orders/#{buy_asset}/#{sell_asset}/#{buy_amount}/#{price}"
@@ -46,6 +43,24 @@ defmodule HonteD.State do
           {:ok, Map.put(state, key_order, {:buyer, buyer})}
       end
     end
+  end
+  
+  defp positive?(amount) when amount > 0, do: {:ok}
+  defp positive?(_), do: {:positive_amount_required}
+  
+  defp account_has_at_least?(state, key_src, amount) do
+    if Map.get(state, key_src, 0) >= amount, do: {:ok}, else: {:insufficient_funds}
+  end
+  
+  defp nonce_valid?(state, src, nonce) do
+    if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:invalid_nonce}
+  end
+  
+  defp apply_send(state, amount, src, key_src, key_dest) do
+    state |>
+    Map.update("nonces/#{src}", 1, &(&1 + 1)) |> 
+    Map.update!(key_src, &(&1 - amount)) |>
+    Map.update(key_dest, amount, &(&1 + amount))
   end
 
   def hash(state) do

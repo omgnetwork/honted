@@ -57,19 +57,17 @@ defmodule HonteD.ABCI do
     case HonteD.TxCodec.decode(tx) do
       {:ok, decoded} -> case HonteD.State.exec(state, decoded) do
         # no change to state! we don't allow to build upon uncommited transactions
-        {:ok, _} ->
-          {:reply, {:ResponseCheckTx, 0, 'answer check tx', 'log check tx'}, state}
-        {:error, _} ->  # FIXME: redesign the return values everywhere
-          {:reply, {:ResponseCheckTx, 1, 'answer check tx', to_charlist("error")}, state}
+        {:ok, _} -> {:reply, {:ResponseCheckTx, 0, '', ''}, state}
+        {error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
       end
-      {:error, error} -> {:reply, {:ResponseCheckTx, 1, 'answer check tx', to_charlist(error)}, state}
+      {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
     end
   end
 
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
     {:ok, decoded} = IO.inspect HonteD.TxCodec.decode(tx)
     {:ok, state} = HonteD.State.exec(state, decoded)
-    {:reply, {:ResponseDeliverTx, 0, 'answer deliver tx', 'log deliver tx'}, IO.inspect state}
+    {:reply, {:ResponseDeliverTx, 0, '', ''}, IO.inspect state}
   end
 
   @doc """
@@ -85,7 +83,7 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, state) do
     key = "nonces" <> to_string(address)
     value = Map.get(state, key, 0)
-    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, 'query log'}, state}
+    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, ''}, state}
   end
 
   @doc """
@@ -96,11 +94,11 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
     "/" <> key = to_string(path)
     # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-    {code, value} = case state[key] do
-      nil -> {1, ""}
-      value -> {0, value}
+    {code, value, log} = case state[key] do
+      nil -> {1, "", 'not_found'}
+      value -> {0, value, ''}
     end
-    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, 'query log'}, state}
+    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
   end
 
   @doc """
