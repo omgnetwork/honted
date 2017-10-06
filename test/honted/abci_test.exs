@@ -26,9 +26,13 @@ defmodule HonteD.ABCITest do
     # malformed
     assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_transaction'}, ^state} =
       handle_call({:RequestCheckTx, "ISSU asset 5 alice"}, nil, state)
+    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+      handle_call({:RequestCheckTx, "ISSUE asset 4.0 alice"}, nil, state)
+    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+      handle_call({:RequestCheckTx, "ISSUE asset 4.1 alice"}, nil, state)
   end
 
-  test "malformed send transactions", %{state: state} do
+  test "checking send transactions", %{state: state} do
 
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
@@ -36,6 +40,10 @@ defmodule HonteD.ABCITest do
     # malformed
     assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_transaction'}, ^state} =
       handle_call({:RequestCheckTx, "0 SEN asset 5 alice bob"}, nil, state)
+    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+      handle_call({:RequestCheckTx, "0 SEND asset 4.0 alice bob"}, nil, state)
+    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+      handle_call({:RequestCheckTx, "0 SEND asset 4.1 alice bob"}, nil, state)
   end
 
   test "querying nonces", %{state: state} do
