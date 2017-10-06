@@ -12,9 +12,9 @@ defmodule HonteD.TxCodec do
           {int_amount, ""} -> {:ok, {:issue, asset, int_amount, dest}}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "SEND", asset, amount, from, to] ->
+      [nonce, "SEND", asset, amount, from, to, signature] ->
         case {Integer.parse(amount), Integer.parse(nonce)} do
-          {{int_amount, ""}, {int_nonce, ""}} -> {:ok, {int_nonce, :send, asset, int_amount, from, to}}
+          {{int_amount, ""}, {int_nonce, ""}} -> {:ok, {int_nonce, :send, asset, int_amount, from, to, signature}}
           _ -> {:error, :malformed_numbers}
         end
       ["ORDER", buy_asset, sell_asset, buy_amount, price, initiate_at, ttl, buyer] ->
@@ -33,6 +33,7 @@ defmodule HonteD.TxCodec do
 
   Note that correctness of terms should be checked elsewhere
   """
+  def encode(terms) when is_tuple(terms), do: terms |> Tuple.to_list |> encode
   def encode([last_term]), do: _encode(last_term)
   def encode([terms_head | terms_tail]) do
     _encode(terms_head) <> " " <> encode(terms_tail)
