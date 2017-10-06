@@ -20,15 +20,16 @@ defmodule HonteD.ABCITest do
 
   test "checking issue transactions",  %{state: state} do
 
-    assert {:reply, {:ResponseCheckTx, 0, 'answer check tx', 'log check tx'}, ^state} =
+    # correct
+    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
       handle_call({:RequestCheckTx, "ISSUE asset 5 alice"}, nil, state)
 
     # malformed
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_transaction'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
       handle_call({:RequestCheckTx, "ISSU asset 5 alice"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
       handle_call({:RequestCheckTx, "ISSUE asset 4.0 alice"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
       handle_call({:RequestCheckTx, "ISSUE asset 4.1 alice"}, nil, state)
   end
 
@@ -36,13 +37,17 @@ defmodule HonteD.ABCITest do
 
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
-
+      
+    # correct
+    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
+      handle_call({:RequestCheckTx, "0 SEND asset 5 alice bob"}, nil, state)
+      
     # malformed
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_transaction'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
       handle_call({:RequestCheckTx, "0 SEN asset 5 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
       handle_call({:RequestCheckTx, "0 SEND asset 4.0 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'malformed_numbers'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
       handle_call({:RequestCheckTx, "0 SEND asset 4.1 alice bob"}, nil, state)
   end
 
@@ -51,16 +56,16 @@ defmodule HonteD.ABCITest do
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
 
-    assert {:reply, {:ResponseQuery, 0, 0, 'nonces/alice', '0', 'no proof', _, 'query log'}, ^state} =
+    assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/nonces/alice', 0, false}, nil, state)
 
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "0 SEND asset 5 alice bob"}, nil, state)
 
-    assert {:reply, {:ResponseQuery, 0, 0, 'nonces/bob', '0', 'no proof', _, 'query log'}, ^state} =
+    assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/nonces/bob', 0, false}, nil, state)
 
-    assert {:reply, {:ResponseQuery, 0, 0, 'nonces/alice', '1', 'no proof', _, 'query log'}, ^state} =
+    assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/nonces/alice', 0, false}, nil, state)
   end
 
@@ -68,17 +73,17 @@ defmodule HonteD.ABCITest do
 
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 1 alice bob"}, nil, state)
       
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "0 SEND asset 1 alice bob"}, nil, state)
 
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "0 SEND asset 1 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "2 SEND asset 1 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 0, _answer, _log}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 1 alice bob"}, nil, state)
   end
 
@@ -100,32 +105,30 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
       
     # correct transfer
-    assert {:reply, _, state} =
+    assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
       handle_call({:RequestDeliverTx, "0 SEND asset 1 alice bob"}, nil, state)
-    assert {:reply, {:ResponseQuery, 0, 0, _, '1', 'no proof', _, _log}, ^state} =
+    assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/accounts/asset/bob', 0, false}, nil, state)
-    assert {:reply, {:ResponseQuery, 0, 0, _, '4', 'no proof', _, _log}, ^state} =
+    assert {:reply, {:ResponseQuery, 0, 0, _key, '4', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/accounts/asset/alice', 0, false}, nil, state)
       
     # insufficient funds, state unchanged
-    # FIXME: handle answer/error in checktx
-    # FIXME: handle and test other returns properly
-    assert {:reply, {:ResponseCheckTx, 1, _answer, 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 5 alice bob"}, nil, state)
     # negative/zero amount
-    assert {:reply, {:ResponseCheckTx, 1, _answer, 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset -1 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, _answer, 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 0 alice bob"}, nil, state)
       
     # unknown sender
-    assert {:reply, {:ResponseCheckTx, 1, 'answer check tx', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 5 carol bob"}, nil, state)
       
     # sanity
-    assert {:reply, {:ResponseCheckTx, 0, _answer, _log}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 4 alice bob"}, nil, state)
-    assert {:reply, {:ResponseDeliverTx, 0, _answer, _log}, _} =
+    assert {:reply, {:ResponseDeliverTx, 0, '', ''}, _} =
       handle_call({:RequestDeliverTx, "1 SEND asset 4 alice bob"}, nil, state)
 
   end
