@@ -93,6 +93,8 @@ defmodule HonteD.ABCITest do
   end
   
   test "send transactions logic", %{alice_has_5: state} do
+    assert {:reply, {:ResponseQuery, 1, 0, _key, '', 'no proof', _, 'not_found'}, ^state} =
+      handle_call({:RequestQuery, "", '/accounts/asset/bob', 0, false}, nil, state)
       
     # correct transfer
     assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
