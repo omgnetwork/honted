@@ -57,10 +57,8 @@ defmodule HonteD.ABCI do
     case HonteD.TxCodec.decode(tx) do
       {:ok, decoded} -> case HonteD.State.exec(state, decoded) do
         # no change to state! we don't allow to build upon uncommited transactions
-        {:ok, _} ->
-          {:reply, {:ResponseCheckTx, 0, '', ''}, state}
-        {:error, _} ->  # FIXME: redesign the return values everywhere
-          {:reply, {:ResponseCheckTx, 1, '', to_charlist("error")}, state}
+        {:ok, _} -> {:reply, {:ResponseCheckTx, 0, '', ''}, state}
+        {error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
       end
       {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
     end

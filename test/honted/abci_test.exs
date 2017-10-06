@@ -7,11 +7,11 @@ defmodule HonteD.ABCITest do
 
   import HonteD.ABCI
 
-  # FIXME test everything correctly in all tests, many conditions skipped
-
   setup do
     {:ok, state} = HonteD.ABCI.init(:ok)
-    {:ok, state: state}
+    {:reply, _, alice_has_5} =
+      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
+    {:ok, state: state, alice_has_5: alice_has_5}
   end
 
   test "info about clean state", %{state: state} do
@@ -33,10 +33,7 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "ISSUE asset 4.1 alice"}, nil, state)
   end
 
-  test "checking send transactions", %{state: state} do
-
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
+  test "checking send transactions", %{alice_has_5: state} do
       
     # correct
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
@@ -51,10 +48,7 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "0 SEND asset 4.1 alice bob"}, nil, state)
   end
 
-  test "querying nonces", %{state: state} do
-
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
+  test "querying nonces", %{alice_has_5: state} do
 
     assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/nonces/alice', 0, false}, nil, state)
@@ -69,19 +63,17 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestQuery, "", '/nonces/alice', 0, false}, nil, state)
   end
 
-  test "checking nonces", %{state: state} do
+  test "checking nonces", %{alice_has_5: state} do
 
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 1 alice bob"}, nil, state)
       
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "0 SEND asset 1 alice bob"}, nil, state)
 
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
       handle_call({:RequestCheckTx, "0 SEND asset 1 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
       handle_call({:RequestCheckTx, "2 SEND asset 1 alice bob"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 1 alice bob"}, nil, state)
@@ -100,9 +92,7 @@ defmodule HonteD.ABCITest do
     assert newhash != cleanhash
   end
   
-  test "send transactions logic", %{state: state} do
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
+  test "send transactions logic", %{alice_has_5: state} do
       
     # correct transfer
     assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
@@ -113,16 +103,16 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestQuery, "", '/accounts/asset/alice', 0, false}, nil, state)
       
     # insufficient funds, state unchanged
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 5 alice bob"}, nil, state)
     # negative/zero amount
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset -1 alice bob"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 0 alice bob"}, nil, state)
       
     # unknown sender
-    assert {:reply, {:ResponseCheckTx, 1, '', 'error'}, ^state} =
+    assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
       handle_call({:RequestCheckTx, "1 SEND asset 5 carol bob"}, nil, state)
       
     # sanity
