@@ -12,13 +12,17 @@ defmodule HonteD.State do
     {:ok, state}
   end
 
-  def exec(state, {nonce, :send, asset, amount, src, dest}) do
+  def exec(state, {nonce, :send, asset, amount, src, dest, signature}) do
     key_src = "accounts/#{asset}/#{src}"
     key_dest = "accounts/#{asset}/#{dest}"
+    signed_part = 
+      {nonce, :send, asset, amount, src, dest} |>
+      HonteD.TxCodec.encode
 
     with {:ok} <- positive?(amount),
          {:ok} <- account_has_at_least?(state, key_src, amount),
          {:ok} <- nonce_valid?(state, src, nonce),
+         {:ok} <- signed?(signed_part, signature, src),
          do: {:ok, state |> apply_send(amount, src, key_src, key_dest)}
 
   end
@@ -62,12 +66,19 @@ defmodule HonteD.State do
     Map.update!(key_src, &(&1 - amount)) |>
     Map.update(key_dest, amount, &(&1 + amount))
   end
+  
+  defp signed?(signed_part, signature, src) do
+    case HonteD.Crypto.verify(signed_part, signature, src) do
+      {:ok, true} -> {:ok}
+      {:ok, false} -> {:invalid_signature}
+      _ -> {:malformed_signature}
+    end
+  end
 
   def hash(state) do
     # FIXME: crudest of all app state hashes
     state |>
     OJSON.encode! |>  # using OJSON instead of inspect to have crypto-ready determinism
-    (fn b -> :crypto.hash(:sha256, b) end).() |>
-    Base.encode16
+    HonteD.Crypto.hash
   end
 end
