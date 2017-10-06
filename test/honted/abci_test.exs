@@ -9,77 +9,101 @@ defmodule HonteD.ABCITest do
 
   setup do
     {:ok, state} = HonteD.ABCI.init(:ok)
+    
+    # FIXME: should avoid using HonteD.Crypto in favor of HonteD.API (multiple places)
+    # remove HonteD.Crypto usage as HonteD.API gets implemented
+    {:ok, alice_priv} = HonteD.Crypto.generate_private_key
+    {:ok, alice_pub} = HonteD.Crypto.generate_public_key(alice_priv)
+    {:ok, alice} = HonteD.Crypto.generate_address(alice_pub)
+    
+    {:ok, bob} = HonteD.Crypto.generate_private_key |> 
+    elem(1) |>
+    HonteD.Crypto.generate_public_key |>
+    elem(1) |>
+    HonteD.Crypto.generate_address
+    
     {:reply, _, alice_has_5} =
-      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
-    {:ok, state: state, alice_has_5: alice_has_5}
+      handle_call({:RequestDeliverTx, "ISSUE asset 5 #{alice}"}, nil, state)  
+    {:ok, state: state, alice_has_5: alice_has_5,
+          alice_info: %{priv: alice_priv, addr: alice},
+          bob_info: %{addr: bob}}
   end
 
   test "info about clean state", %{state: state} do
     assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
   end
 
-  test "checking issue transactions",  %{state: state} do
+  test "checking issue transactions",  %{state: state, alice_info: alice} do
 
     # correct
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "ISSUE asset 5 alice"}, nil, state)
+      handle_call({:RequestCheckTx, "ISSUE asset 5 #{alice.addr}"}, nil, state)
 
     # malformed
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "ISSU asset 5 alice"}, nil, state)
+      handle_call({:RequestCheckTx, "ISSU asset 5 #{alice.addr}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "ISSUE asset 4.0 alice"}, nil, state)
+      handle_call({:RequestCheckTx, "ISSUE asset 4.0 #{alice.addr}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "ISSUE asset 4.1 alice"}, nil, state)
+      handle_call({:RequestCheckTx, "ISSUE asset 4.1 #{alice.addr}"}, nil, state)
   end
 
-  test "checking send transactions", %{alice_has_5: state} do
+  test "checking send transactions", %{alice_has_5: state, alice_info: alice, bob_info: bob} do
+    
+    {:ok, signature} = HonteD.Crypto.sign("0 SEND asset 5 #{alice.addr} #{bob.addr}", alice.priv)
       
     # correct
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND asset 5 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "0 SEND asset 5 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
       
     # malformed
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEN asset 5 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "0 SEN asset 5 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND asset 4.0 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "0 SEND asset 4.0 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND asset 4.1 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "0 SEND asset 4.1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
   end
 
-  test "querying nonces", %{alice_has_5: state} do
+  test "querying nonces", %{alice_has_5: state, alice_info: alice, bob_info: bob} do
+    
+    {:ok, signature} = HonteD.Crypto.sign("0 SEND asset 5 #{alice.addr} #{bob.addr}", alice.priv)
 
     assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/nonces/alice', 0, false}, nil, state)
+      handle_call({:RequestQuery, "", '/nonces/#{alice.addr}', 0, false}, nil, state)
 
     {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 SEND asset 5 alice bob"}, nil, state)
+      handle_call({:RequestDeliverTx, "0 SEND asset 5 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
 
     assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/nonces/bob', 0, false}, nil, state)
+      handle_call({:RequestQuery, "", '/nonces/#{bob.addr}', 0, false}, nil, state)
 
     assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/nonces/alice', 0, false}, nil, state)
+      handle_call({:RequestQuery, "", '/nonces/#{alice.addr}', 0, false}, nil, state)
   end
 
-  test "checking nonces", %{alice_has_5: state} do
+  test "checking nonces", %{alice_has_5: state, alice_info: alice, bob_info: bob} do
+    
+    {:ok, signature0} = HonteD.Crypto.sign("0 SEND asset 1 #{alice.addr} #{bob.addr}", alice.priv)
+    {:ok, signature1} = HonteD.Crypto.sign("1 SEND asset 1 #{alice.addr} #{bob.addr}", alice.priv)
+    {:ok, signature2} = HonteD.Crypto.sign("2 SEND asset 1 #{alice.addr} #{bob.addr}", alice.priv)
 
     assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset 1 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset 1 #{alice.addr} #{bob.addr} #{signature1}"}, nil, state)
       
     {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 SEND asset 1 alice bob"}, nil, state)
+      handle_call({:RequestDeliverTx, "0 SEND asset 1 #{alice.addr} #{bob.addr} #{signature0}"}, nil, state)
 
     assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND asset 1 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "0 SEND asset 1 #{alice.addr} #{bob.addr} #{signature0}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "2 SEND asset 1 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "2 SEND asset 1 #{alice.addr} #{bob.addr} #{signature2}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset 1 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset 1 #{alice.addr} #{bob.addr} #{signature1}"}, nil, state)
   end
 
   test "hash from commits changes on state update", %{state: state} do
+    
     assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = 
       handle_call({:RequestCommit}, nil, state)
     
@@ -92,36 +116,43 @@ defmodule HonteD.ABCITest do
     assert newhash != cleanhash
   end
   
-  test "send transactions logic", %{alice_has_5: state} do
+  test "send transactions logic", %{alice_has_5: state, alice_info: alice, bob_info: bob} do
+    
+    {:ok, signature0} = HonteD.Crypto.sign("0 SEND asset 1 #{alice.addr} #{bob.addr}", alice.priv)
+    {:ok, signature1_5} = HonteD.Crypto.sign("1 SEND asset 5 #{alice.addr} #{bob.addr}", alice.priv)
+    {:ok, signature1_minus1} = HonteD.Crypto.sign("1 SEND asset -1 #{alice.addr} #{bob.addr}", alice.priv)
+    {:ok, signature1_0} = HonteD.Crypto.sign("1 SEND asset 0 #{alice.addr} #{bob.addr}", alice.priv)
+    {:ok, signature1_4} = HonteD.Crypto.sign("1 SEND asset 4 #{alice.addr} #{bob.addr}", alice.priv)
+    
     assert {:reply, {:ResponseQuery, 1, 0, _key, '', 'no proof', _, 'not_found'}, ^state} =
       handle_call({:RequestQuery, "", '/accounts/asset/bob', 0, false}, nil, state)
       
     # correct transfer
     assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
-      handle_call({:RequestDeliverTx, "0 SEND asset 1 alice bob"}, nil, state)
+      handle_call({:RequestDeliverTx, "0 SEND asset 1 #{alice.addr} #{bob.addr} #{signature0}"}, nil, state)
     assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/accounts/asset/bob', 0, false}, nil, state)
+      handle_call({:RequestQuery, "", '/accounts/asset/#{bob.addr}', 0, false}, nil, state)
     assert {:reply, {:ResponseQuery, 0, 0, _key, '4', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/accounts/asset/alice', 0, false}, nil, state)
+      handle_call({:RequestQuery, "", '/accounts/asset/#{alice.addr}', 0, false}, nil, state)
       
     # insufficient funds, state unchanged
     assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset 5 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset 5 #{alice.addr} #{bob.addr} #{signature1_5}"}, nil, state)
     # negative/zero amount
     assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset -1 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset -1 #{alice.addr} #{bob.addr} #{signature1_minus1}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset 0 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset 0 #{alice.addr} #{bob.addr} #{signature1_0}"}, nil, state)
       
     # unknown sender
     assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset 5 carol bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset 5 carol #{bob.addr} carols_signature"}, nil, state)
       
     # sanity
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND asset 4 alice bob"}, nil, state)
+      handle_call({:RequestCheckTx, "1 SEND asset 4 #{alice.addr} #{bob.addr} #{signature1_4}"}, nil, state)
     assert {:reply, {:ResponseDeliverTx, 0, '', ''}, _} =
-      handle_call({:RequestDeliverTx, "1 SEND asset 4 alice bob"}, nil, state)
+      handle_call({:RequestDeliverTx, "1 SEND asset 4 #{alice.addr} #{bob.addr} #{signature1_4}"}, nil, state)
 
   end
 
