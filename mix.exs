@@ -14,6 +14,11 @@ defmodule HonteD.Mixfile do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      env: [
+        rpc_port: 46657, # tendermint node's rpc port
+        abci_port: 46658, # our own abci port tendermint connects to
+        honted_api_rpc_port: 4000 # our own rpc port where HonteD.API is exposed
+      ],
       extra_applications: extra_applications(Mix.env),
       applications: [:jsonrpc2, :poison, :plug, :cowboy, :hackney],
       mod: {HonteD.Application, []}
