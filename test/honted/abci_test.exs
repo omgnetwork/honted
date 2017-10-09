@@ -12,16 +12,9 @@ defmodule HonteD.ABCITest do
     
     # FIXME: should avoid using HonteD.Crypto in favor of HonteD.API (multiple places)
     # remove HonteD.Crypto usage as HonteD.API gets implemented
-    {:ok, alice_priv} = HonteD.Crypto.generate_private_key
-    {:ok, alice_pub} = HonteD.Crypto.generate_public_key(alice_priv)
-    {:ok, alice} = HonteD.Crypto.generate_address(alice_pub)
-    
-    {:ok, bob} = with {:ok, priv} <- HonteD.Crypto.generate_private_key,
-                      {:ok, pub} <- HonteD.Crypto.generate_public_key(priv),
-                      do: HonteD.Crypto.generate_address(pub)
     {:ok, state: state,
-          alice_info: %{priv: alice_priv, addr: alice},
-          bob_info: %{addr: bob}}
+          alice_info: generate_entity(),
+          bob_info: generate_entity()}
   end
   
   setup :issue_5_to_alice
@@ -195,5 +188,26 @@ defmodule HonteD.ABCITest do
       assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
         handle_call({:RequestQuery, "", '/accounts/asset/#{alice.addr}', 0, false}, nil, state)
     end
+    
+    @tag :alice_has_5
+    test "signature checking", %{state: state, alice_info: alice, bob_info: bob} do
+      
+      {:ok, alice_signature} = HonteD.Crypto.sign("0 SEND asset 1 #{alice.addr} #{bob.addr}", alice.priv)
+      {:ok, bob_signature} = HonteD.Crypto.sign("0 SEND asset 1 #{alice.addr} #{bob.addr}", bob.priv)
+      
+      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+        handle_call({:RequestCheckTx, "0 SEND asset 4 #{alice.addr} #{bob.addr} #{alice_signature}"}, nil, state)
+      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+        handle_call({:RequestCheckTx, "0 SEND asset 1 #{alice.addr} #{bob.addr} #{bob_signature}"}, nil, state)
+    end
   end
+  
+  ## HELPER functions
+  defp generate_entity() do
+    {:ok, priv} = HonteD.Crypto.generate_private_key
+    {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
+    {:ok, addr} = HonteD.Crypto.generate_address(pub)
+    %{priv: priv, addr: addr}    
+  end
+  
 end
