@@ -1,5 +1,5 @@
 defmodule Honted.CryptoTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   @moduledoc """
   Consider removing if brittle - testing implementation details
   
