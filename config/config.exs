@@ -8,6 +8,9 @@ use Mix.Config
 # if you want to provide default values for your application for
 # 3rd-party users, it should be done in your "mix.exs" file.
 
+# configuration for second node for demo:
+config :honted, abci_port: 46668, rpc_port: 46667, honted_api_rpc_port: 4001
+
 # You can configure your application as:
 #
 #     config :honted, key: :value
