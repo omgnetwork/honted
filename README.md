@@ -8,10 +8,7 @@
   - elsewhere:
     - `tendermint init` (once)
     - `tendermint --log_level "*:info" node` (everytime to start Tendermint)
-  - then in the `iex` REPL
-        iex(1)> HonteD.API.submit_transaction("ISSUE asset 5 bob")
-        iex(2)> HonteD.API.create_send_transaction("asset", 5, "bob", "alice") |> HonteD.API.submit_transaction
-        iex(3)> HonteD.API.query_balance("asset", "alice")
+  - then in the `iex` REPL you can run commands using HonteD.API, e.g. ones mentioned in demos
 
 
 Do `tendermint unsafe_reset_all` everytime you want to clean the databases and start from scratch.
