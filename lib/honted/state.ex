@@ -6,10 +6,16 @@ defmodule HonteD.State do
   @type t :: map()
   def empty(), do: %{}
 
-  def exec(state, {:issue, asset, amount, dest}) do
-    key = "accounts/#{asset}/#{dest}"
-    state = Map.update(state, key, amount, &(&1 + amount))
-    {:ok, state}
+  def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
+    signed_part = 
+      {nonce, :issue, asset, amount, dest, issuer} |>
+      HonteD.TxCodec.encode
+      
+    with {:ok} <- nonce_valid?(state, issuer, nonce),
+         {:ok} <- is_issuer?(state, asset, issuer),
+         {:ok} <- signed?(signed_part, signature, issuer),
+         {:ok} <- not_too_much?(amount),
+         do: {:ok, state |> apply_issue(asset, amount, dest)}
   end
 
   def exec(state, {nonce, :send, asset, amount, src, dest, signature}) do
@@ -58,6 +64,19 @@ defmodule HonteD.State do
   
   defp nonce_valid?(state, src, nonce) do
     if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:invalid_nonce}
+  end
+  
+  defp not_too_much?(_amount_entering) do
+    {:ok}  # FIXME: implement
+  end
+  
+  defp is_issuer?(_state, _asset, _address) do
+    {:ok}  # FIXME: implement
+  end
+  
+  defp apply_issue(state, asset, amount, dest) do
+    key_dest = "accounts/#{asset}/#{dest}"
+    state |> Map.update(key_dest, amount, &(&1 + amount))
   end
   
   defp apply_send(state, amount, src, key_src, key_dest) do

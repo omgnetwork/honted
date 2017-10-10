@@ -14,15 +14,18 @@ defmodule HonteD.ABCITest do
     # remove HonteD.Crypto usage as HonteD.API gets implemented
     {:ok, state: state,
           alice_info: generate_entity(),
-          bob_info: generate_entity()}
+          bob_info: generate_entity(),
+          issuer_info: generate_entity(),
+    }
   end
   
   setup :issue_5_to_alice
   
-  defp issue_5_to_alice(%{state: state, alice_info: alice} = context) do
+  defp issue_5_to_alice(%{state: state, alice_info: alice, issuer_info: issuer} = context) do
     if context[:alice_has_5] do
+      {:ok, signature} = HonteD.Crypto.sign("0 ISSUE asset 5 #{alice.addr} #{issuer.addr}", issuer.priv)
       {:reply, _, state} =
-        handle_call({:RequestDeliverTx, "ISSUE asset 5 #{alice.addr}"}, nil, state)
+        handle_call({:RequestDeliverTx, "0 ISSUE asset 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
       %{context | state: state}
     else
       context
@@ -33,21 +36,35 @@ defmodule HonteD.ABCITest do
     assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
   end
 
-  test "checking issue transactions",  %{state: state, alice_info: alice} do
-
+  test "checking issue transactions",  %{state: state, alice_info: alice, issuer_info: issuer} do
+    
+    {:ok, signature} = HonteD.Crypto.sign("0 ISSUE asset 5 #{alice.addr} #{issuer.addr}", issuer.priv)
+    
     # correct
     assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "ISSUE asset 5 #{alice.addr}"}, nil, state)
+      handle_call({:RequestCheckTx, "0 ISSUE asset 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
 
     # malformed
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "ISSU asset 5 #{alice.addr}"}, nil, state)
+      handle_call({:RequestCheckTx, "0 ISSU asset 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "ISSUE asset 4.0 #{alice.addr}"}, nil, state)
+      handle_call({:RequestCheckTx, "0 ISSUE asset 4.0 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
     assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "ISSUE asset 4.1 #{alice.addr}"}, nil, state)
+      handle_call({:RequestCheckTx, "0 ISSUE asset 4.1 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
   end
-
+  
+  test "signature checking in issue", %{state: state, alice_info: alice, issuer_info: issuer} do
+    
+    # FIXME: dry these kinds of tests (see signature checking in send)
+    {:ok, issuer_signature} = HonteD.Crypto.sign("0 ISSUE asset 5 #{alice.addr} #{issuer.addr}", issuer.priv)
+    {:ok, alice_signature} = HonteD.Crypto.sign("0 ISSUE asset 5 #{alice.addr} #{issuer.addr}", alice.priv)
+    
+    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+      handle_call({:RequestCheckTx, "0 ISSUE asset 4 #{alice.addr} #{issuer.addr} #{issuer_signature}"}, nil, state)
+    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+      handle_call({:RequestCheckTx, "0 ISSUE asset 5 #{alice.addr} #{issuer.addr} #{alice_signature}"}, nil, state)
+  end
+  
   @tag :alice_has_5
   test "checking send transactions", %{state: state, alice_info: alice, bob_info: bob} do
     
@@ -105,13 +122,15 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "1 SEND asset 1 #{alice.addr} #{bob.addr} #{signature1}"}, nil, state)
   end
 
-  test "hash from commits changes on state update", %{state: state} do
+  test "hash from commits changes on state update", %{state: state, issuer_info: issuer} do
     
     assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = 
       handle_call({:RequestCommit}, nil, state)
+      
+    {:ok, signature} = HonteD.Crypto.sign("0 ISSUE asset 5 alice #{issuer.addr}", issuer.priv)
     
     {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "ISSUE asset 5 alice"}, nil, state)
+      handle_call({:RequestDeliverTx, "0 ISSUE asset 5 alice #{issuer.addr} #{signature}"}, nil, state)
       
     assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} = 
       handle_call({:RequestCommit}, nil, state)
@@ -121,10 +140,10 @@ defmodule HonteD.ABCITest do
   
   describe "send transactions logic" do
     @tag :alice_has_5
-    test "bob has nothing (sanity)", %{state: state, alice_info: alice, bob_info: bob} do
+    test "bob has nothing (sanity)", %{state: state, bob_info: bob} do
     
       assert {:reply, {:ResponseQuery, 1, 0, _key, '', 'no proof', _, 'not_found'}, ^state} =
-        handle_call({:RequestQuery, "", '/accounts/asset/bob', 0, false}, nil, state)
+        handle_call({:RequestQuery, "", '/accounts/asset/#{bob.addr}', 0, false}, nil, state)
     end
       
     @tag :alice_has_5
@@ -190,7 +209,7 @@ defmodule HonteD.ABCITest do
     end
     
     @tag :alice_has_5
-    test "signature checking", %{state: state, alice_info: alice, bob_info: bob} do
+    test "signature checking in send", %{state: state, alice_info: alice, bob_info: bob} do
       
       {:ok, alice_signature} = HonteD.Crypto.sign("0 SEND asset 1 #{alice.addr} #{bob.addr}", alice.priv)
       {:ok, bob_signature} = HonteD.Crypto.sign("0 SEND asset 1 #{alice.addr} #{bob.addr}", bob.priv)
