@@ -7,6 +7,11 @@ defmodule HonteD.TxCodec do
 
   def decode(line) do
     case String.split(line) do
+      [nonce, "CREATE_TOKEN", issuer, signature] ->
+        case Integer.parse(nonce) do
+          {int_nonce, ""} -> {:ok, {int_nonce, :create_token, issuer, signature}}
+          _ -> {:error, :malformed_numbers}
+        end
       [nonce, "ISSUE", asset, amount, dest, issuer, signature] ->
         case {Integer.parse(amount), Integer.parse(nonce)} do
           {{int_amount, ""}, {int_nonce, ""}} -> {:ok, {int_nonce, :issue, asset, int_amount, dest, issuer, signature}}

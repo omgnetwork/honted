@@ -36,6 +36,21 @@ defmodule HonteD.ABCITest do
     assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
   end
 
+  test "checking create_token transactions",  %{state: state, issuer_info: issuer} do
+    
+    {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
+    
+    # correct
+    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
+      handle_call({:RequestCheckTx, "0 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, state)
+
+    # malformed
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
+      handle_call({:RequestCheckTx, "0 CREATE_TOKE #{issuer.addr} #{signature}"}, nil, state)
+    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
+      handle_call({:RequestCheckTx, "0 CREATE_TOKEN asset #{issuer.addr} #{signature}"}, nil, state)
+  end
+
   test "checking issue transactions",  %{state: state, alice_info: alice, issuer_info: issuer} do
     
     {:ok, signature} = HonteD.Crypto.sign("0 ISSUE asset 5 #{alice.addr} #{issuer.addr}", issuer.priv)
