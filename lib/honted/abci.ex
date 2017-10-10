@@ -65,9 +65,9 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
-    {:ok, decoded} = IO.inspect HonteD.TxCodec.decode(tx)
+    {:ok, decoded} = HonteD.TxCodec.decode(tx)
     {:ok, state} = HonteD.State.exec(state, decoded)
-    {:reply, {:ResponseDeliverTx, 0, '', ''}, IO.inspect state}
+    {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
   end
 
   @doc """
