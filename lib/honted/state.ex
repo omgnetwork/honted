@@ -6,6 +6,16 @@ defmodule HonteD.State do
   @type t :: map()
   def empty(), do: %{}
 
+  def exec(state, {nonce, :create_token, issuer, signature}) do
+    signed_part = 
+      {nonce, :create_token, issuer} |>
+      HonteD.TxCodec.encode
+      
+    with {:ok} <- nonce_valid?(state, issuer, nonce),
+         {:ok} <- signed?(signed_part, signature, issuer),
+         do: {:ok, state}
+  end
+
   def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
     signed_part = 
       {nonce, :issue, asset, amount, dest, issuer} |>
