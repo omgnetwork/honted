@@ -13,7 +13,7 @@ defmodule HonteD.State do
       
     with {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- signed?(signed_part, signature, issuer),
-         do: {:ok, state}
+         do: {:ok, state |> apply_create_token(issuer, nonce)}
   end
 
   def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
@@ -25,7 +25,7 @@ defmodule HonteD.State do
          {:ok} <- is_issuer?(state, asset, issuer),
          {:ok} <- signed?(signed_part, signature, issuer),
          {:ok} <- not_too_much?(amount),
-         do: {:ok, state |> apply_issue(asset, amount, dest)}
+         do: {:ok, state |> apply_issue(asset, amount, dest, issuer)}
   end
 
   def exec(state, {nonce, :send, asset, amount, src, dest, signature}) do
@@ -80,20 +80,38 @@ defmodule HonteD.State do
     {:ok}  # FIXME: implement
   end
   
-  defp is_issuer?(_state, _asset, _address) do
-    {:ok}  # FIXME: implement
+  defp is_issuer?(state, token_addr, address) do
+    case Map.get(state, "tokens/#{token_addr}/issuer") do
+      nil -> {:unknown_issuer}
+      ^address -> {:ok}
+      _ -> {:incorrect_issuer}
+    end
   end
   
-  defp apply_issue(state, asset, amount, dest) do
+  defp apply_create_token(state, issuer, nonce) do
+    token_addr = HonteD.Token.create_address(issuer, nonce)
+    state |> 
+    bump_nonce(issuer) |>
+    Map.put("tokens/#{token_addr}/issuer", issuer)
+  end
+  
+  defp apply_issue(state, asset, amount, dest, issuer) do
     key_dest = "accounts/#{asset}/#{dest}"
-    state |> Map.update(key_dest, amount, &(&1 + amount))
+    state |> 
+    bump_nonce(issuer) |>
+    Map.update(key_dest, amount, &(&1 + amount))
   end
   
   defp apply_send(state, amount, src, key_src, key_dest) do
     state |>
-    Map.update("nonces/#{src}", 1, &(&1 + 1)) |> 
+    bump_nonce(src) |> 
     Map.update!(key_src, &(&1 - amount)) |>
     Map.update(key_dest, amount, &(&1 + amount))
+  end
+  
+  defp bump_nonce(state, address) do
+    state |> 
+    Map.update("nonces/#{address}", 1, &(&1 + 1))
   end
   
   defp signed?(signed_part, signature, src) do
