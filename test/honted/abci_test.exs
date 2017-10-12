@@ -17,30 +17,33 @@ defmodule HonteD.ABCITest do
     # FIXME: should avoid using HonteD.Crypto in favor of HonteD.API (multiple places)
     # remove HonteD.Crypto usage as HonteD.API gets implemented
     %{
-      alice_info: generate_entity(),
-      bob_info: generate_entity(),
-      issuer_info: generate_entity(),
+      alice: generate_entity(),
+      bob: generate_entity(),
+      issuer: generate_entity(),
     }
   end
   
-  deffixture asset(entities) do
-    %{issuer_info: issuer} = entities
+  deffixture alice(entities), do: entities.alice
+  deffixture bob(entities), do: entities.bob
+  deffixture issuer(entities), do: entities.issuer
+  
+  deffixture asset(issuer) do
     HonteD.Token.create_address(issuer.addr, 0)
   end
   
-  deffixture state_with_token(empty_state, entities) do
-    %{issuer_info: issuer} = entities
+  deffixture state_with_token(empty_state, issuer) do
     {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
     {:reply, _, state} =
       handle_call({:RequestDeliverTx, "0 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, empty_state)
     state
   end
   
-  deffixture state_alice_has_5(state_with_token, entities, asset) do
-    %{alice_info: alice, issuer_info: issuer} = entities
+  deffixture state_alice_has_5(state_with_token, alice, issuer, asset) do
     {:ok, signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
     {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state_with_token)
+      handle_call({:RequestDeliverTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{signature}"}, 
+                  nil, 
+                  state_with_token)
     state
   end
 
@@ -49,8 +52,8 @@ defmodule HonteD.ABCITest do
     assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
   end
 
-  @tag fixtures: [:entities, :empty_state]
-  test "checking create_token transactions",  %{empty_state: state, entities: %{issuer_info: issuer}} do
+  @tag fixtures: [:issuer, :empty_state]
+  test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
     
     {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
     
@@ -65,9 +68,9 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "0 CREATE_TOKEN asset #{issuer.addr} #{signature}"}, nil, state)
   end
 
-  @tag fixtures: [:entities, :state_with_token, :asset]
+  @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
   test "checking issue transactions",  
-       %{entities: %{alice_info: alice, issuer_info: issuer}, state_with_token: state, asset: asset} do
+       %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
     {:ok, signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
     
     # correct
@@ -83,9 +86,9 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4.1 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
   end
   
-  @tag fixtures: [:entities, :state_with_token, :asset]
+  @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
   test "signature checking in issue", 
-       %{state_with_token: state, entities: %{alice_info: alice, issuer_info: issuer}, asset: asset} do
+       %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
     
     # FIXME: dry these kinds of tests (see signature checking in send)
     {:ok, issuer_signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
@@ -97,9 +100,9 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{alice_signature}"}, nil, state)
   end
   
-  @tag fixtures: [:entities, :state_alice_has_5, :asset]
+  @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
   test "checking send transactions", 
-       %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+       %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
     
     {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv)
       
@@ -116,9 +119,9 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "0 SEND #{asset} 4.1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
   end
 
-  @tag fixtures: [:entities, :state_alice_has_5, :asset]
+  @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
   test "querying nonces", 
-       %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+       %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
     
     {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv)
 
@@ -135,9 +138,9 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestQuery, "", '/nonces/#{alice.addr}', 0, false}, nil, state)
   end
 
-  @tag fixtures: [:entities, :state_alice_has_5, :asset]
+  @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
   test "checking nonces", 
-       %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+       %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
     
     {:ok, signature0} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
     {:ok, signature1} = HonteD.Crypto.sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
@@ -157,9 +160,9 @@ defmodule HonteD.ABCITest do
       handle_call({:RequestCheckTx, "1 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature1}"}, nil, state)
   end
 
-  @tag fixtures: [:entities, :empty_state]
+  @tag fixtures: [:issuer, :empty_state]
   test "hash from commits changes on state update",
-       %{empty_state: state, entities: %{issuer_info: issuer}} do
+       %{empty_state: state, issuer: issuer} do
     
     assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = 
       handle_call({:RequestCommit}, nil, state)
@@ -176,17 +179,17 @@ defmodule HonteD.ABCITest do
   end
   
   describe "send transactions logic" do
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:bob, :state_alice_has_5, :asset]
     test "bob has nothing (sanity)",
-         %{state_alice_has_5: state, entities: %{bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, bob: bob, asset: asset} do
     
       assert {:reply, {:ResponseQuery, 1, 0, _key, '', 'no proof', _, 'not_found'}, ^state} =
         handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
     end
       
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
     test "correct transfer",
-         %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
       {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
       
       assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
@@ -197,43 +200,43 @@ defmodule HonteD.ABCITest do
         handle_call({:RequestQuery, "", '/accounts/#{asset}/#{alice.addr}', 0, false}, nil, state)
     end
     
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
     test "insufficient funds",
-         %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
       {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 6 #{alice.addr} #{bob.addr}", alice.priv)
       
       assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
         handle_call({:RequestCheckTx, "0 SEND #{asset} 6 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
     end
     
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
     test "negative amount",
-         %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
       {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} -1 #{alice.addr} #{bob.addr}", alice.priv)
       
       assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
         handle_call({:RequestCheckTx, "0 SEND #{asset} -1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
     end
     
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
     test "zero amount",
-         %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
       {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 0 #{alice.addr} #{bob.addr}", alice.priv)
       
       assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
         handle_call({:RequestCheckTx, "0 SEND #{asset} 0 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
     end      
     
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:bob, :state_alice_has_5, :asset]
     test "unknown sender",
-         %{state_alice_has_5: state, entities: %{bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, bob: bob, asset: asset} do
       assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
         handle_call({:RequestCheckTx, "0 SEND #{asset} 5 carol #{bob.addr} carols_signature"}, nil, state)
     end
     
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
     test "second consecutive transfer",
-         %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
       
       {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
       assert {:reply, _, state} =
@@ -252,9 +255,9 @@ defmodule HonteD.ABCITest do
         handle_call({:RequestQuery, "", '/accounts/#{asset}/#{alice.addr}', 0, false}, nil, state)
     end
     
-    @tag fixtures: [:entities, :state_alice_has_5, :asset]
+    @tag fixtures: [:alice, :bob, :state_alice_has_5, :asset]
     test "signature checking in send",
-         %{state_alice_has_5: state, entities: %{alice_info: alice, bob_info: bob}, asset: asset} do
+         %{state_alice_has_5: state, alice: alice, bob: bob, asset: asset} do
       
       {:ok, alice_signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
       {:ok, bob_signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", bob.priv)
