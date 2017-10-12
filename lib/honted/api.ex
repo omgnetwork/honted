@@ -5,9 +5,13 @@ defmodule HonteD.API do
   Should abstract out all Tendermint-related stuff
   """
 
+  use ExposeSpec
+
   alias HonteD.TendermintRPC
 
-  @spec create_send_transaction(binary, pos_integer, binary, binary) :: {:ok, binary} | any
+  @spec create_send_transaction(asset :: binary, amount :: pos_integer,
+                                from :: binary, to :: binary)
+        :: {:ok, binary} | any
   def create_send_transaction(asset, amount, from, to)
   when is_binary(asset) and
        is_integer(amount) and
@@ -22,7 +26,7 @@ defmodule HonteD.API do
     end
   end
 
-  @spec submit_transaction(binary) :: {:ok, binary} | any
+  @spec submit_transaction(transaction :: binary) :: {:ok, binary} | any
   def submit_transaction(transaction) do
     client = TendermintRPC.client()
     case TendermintRPC.broadcast_tx_sync(client, transaction) do
@@ -32,7 +36,7 @@ defmodule HonteD.API do
     end
   end
 
-  @spec query_balance(binary, binary) :: {:ok, non_neg_integer} | any
+  @spec query_balance(asset :: binary, address :: binary) :: {:ok, non_neg_integer} | any
   def query_balance(asset, address)
   when is_binary(asset) and
        is_binary(address) do
