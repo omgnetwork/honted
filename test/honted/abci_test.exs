@@ -32,18 +32,13 @@ defmodule HonteD.ABCITest do
   end
   
   deffixture state_with_token(empty_state, issuer) do
-    {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, empty_state)
+    %{code: 0, state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(empty_state)
     state
   end
   
   deffixture state_alice_has_tokens(state_with_token, alice, issuer, asset) do
-    {:ok, signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{signature}"}, 
-                  nil, 
-                  state_with_token)
+    %{code: 0, state: state} = 
+      sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state_with_token)
     state
   end
 
@@ -54,151 +49,88 @@ defmodule HonteD.ABCITest do
 
   @tag fixtures: [:issuer, :empty_state]
   test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
-    
-    {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
-    
     # correct
-    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "0 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, state)
-
+    sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
+    
     # malformed
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "0 CREATE_TOKE #{issuer.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "0 CREATE_TOKEN asset #{issuer.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "0 CREATE_TOKEN #{issuer.addr}"}, nil, state)      
+    sign("0 CREATE_TOKE #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    sign("0 CREATE_TOKE asset #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      
+    # no signature
+    "0 CREATE_TOKEN #{issuer.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
   end
   
   @tag fixtures: [:alice, :issuer, :empty_state]
-  test "signature checking in create_token", 
-       %{empty_state: state, alice: alice, issuer: issuer} do
-    
-    # FIXME: dry these kinds of tests (see signature checking in send and issue)
-    {:ok, alice_signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", alice.priv)
-    
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
-      handle_call({:RequestCheckTx, "0 CREATE_TOKEN #{issuer.addr} #{alice_signature}"}, nil, state)
+  test "signature checking in create_token", %{empty_state: state, alice: alice, issuer: issuer} do
+    sign("0 CREATE_TOKEN #{issuer.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
   end
 
   @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
-  test "checking issue transactions",  
-       %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
-    {:ok, signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-    
-    # correct
-    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
+  test "checking issue transactions", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
+    sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
 
     # malformed
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSU #{asset} 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4.0 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4.1 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}"}, nil, state)      
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 5 4 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)      
+    sign("1 ISSU #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    sign("1 ISSUE #{asset} 4.0 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+    sign("1 ISSUE #{asset} 4.1 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+    "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    sign("1 ISSUE #{asset} 5 4 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
   end
   
   @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
-  test "signature checking in issue", 
-       %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
-    
-    # FIXME: dry these kinds of tests (see signature checking in send)
+  test "signature checking in issue", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
     {:ok, issuer_signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-    {:ok, alice_signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", alice.priv)
-    
     assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
       handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4 #{alice.addr} #{issuer.addr} #{issuer_signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{alice_signature}"}, nil, state)
+      
+    sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
   end
   
   describe "create token and issue transaction logic" do
     @tag fixtures: [:issuer, :alice, :empty_state, :asset]
-    test "can't issue not-created token",
-         %{issuer: issuer, alice: alice, empty_state: state, asset: asset} do
-      
-      {:ok, signature} = HonteD.Crypto.sign("0 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-           
-      assert {:reply, {:ResponseCheckTx, 1, '', 'unknown_issuer'}, ^state} =
-        handle_call({:RequestCheckTx, "0 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
+    test "can't issue not-created token", %{issuer: issuer, alice: alice, empty_state: state, asset: asset} do
+      sign("0 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'unknown_issuer') |> same?(state)
     end
     
     @tag fixtures: [:alice, :state_with_token, :asset]
-    test "can't issue other issuer's token",
-         %{alice: alice, state_with_token: state, asset: asset } do
-      
-      {:ok, signature} = HonteD.Crypto.sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv)
-           
-      assert {:reply, {:ResponseCheckTx, 1, '', 'incorrect_issuer'}, ^state} =
-        handle_call({:RequestCheckTx, "0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr} #{signature}"}, nil, state)
+    test "can't issue other issuer's token", %{alice: alice, state_with_token: state, asset: asset } do
+      sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'incorrect_issuer') |> same?(state)
     end
     
     @tag fixtures: [:issuer, :alice, :empty_state]
-    test "can create and issue multiple tokens",
-         %{issuer: issuer, alice: alice, empty_state: state } do
-      
-      {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
-           
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
-        handle_call({:RequestDeliverTx, "0 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, state)
-        
-      {:ok, signature} = HonteD.Crypto.sign("1 CREATE_TOKEN #{issuer.addr}", issuer.priv)
-
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
-        handle_call({:RequestDeliverTx, "1 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, state)
+    test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state } do
+      %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} = sign("1 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
       
       asset0 = HonteD.Token.create_address(issuer.addr, 0)
       asset1 = HonteD.Token.create_address(issuer.addr, 1)
       
       assert asset0 != asset1
 
-      {:ok, signature} = HonteD.Crypto.sign("2 ISSUE #{asset0} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
-        handle_call({:RequestDeliverTx, "2 ISSUE #{asset0} 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
-        
-      {:ok, signature} = HonteD.Crypto.sign("3 ISSUE #{asset1} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-        
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, _} =
-        handle_call({:RequestDeliverTx, "3 ISSUE #{asset1} 5 #{alice.addr} #{issuer.addr} #{signature}"}, nil, state)
-
+      %{state: state} = sign("2 ISSUE #{asset0} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      %{state: _} = sign("3 ISSUE #{asset1} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
     end
   end
   
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "checking send transactions", 
-       %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    
-    {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv)
-      
-    # correct
-    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND #{asset} 5 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+  test "checking send transactions", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+    sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> success?
       
     # malformed
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_transaction'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEN #{asset} 5 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND #{asset} 4.0 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'malformed_numbers'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND #{asset} 4.1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+    sign("0 SEN #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    sign("0 SEND #{asset} 4.0 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+    sign("0 SEND #{asset} 4.1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+    sign("0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    # FIXME: fails - probably wrong order of checks, check signature before checking state?
+    # "0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
   end
 
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "querying nonces", 
-       %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    
-    {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv)
-
+  test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
     assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/nonces/#{alice.addr}', 0, false}, nil, state)
 
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 SEND #{asset} 5 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+    %{state: state} = sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
 
     assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
       handle_call({:RequestQuery, "", '/nonces/#{bob.addr}', 0, false}, nil, state)
@@ -208,57 +140,30 @@ defmodule HonteD.ABCITest do
   end
 
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "checking nonces", 
-       %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    
-    {:ok, signature0} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-    {:ok, signature1} = HonteD.Crypto.sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-    {:ok, signature2} = HonteD.Crypto.sign("2 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature1}"}, nil, state)
-      
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature0}"}, nil, state)
-
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature0}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "2 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature2}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-      handle_call({:RequestCheckTx, "1 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature1}"}, nil, state)
+  test "checking nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+    sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
+    sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    sign("2 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> success? |> same?(state)
   end
   
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "nonces common for all transaction types",
-       %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    {:ok, signature_send} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature_send}"}, nil, state)
+  test "nonces common for all transaction types", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+    %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
     
     # check transactions other than send
-    {:ok, signature_create} = HonteD.Crypto.sign("0 CREATE_TOKEN #{alice.addr}", alice.priv)
-    {:ok, signature_issue} = HonteD.Crypto.sign("0 ISSUE 5 #{asset} #{alice.addr} #{alice.addr}", alice.priv)
-    
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "0 CREATE_TOKEN #{alice.addr} #{signature_create}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr} #{signature_issue}"}, nil, state)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_nonce'}, ^state} =
-      handle_call({:RequestCheckTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature_send}"}, nil, state)
+    sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
   end
 
   @tag fixtures: [:issuer, :empty_state]
-  test "hash from commits changes on state update",
-       %{empty_state: state, issuer: issuer} do
-    
+  test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
     assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = 
       handle_call({:RequestCommit}, nil, state)
       
-    {:ok, signature} = HonteD.Crypto.sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv)
-    
-    {:reply, _, state} =
-      handle_call({:RequestDeliverTx, "0 CREATE_TOKEN #{issuer.addr} #{signature}"}, nil, state)
+    %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
       
     assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} = 
       handle_call({:RequestCommit}, nil, state)
@@ -268,20 +173,15 @@ defmodule HonteD.ABCITest do
   
   describe "send transactions logic" do
     @tag fixtures: [:bob, :state_alice_has_tokens, :asset]
-    test "bob has nothing (sanity)",
-         %{state_alice_has_tokens: state, bob: bob, asset: asset} do
+    test "bob has nothing (sanity)", %{state_alice_has_tokens: state, bob: bob, asset: asset} do
     
       assert {:reply, {:ResponseQuery, 1, 0, _key, '', 'no proof', _, 'not_found'}, ^state} =
         handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
     end
       
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "correct transfer",
-         %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-      
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
-        handle_call({:RequestDeliverTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+    test "correct transfer", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
       assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
         handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
       assert {:reply, {:ResponseQuery, 0, 0, _key, '4', 'no proof', _, ''}, ^state} =
@@ -289,53 +189,29 @@ defmodule HonteD.ABCITest do
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "insufficient funds",
-         %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 6 #{alice.addr} #{bob.addr}", alice.priv)
-      
-      assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
-        handle_call({:RequestCheckTx, "0 SEND #{asset} 6 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+    test "insufficient funds", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      sign("0 SEND #{asset} 6 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "negative amount",
-         %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} -1 #{alice.addr} #{bob.addr}", alice.priv)
-      
-      assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
-        handle_call({:RequestCheckTx, "0 SEND #{asset} -1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+    test "negative amount", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      sign("0 SEND #{asset} -1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "zero amount",
-         %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 0 #{alice.addr} #{bob.addr}", alice.priv)
-      
-      assert {:reply, {:ResponseCheckTx, 1, '', 'positive_amount_required'}, ^state} =
-        handle_call({:RequestCheckTx, "0 SEND #{asset} 0 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
+    test "zero amount", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      sign("0 SEND #{asset} 0 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end      
     
     @tag fixtures: [:bob, :state_alice_has_tokens, :asset]
-    test "unknown sender",
-         %{state_alice_has_tokens: state, bob: bob, asset: asset} do
-      assert {:reply, {:ResponseCheckTx, 1, '', 'insufficient_funds'}, ^state} =
-        handle_call({:RequestCheckTx, "0 SEND #{asset} 5 carol #{bob.addr} carols_signature"}, nil, state)
+    test "unknown sender", %{state_alice_has_tokens: state, bob: bob, asset: asset} do
+      "0 SEND #{asset} 1 carol #{bob.addr} carols_signature" |> check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "second consecutive transfer",
-         %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      
-      {:ok, signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-      assert {:reply, _, state} =
-        handle_call({:RequestDeliverTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{signature}"}, nil, state)
-        
-      {:ok, signature1_4} = HonteD.Crypto.sign("1 SEND #{asset} 4 #{alice.addr} #{bob.addr}", alice.priv)
-
-      assert {:reply, {:ResponseCheckTx, 0, '', ''}, ^state} =
-        handle_call({:RequestCheckTx, "1 SEND #{asset} 4 #{alice.addr} #{bob.addr} #{signature1_4}"}, nil, state)
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, state} =
-        handle_call({:RequestDeliverTx, "1 SEND #{asset} 4 #{alice.addr} #{bob.addr} #{signature1_4}"}, nil, state)
+    test "second consecutive transfer", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
+      %{state: state} = sign("1 SEND #{asset} 4 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
         
       assert {:reply, {:ResponseQuery, 0, 0, _key, '5', 'no proof', _, ''}, ^state} =
         handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
@@ -344,16 +220,12 @@ defmodule HonteD.ABCITest do
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "signature checking in send",
-         %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      
-      {:ok, alice_signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
-      {:ok, bob_signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", bob.priv)
-      
+    test "signature checking in send", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      {:ok, alice_signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)      
       assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
         handle_call({:RequestCheckTx, "0 SEND #{asset} 4 #{alice.addr} #{bob.addr} #{alice_signature}"}, nil, state)
-      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
-        handle_call({:RequestCheckTx, "0 SEND #{asset} 1 #{alice.addr} #{bob.addr} #{bob_signature}"}, nil, state)
+        
+      sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", bob.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
   end
   
@@ -363,6 +235,37 @@ defmodule HonteD.ABCITest do
     {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
     {:ok, addr} = HonteD.Crypto.generate_address(pub)
     %{priv: priv, addr: addr}    
+  end
+  
+  defp sign(raw_tx, priv_key) do
+    {:ok, signature} = HonteD.Crypto.sign(raw_tx, priv_key)
+    "#{raw_tx} #{signature}"
+  end
+  
+  defp deliver_tx(signed_tx, state) do
+    {:reply, {:ResponseDeliverTx, code, data, log}, state} = 
+      handle_call({:RequestDeliverTx, signed_tx}, nil, state)
+    %{code: code, data: data, log: log, state: state}
+  end
+  
+  defp check_tx(signed_tx, state) do
+    {:reply, {:ResponseCheckTx, code, data, log}, state} = 
+      handle_call({:RequestCheckTx, signed_tx}, nil, state)
+    %{code: code, data: data, log: log, state: state}
+  end
+  
+  defp success?(response) do
+    assert %{code: 0, data: '', log: ''} = response
+    response
+  end
+  
+  defp fail?(response, expected_code, expected_log) do
+    assert %{code: ^expected_code, data: '', log: ^expected_log} = response
+    response
+  end
+
+  defp same?(response, expected_state) do
+    assert %{state: ^expected_state} = response
   end
 
 end
