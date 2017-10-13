@@ -201,8 +201,8 @@ defmodule HonteD.ABCITest do
     
     @tag fixtures: [:bob, :state_alice_has_tokens, :asset]
     test "unknown sender", %{state_alice_has_tokens: state, bob: bob, asset: asset} do
-      "0 SEND #{asset} 1 carol #{bob.addr} carols_signaturecarols_signaturecarols_signaturecarols_signature" |> 
-      check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
+      "0 SEND #{asset} 1 carol #{bob.addr} carols_signaturecarols_signaturecarols_signaturecarols_signature"
+      |> check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -237,15 +237,10 @@ defmodule HonteD.ABCITest do
     "#{raw_tx} #{signature}"
   end
   
-  defp deliver_tx(signed_tx, state) do
-    {:reply, {:ResponseDeliverTx, code, data, log}, state} = 
-      handle_call({:RequestDeliverTx, signed_tx}, nil, state)
-    %{code: code, data: data, log: log, state: state}
-  end
-  
-  defp check_tx(signed_tx, state) do
-    {:reply, {:ResponseCheckTx, code, data, log}, state} = 
-      handle_call({:RequestCheckTx, signed_tx}, nil, state)
+  defp deliver_tx(signed_tx, state), do: do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
+  defp check_tx(signed_tx, state), do: do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
+  defp do_tx(request_atom, response_atom, signed_tx, state) do
+    assert {:reply, {^response_atom, code, data, log}, state} = handle_call({request_atom, signed_tx}, nil, state)
     %{code: code, data: data, log: log, state: state}
   end
   
