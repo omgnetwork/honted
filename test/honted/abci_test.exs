@@ -111,13 +111,20 @@ defmodule HonteD.ABCITest do
     test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state } do
       %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
       %{state: state} = sign("1 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} = sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
+      %{state: state} = sign("1 CREATE_TOKEN #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
       
       asset0 = HonteD.Token.create_address(issuer.addr, 0)
       asset1 = HonteD.Token.create_address(issuer.addr, 1)
+      asset2 = HonteD.Token.create_address(alice.addr, 0)
       
+      # check that they're different
       assert asset0 != asset1
+      assert asset0 != asset2
 
+      # check that they all actually exist and function as intended
       %{state: state} = sign("2 ISSUE #{asset0} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} = sign("2 ISSUE #{asset2} 5 #{alice.addr} #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
       %{state: _} = sign("3 ISSUE #{asset1} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
     end
     
