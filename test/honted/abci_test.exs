@@ -120,6 +120,14 @@ defmodule HonteD.ABCITest do
       %{state: state} = sign("2 ISSUE #{asset0} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
       %{state: _} = sign("3 ISSUE #{asset1} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
     end
+    
+    @tag fixtures: [:issuer, :alice, :state_with_token, :asset]
+    test "can't overflow in issue", %{issuer: issuer, alice: alice, state_with_token: state, asset: asset} do
+      sign("1 ISSUE #{asset} #{round(:math.pow(2, 256))} #{alice.addr} #{issuer.addr}", issuer.priv) 
+      |> check_tx(state) |> fail?(1, 'amount_way_too_large') |> same?(state)
+      sign("1 ISSUE #{asset} #{round(:math.pow(2, 256)) - 1} #{alice.addr} #{issuer.addr}", issuer.priv) 
+      |> check_tx(state) |> success? |> same?(state)
+    end
   end
   
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]

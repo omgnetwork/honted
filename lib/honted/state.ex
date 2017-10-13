@@ -2,6 +2,8 @@ defmodule HonteD.State do
   @moduledoc """
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
+  
+  @max_amount round(:math.pow(2,256))
 
   @type t :: map()
   def empty(), do: %{}
@@ -76,8 +78,8 @@ defmodule HonteD.State do
     if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:invalid_nonce}
   end
   
-  defp not_too_much?(_amount_entering) do
-    {:ok}  # FIXME: implement
+  defp not_too_much?(amount_entering) do
+    if amount_entering < @max_amount, do: {:ok}, else: {:amount_way_too_large}
   end
   
   defp is_issuer?(state, token_addr, address) do
