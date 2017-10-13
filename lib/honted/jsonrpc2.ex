@@ -20,7 +20,7 @@ defmodule HonteD.JSONRPC2.Server.Handler do
 
   @spec handle_request(endpoint :: function_name, params :: json_args) :: any
   def handle_request(endpoint, params) do
-    with {:ok, fname, args} = translate_request(endpoint, params, @api._spec()),
+    with {:ok, fname, args} <- translate_request(endpoint, params, @api._spec()),
          do: apply_call(@api, fname, args)
   end
 
