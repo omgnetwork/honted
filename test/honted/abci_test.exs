@@ -42,58 +42,66 @@ defmodule HonteD.ABCITest do
     state
   end
 
-  @tag fixtures: [:empty_state]
-  test "info about clean state", %{empty_state: state} do
-    assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
+  describe "info requests from tendermint" do
+    @tag fixtures: [:empty_state]
+    test "info about clean state", %{empty_state: state} do
+      assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
+    end
   end
 
-  @tag fixtures: [:issuer, :empty_state]
-  test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
-    assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = handle_call({:RequestCommit}, nil, state)
-      
-    %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
-      
-    assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} =  handle_call({:RequestCommit}, nil, state)
-    assert newhash != cleanhash
+  describe "commits" do
+    @tag fixtures: [:issuer, :empty_state]
+    test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
+      assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = handle_call({:RequestCommit}, nil, state)
+        
+      %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+        
+      assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} =  handle_call({:RequestCommit}, nil, state)
+      assert newhash != cleanhash
+    end
   end
 
-  @tag fixtures: [:issuer, :empty_state]
-  test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
-    # correct
-    sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
+  describe "well formedness of create_token transactions" do
+    @tag fixtures: [:issuer, :empty_state]
+    test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
+      # correct
+      sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
+      
+      # malformed
+      sign("0 CREATE_TOKE #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      sign("0 CREATE_TOKE asset #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+        
+      # no signature
+      "0 CREATE_TOKEN #{issuer.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    end
     
-    # malformed
-    sign("0 CREATE_TOKE #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-    sign("0 CREATE_TOKE asset #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      
-    # no signature
-    "0 CREATE_TOKEN #{issuer.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-  end
-  
-  @tag fixtures: [:alice, :issuer, :empty_state]
-  test "signature checking in create_token", %{empty_state: state, alice: alice, issuer: issuer} do
-    sign("0 CREATE_TOKEN #{issuer.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    @tag fixtures: [:alice, :issuer, :empty_state]
+    test "signature checking in create_token", %{empty_state: state, alice: alice, issuer: issuer} do
+      sign("0 CREATE_TOKEN #{issuer.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    end
   end
 
-  @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
-  test "checking issue transactions", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
-    sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
+  describe "well formedness of issue transactions" do
+    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
+    test "checking issue transactions", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
+      sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
 
-    # malformed
-    sign("1 ISSU #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-    sign("1 ISSUE #{asset} 4.0 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
-    sign("1 ISSUE #{asset} 4.1 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
-    "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-    sign("1 ISSUE #{asset} 5 4 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-  end
+      # malformed
+      sign("1 ISSU #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      sign("1 ISSUE #{asset} 4.0 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      sign("1 ISSUE #{asset} 4.1 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      "1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      sign("1 ISSUE #{asset} 5 4 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    end
   
-  @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
-  test "signature checking in issue", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
-    {:ok, issuer_signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
-    assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
-      handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4 #{alice.addr} #{issuer.addr} #{issuer_signature}"}, nil, state)
-      
-    sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
+    test "signature checking in issue", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
+      {:ok, issuer_signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
+      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+        handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4 #{alice.addr} #{issuer.addr} #{issuer_signature}"}, nil, state)
+        
+      sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    end
   end
   
   describe "create token and issue transaction logic" do
@@ -137,45 +145,49 @@ defmodule HonteD.ABCITest do
     end
   end
   
-  @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "checking send transactions", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> success?
-      
-    # malformed
-    sign("0 SEN #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-    sign("0 SEND #{asset} 4.0 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
-    sign("0 SEND #{asset} 4.1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
-    sign("0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-    "0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-  end
-
-  @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    query(state, '/nonces/#{alice.addr}') |> found?('0')
-
-    %{state: state} = sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
-    
-    query(state, '/nonces/#{bob.addr}') |> found?('0')
-    query(state, '/nonces/#{alice.addr}') |> found?('1')
-  end
-
-  @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "checking nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
-    %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
-    sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
-    sign("2 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
-    sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> success? |> same?(state)
+  describe "well formedness of send transactions" do
+    @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
+    test "checking send transactions", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> success?
+        
+      # malformed
+      sign("0 SEN #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      sign("0 SEND #{asset} 4.0 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      sign("0 SEND #{asset} 4.1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      sign("0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      "0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    end
   end
   
-  @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-  test "nonces common for all transaction types", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
+  describe "generic nonce tests" do
+    @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
+    test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      query(state, '/nonces/#{alice.addr}') |> found?('0')
+
+      %{state: state} = sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
+      
+      query(state, '/nonces/#{bob.addr}') |> found?('0')
+      query(state, '/nonces/#{alice.addr}') |> found?('1')
+    end
+
+    @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
+    test "checking nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+      %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
+      sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+      sign("2 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+      sign("1 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> success? |> same?(state)
+    end
     
-    # check transactions other than send
-    sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
-    sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
-    sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
+    test "nonces common for all transaction types", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
+      
+      # check transactions other than send
+      sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+      sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+      sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
+    end
   end
   
   describe "send transactions logic" do
