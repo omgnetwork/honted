@@ -3,7 +3,7 @@ defmodule HonteD.State do
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
   
-  @max_amount round(:math.pow(2,256))
+  @max_amount round(:math.pow(2,256))  # used to limit integers handled on-chain
 
   @type t :: map()
   def empty(), do: %{}
