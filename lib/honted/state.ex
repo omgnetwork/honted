@@ -10,8 +10,8 @@ defmodule HonteD.State do
 
   def exec(state, {nonce, :create_token, issuer, signature}) do
     signed_part = 
-      {nonce, :create_token, issuer} |>
-      HonteD.TxCodec.encode
+      {nonce, :create_token, issuer} 
+      |> HonteD.TxCodec.encode
       
     with {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- signed?(signed_part, signature, issuer),
@@ -20,8 +20,8 @@ defmodule HonteD.State do
 
   def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
     signed_part = 
-      {nonce, :issue, asset, amount, dest, issuer} |>
-      HonteD.TxCodec.encode
+      {nonce, :issue, asset, amount, dest, issuer}
+      |> HonteD.TxCodec.encode
       
     with {:ok} <- not_too_much?(amount),
          {:ok} <- nonce_valid?(state, issuer, nonce),
@@ -34,8 +34,8 @@ defmodule HonteD.State do
     key_src = "accounts/#{asset}/#{src}"
     key_dest = "accounts/#{asset}/#{dest}"
     signed_part = 
-      {nonce, :send, asset, amount, src, dest} |>
-      HonteD.TxCodec.encode
+      {nonce, :send, asset, amount, src, dest}
+      |> HonteD.TxCodec.encode
 
     with {:ok} <- positive?(amount),
          {:ok} <- nonce_valid?(state, src, nonce),
@@ -92,28 +92,28 @@ defmodule HonteD.State do
   
   defp apply_create_token(state, issuer, nonce) do
     token_addr = HonteD.Token.create_address(issuer, nonce)
-    state |> 
-    bump_nonce(issuer) |>
-    Map.put("tokens/#{token_addr}/issuer", issuer)
+    state 
+    |> bump_nonce(issuer)
+    |> Map.put("tokens/#{token_addr}/issuer", issuer)
   end
   
   defp apply_issue(state, asset, amount, dest, issuer) do
     key_dest = "accounts/#{asset}/#{dest}"
-    state |> 
-    bump_nonce(issuer) |>
-    Map.update(key_dest, amount, &(&1 + amount))
+    state
+    |> bump_nonce(issuer)
+    |> Map.update(key_dest, amount, &(&1 + amount))
   end
   
   defp apply_send(state, amount, src, key_src, key_dest) do
-    state |>
-    bump_nonce(src) |> 
-    Map.update!(key_src, &(&1 - amount)) |>
-    Map.update(key_dest, amount, &(&1 + amount))
+    state 
+    |> bump_nonce(src)
+    |> Map.update!(key_src, &(&1 - amount))
+    |> Map.update(key_dest, amount, &(&1 + amount))
   end
   
   defp bump_nonce(state, address) do
-    state |> 
-    Map.update("nonces/#{address}", 1, &(&1 + 1))
+    state 
+    |> Map.update("nonces/#{address}", 1, &(&1 + 1))
   end
   
   defp signed?(signed_part, signature, src) do
@@ -126,8 +126,8 @@ defmodule HonteD.State do
 
   def hash(state) do
     # FIXME: crudest of all app state hashes
-    state |>
-    OJSON.encode! |>  # using OJSON instead of inspect to have crypto-ready determinism
-    HonteD.Crypto.hash
+    state
+    |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
+    |> HonteD.Crypto.hash
   end
 end
