@@ -48,6 +48,16 @@ defmodule HonteD.ABCITest do
   end
 
   @tag fixtures: [:issuer, :empty_state]
+  test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
+    assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = handle_call({:RequestCommit}, nil, state)
+      
+    %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      
+    assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} =  handle_call({:RequestCommit}, nil, state)
+    assert newhash != cleanhash
+  end
+
+  @tag fixtures: [:issuer, :empty_state]
   test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
     # correct
     sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> check_tx(state) |> success? |> same?(state)
@@ -127,16 +137,12 @@ defmodule HonteD.ABCITest do
 
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
   test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-    assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/nonces/#{alice.addr}', 0, false}, nil, state)
+    query(state, '/nonces/#{alice.addr}') |> found?('0')
 
     %{state: state} = sign("0 SEND #{asset} 5 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
-
-    assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/nonces/#{bob.addr}', 0, false}, nil, state)
-
-    assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
-      handle_call({:RequestQuery, "", '/nonces/#{alice.addr}', 0, false}, nil, state)
+    
+    query(state, '/nonces/#{bob.addr}') |> found?('0')
+    query(state, '/nonces/#{alice.addr}') |> found?('1')
   end
 
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -157,35 +163,18 @@ defmodule HonteD.ABCITest do
     sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
     sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
   end
-
-  @tag fixtures: [:issuer, :empty_state]
-  test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
-    assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = 
-      handle_call({:RequestCommit}, nil, state)
-      
-    %{state: state} = sign("0 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
-      
-    assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} = 
-      handle_call({:RequestCommit}, nil, state)
-      
-    assert newhash != cleanhash
-  end
   
   describe "send transactions logic" do
     @tag fixtures: [:bob, :state_alice_has_tokens, :asset]
     test "bob has nothing (sanity)", %{state_alice_has_tokens: state, bob: bob, asset: asset} do
-    
-      assert {:reply, {:ResponseQuery, 1, 0, _key, '', 'no proof', _, 'not_found'}, ^state} =
-        handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> not_found?
     end
       
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
     test "correct transfer", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
       %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
-      assert {:reply, {:ResponseQuery, 0, 0, _key, '1', 'no proof', _, ''}, ^state} =
-        handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
-      assert {:reply, {:ResponseQuery, 0, 0, _key, '4', 'no proof', _, ''}, ^state} =
-        handle_call({:RequestQuery, "", '/accounts/#{asset}/#{alice.addr}', 0, false}, nil, state)
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?('1')
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('4')
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -213,10 +202,8 @@ defmodule HonteD.ABCITest do
       %{state: state} = sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
       %{state: state} = sign("1 SEND #{asset} 4 #{alice.addr} #{bob.addr}", alice.priv) |> deliver_tx(state) |> success?
         
-      assert {:reply, {:ResponseQuery, 0, 0, _key, '5', 'no proof', _, ''}, ^state} =
-        handle_call({:RequestQuery, "", '/accounts/#{asset}/#{bob.addr}', 0, false}, nil, state)
-      assert {:reply, {:ResponseQuery, 0, 0, _key, '0', 'no proof', _, ''}, ^state} =
-        handle_call({:RequestQuery, "", '/accounts/#{asset}/#{alice.addr}', 0, false}, nil, state)
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?('5')
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('0')
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -261,6 +248,22 @@ defmodule HonteD.ABCITest do
   
   defp fail?(response, expected_code, expected_log) do
     assert %{code: ^expected_code, data: '', log: ^expected_log} = response
+    response
+  end
+  
+  defp query(state, key) do
+    assert {:reply, {:ResponseQuery, code, 0, _key, value, 'no proof', 0, log}, ^state} =
+      handle_call({:RequestQuery, "", key, 0, false}, nil, state)
+    %{code: code, value: value, log: log}
+  end
+  
+  defp found?(response, expected_value) do
+    assert %{code: 0, value: ^expected_value} = response
+    response
+  end
+  
+  defp not_found?(response) do
+    assert %{code: 1, log: 'not_found'} = response
     response
   end
 
