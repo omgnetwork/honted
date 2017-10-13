@@ -131,8 +131,7 @@ defmodule HonteD.ABCITest do
     sign("0 SEND #{asset} 4.0 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
     sign("0 SEND #{asset} 4.1 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
     sign("0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-    # FIXME: fails - probably wrong order of checks, check signature before checking state?
-    # "0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    "0 SEND #{asset} 5 4 #{alice.addr} #{bob.addr}" |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
   end
 
   @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -194,7 +193,8 @@ defmodule HonteD.ABCITest do
     
     @tag fixtures: [:bob, :state_alice_has_tokens, :asset]
     test "unknown sender", %{state_alice_has_tokens: state, bob: bob, asset: asset} do
-      "0 SEND #{asset} 1 carol #{bob.addr} carols_signature" |> check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
+      "0 SEND #{asset} 1 carol #{bob.addr} carols_signaturecarols_signaturecarols_signaturecarols_signature" |> 
+      check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
     end
     
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]

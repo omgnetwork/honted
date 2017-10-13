@@ -7,17 +7,17 @@ defmodule HonteD.TxCodec do
 
   def decode(line) do
     case String.split(line) do
-      [nonce, "CREATE_TOKEN", issuer, signature] ->
+      [nonce, "CREATE_TOKEN", issuer, signature] when byte_size(signature) == 64 ->
         case Integer.parse(nonce) do
           {int_nonce, ""} -> {:ok, {int_nonce, :create_token, issuer, signature}}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "ISSUE", asset, amount, dest, issuer, signature] ->
+      [nonce, "ISSUE", asset, amount, dest, issuer, signature] when byte_size(signature) == 64 ->
         case {Integer.parse(amount), Integer.parse(nonce)} do
           {{int_amount, ""}, {int_nonce, ""}} -> {:ok, {int_nonce, :issue, asset, int_amount, dest, issuer, signature}}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "SEND", asset, amount, from, to, signature] ->
+      [nonce, "SEND", asset, amount, from, to, signature] when byte_size(signature) == 64 ->
         case {Integer.parse(amount), Integer.parse(nonce)} do
           {{int_amount, ""}, {int_nonce, ""}} -> {:ok, {int_nonce, :send, asset, int_amount, from, to, signature}}
           _ -> {:error, :malformed_numbers}

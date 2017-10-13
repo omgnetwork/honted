@@ -21,10 +21,10 @@ defmodule HonteD.State do
       {nonce, :issue, asset, amount, dest, issuer} |>
       HonteD.TxCodec.encode
       
-    with {:ok} <- nonce_valid?(state, issuer, nonce),
+    with {:ok} <- not_too_much?(amount),
+         {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- is_issuer?(state, asset, issuer),
          {:ok} <- signed?(signed_part, signature, issuer),
-         {:ok} <- not_too_much?(amount),
          do: {:ok, state |> apply_issue(asset, amount, dest, issuer)}
   end
 
@@ -36,8 +36,8 @@ defmodule HonteD.State do
       HonteD.TxCodec.encode
 
     with {:ok} <- positive?(amount),
-         {:ok} <- account_has_at_least?(state, key_src, amount),
          {:ok} <- nonce_valid?(state, src, nonce),
+         {:ok} <- account_has_at_least?(state, key_src, amount),
          {:ok} <- signed?(signed_part, signature, src),
          do: {:ok, state |> apply_send(amount, src, key_src, key_dest)}
 
