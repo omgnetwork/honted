@@ -22,11 +22,18 @@ defmodule HonteD.TendermintRPC do
       path: "\"#{path}\""
     ])
   end
+  
+  def tx(client, hash) do
+    _result_of get(client, "tx", query: [
+      hash: "0x#{hash}",
+      prove: "false"
+    ])
+  end
 
   defp _result_of(response) do
     case response.body do
       %{"error" => "", "result" => result} -> {:ok, result}
-      %{"error" => error, "result" => ""} -> {:error, error}
+      %{"error" => error, "result" => nil} -> {:error, error}
     end
   end
 end
