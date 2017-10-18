@@ -31,7 +31,7 @@ defmodule ExposeSpec do
   @typedoc """
   Describes Elixir type. For details see https://hexdocs.pm/elixir/typespecs.html
   """
-  @type type :: any()
+  @type type :: atom | {type, type} | {:alternatives, [type]}
 
   defp function_spec({:spec, {_, _, []}, _}) do
     :incomplete_spec
