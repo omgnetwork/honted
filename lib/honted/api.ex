@@ -90,6 +90,23 @@ defmodule HonteD.API do
   end
   
   @doc """
+  Lists tokens issued by a particular address
+  
+  {:ok, list_of_tokens} on success
+  garbage on error (FIXME!!)
+  """
+  @spec list_issued(binary) :: {:ok, [binary]} | any
+  def list_issued(issuer)
+  when is_binary(issuer) do
+    client = TendermintRPC.client()
+    case TendermintRPC.abci_query(client, "", "/issuers/#{issuer}") do
+      {:ok, %{"response" => %{"code" => 0, "value" => issuers_list_enc}}} ->
+        inspect issuers_list_enc
+      result -> result
+    end
+  end
+  
+  @doc """
   Queries for detailed data on a particular submitted transaction with hash `hash`.
   Appends a convenience field `decoded_tx` to the details supplied by Tendermint
   

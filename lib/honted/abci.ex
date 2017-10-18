@@ -85,6 +85,22 @@ defmodule HonteD.ABCI do
     value = Map.get(state, key, 0)
     {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, ''}, state}
   end
+  
+  @doc """
+  Specialized query for issued tokens for an issuer
+  """
+  def handle_call({:RequestQuery, "", '/issuers' ++ address, 0, :false}, _from, state) do
+    key = "issuers" <> to_string(address)
+    "/" <> str_address = to_string(address)
+    case lookup(state, key) do
+      {0, value, log} ->
+        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> scan_potential_issued(state, str_address)|> to_charlist,
+                  'no proof', 0, log}, state}
+      {code, value, log} ->
+        # problems - forward raw
+        {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
+    end
+  end
 
   @doc """
   Generic raw query for any key in state.
@@ -93,12 +109,21 @@ defmodule HonteD.ABCI do
   """
   def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
     "/" <> key = to_string(path)
+    {code, value, log} = lookup(state, key)
+    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
+  end
+  
+  defp scan_potential_issued(unfiltered_tokens, state, issuer) do
+    unfiltered_tokens
+    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+  end
+  
+  defp lookup(state, key) do
     # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-    {code, value, log} = case state[key] do
+    case state[key] do
       nil -> {1, "", 'not_found'}
       value -> {0, value, ''}
     end
-    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
   end
 
   @doc """

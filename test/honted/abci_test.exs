@@ -143,6 +143,23 @@ defmodule HonteD.ABCITest do
       sign("1 ISSUE #{asset} #{round(:math.pow(2, 256)) - 1} #{alice.addr} #{issuer.addr}", issuer.priv) 
       |> check_tx(state) |> success? |> same?(state)
     end
+    
+    @tag fixtures: [:alice, :empty_state]
+    test "can get empty list of issued tokens", %{alice: alice, empty_state: state} do
+      query(state, '/issuers/#{alice.addr}') |> not_found?     
+    end
+  
+    @tag fixtures: [:issuer, :alice, :state_with_token, :asset]
+    test "can list issued tokens", %{issuer: issuer, alice: alice, state_with_token: state, asset: asset} do
+      query(state, '/issuers/#{issuer.addr}') |> found?([asset])      
+      %{state: state} = sign("1 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} = sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
+      asset1 = HonteD.Token.create_address(issuer.addr, 1)
+      asset2 = HonteD.Token.create_address(alice.addr, 0)
+
+      query(state, '/issuers/#{issuer.addr}') |> found?([asset1, asset])
+      query(state, '/issuers/#{alice.addr}') |> found?([asset2])      
+    end
   end
   
   describe "well formedness of send transactions" do
