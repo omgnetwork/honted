@@ -21,6 +21,18 @@ defmodule ExposeSpec do
   FIXME: spec AST parser is primitive, it does not handle all correct possibilities
   """
 
+  @typedoc """
+  Describes function: it's name, arity, list of arguments and their types, return type.
+  """
+  @type spec :: %{name: atom(),
+                  arity: arity(),
+                  args: [{atom(), type()}],
+                  returns: type()}
+  @typedoc """
+  Describes Elixir type. For details see https://hexdocs.pm/elixir/typespecs.html
+  """
+  @type type :: any()
+
   defp function_spec({:spec, {_, _, []}, _}) do
     :incomplete_spec
   end

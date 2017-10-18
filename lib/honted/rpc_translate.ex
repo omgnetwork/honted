@@ -6,23 +6,28 @@ defmodule RPCTranslate do
 
   @type function_name :: binary
   @type arg_name :: binary
-  @type spec :: any
+  @type spec :: ExposeSpec.spec()
   @type json_args :: %{required(arg_name) => any}
   @type rpc_error :: :method_not_found | {:invalid_params, %{}}
 
-  @spec to_fa(endpoint :: function_name, params :: json_args, spec :: spec)
+
+  @doc """
+  `to_fa/3` transforms JSONRPC2 method and params to Elixir's Function and Arguments,
+  since the naming. See also type mfa() in Elixir's typespecs.
+  """
+  @spec to_fa(method :: function_name, params :: json_args, spec :: spec)
         :: {:ok, atom, list(any)} | rpc_error
-  def to_fa(endpoint, params, spec) do
-    with {:ok, fname} <- existing_atom(endpoint),
+  def to_fa(method, params, spec) do
+    with {:ok, fname} <- existing_atom(method),
          :ok <- is_exposed(fname, spec),
          {:ok, args} <- get_args(fname, params, spec),
          do: {:ok, fname, args}
   end
 
-  @spec existing_atom(endpoint :: function_name) :: {:ok, atom} | :method_not_found
-  defp existing_atom(endpoint) do
+  @spec existing_atom(method :: function_name) :: {:ok, atom} | :method_not_found
+  defp existing_atom(method) do
     try do
-      {:ok, String.to_existing_atom(endpoint)}
+      {:ok, String.to_existing_atom(method)}
     rescue
       ArgumentError -> :method_not_found
     end
