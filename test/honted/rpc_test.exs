@@ -19,7 +19,7 @@ defmodule HonteD.JSONRPC2.Server.HandlerTest do
 
     @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
     def handle_request(method, params) do
-      with {:ok, fname, args} <- RPCTranslate.to_fa(method, params, ExampleAPI._spec()),
+      with {:ok, fname, args} <- RPCTranslate.to_fa(method, params, ExampleAPI.get_specs()),
         do: apply_call(ExampleAPI, fname, args)
     end
 

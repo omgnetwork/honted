@@ -36,28 +36,13 @@ defmodule ExampleTest do
 
   end
 
-  test "cleans up spec AST to kv form" do
-    tc1 = {:spec, {:::, [line: 7],
-                   [{:add, [line: 7],
-                     [{:::, [line: 7],
-                       [{:x, [line: 7], nil},
-                        {:integer, [line: 7], nil}]},
-                      {:::, [line: 7],
-                       [{:y, [line: 7], nil},
-                        {:integer, [line: 7], nil}]}]},
-                    {:integer, [line: 7], nil}]
-                  },
-           {Test, {7, 1}}}
-    e1 = %{name: :add, arity: 2, args: [x: :integer, y: :integer], returns: :integer}
-    assert e1 == ExposeSpec.quoted_spec_to_kv(tc1)
-  end
-
   test "expected list of parsed specs" do
-    assert [:alts, :basic, :complex_return, :lazy] == Enum.sort(Map.keys(ExposeSpecTest._spec))
+    assert [:alts, :basic, :complex_return, :lazy] ==
+      Enum.sort(Map.keys(ExposeSpecTest.get_specs()))
   end
 
   test "test one spec" do
-    assert ExposeSpecTest._spec.lazy ==
+    assert ExposeSpecTest.get_specs().lazy ==
       %{args: [:integer], arity: 1, name: :lazy, returns: {:ok, :integer}}
   end
 end

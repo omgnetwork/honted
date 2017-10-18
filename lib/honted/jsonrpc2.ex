@@ -12,7 +12,7 @@ defmodule HonteD.JSONRPC2.Server.Handler do
 
   @spec handle_request(endpoint :: binary, params :: %{required(binary) => any}) :: any
   def handle_request(endpoint, params) do
-    with {:ok, fname, args} <- RPCTranslate.to_fa(endpoint, params, HonteD.API._spec()),
+    with {:ok, fname, args} <- RPCTranslate.to_fa(endpoint, params, HonteD.API.get_specs()),
       do: apply_call(HonteD.API, fname, args)
   end
 
