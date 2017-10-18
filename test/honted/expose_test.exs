@@ -34,15 +34,25 @@ defmodule ExampleTest do
       x + 1
     end
 
+    @spec triple(x :: {integer, integer, integer}) :: :ok
+    def triple(x) do
+      :ok
+    end
+
   end
 
   test "expected list of parsed specs" do
-    assert [:alts, :basic, :complex_return, :lazy] ==
+    assert [:alts, :basic, :complex_return, :lazy, :triple] ==
       Enum.sort(Map.keys(ExposeSpecTest.get_specs()))
   end
 
   test "test one spec" do
     assert ExposeSpecTest.get_specs().lazy ==
       %{args: [:integer], arity: 1, name: :lazy, returns: {:ok, :integer}}
+  end
+
+  test "test triple" do
+    assert ExposeSpecTest.get_specs().triple ==
+      %{args: [{:x, {:integer, :integer, :integer}}], arity: 1, name: :triple, returns: :ok}
   end
 end

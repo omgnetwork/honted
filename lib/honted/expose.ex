@@ -30,8 +30,10 @@ defmodule ExposeSpec do
                   returns: type()}
   @typedoc """
   Describes Elixir type. For details see https://hexdocs.pm/elixir/typespecs.html
+
+  Note that tuple() denotes tuple of any size where all elements are of type type()
   """
-  @type type :: atom | {type, type} | {:alternatives, [type]}
+  @type type() :: atom | tuple() | {:alternatives, [type()]}
 
   defp function_spec({:spec, {_, _, []}, _}) do
     :incomplete_spec
@@ -64,6 +66,10 @@ defmodule ExposeSpec do
 
   defp parse_term(atom) when is_atom(atom), do: atom
   defp parse_term({el1, el2}), do: {parse_term(el1), parse_term(el2)}
+  defp parse_term({:{}, _, tuple_els}) do
+    list = for t <- tuple_els, do: parse_term(t)
+    :erlang.list_to_tuple(list)
+  end
   defp parse_term({:|, _, alts}), do: parse_alternative(alts)
   defp parse_term({atom, _, :nil}) when is_atom(atom), do: atom
 
