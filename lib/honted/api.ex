@@ -101,7 +101,8 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     case TendermintRPC.abci_query(client, "", "/issuers/#{issuer}") do
       {:ok, %{"response" => %{"code" => 0, "value" => issuers_list_enc}}} ->
-        inspect issuers_list_enc
+        # translate raw output from abci by cutting into 40-char-long ascii sequences
+        Base.decode16!(issuers_list_enc) |> String.codepoints |> Enum.chunk_every(40) |> Enum.map(&Enum.join/1)
       result -> result
     end
   end

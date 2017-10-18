@@ -94,7 +94,7 @@ defmodule HonteD.ABCI do
     "/" <> str_address = to_string(address)
     case lookup(state, key) do
       {0, value, log} ->
-        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> scan_potential_issued(state, str_address)|> to_charlist,
+        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> scan_potential_issued(state, str_address) |> to_charlist,
                   'no proof', 0, log}, state}
       {code, value, log} ->
         # problems - forward raw
@@ -112,19 +112,6 @@ defmodule HonteD.ABCI do
     {code, value, log} = lookup(state, key)
     {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
   end
-  
-  defp scan_potential_issued(unfiltered_tokens, state, issuer) do
-    unfiltered_tokens
-    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
-  end
-  
-  defp lookup(state, key) do
-    # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-    case state[key] do
-      nil -> {1, "", 'not_found'}
-      value -> {0, value, ''}
-    end
-  end
 
   @doc """
   Dissallow queries with non-empty-string data field for now
@@ -139,5 +126,20 @@ defmodule HonteD.ABCI do
     IO.inspect request
     IO.inspect from
     {:reply, {}, state}
+  end
+  
+  ### END GenServer
+  
+  defp scan_potential_issued(unfiltered_tokens, state, issuer) do
+    unfiltered_tokens
+    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+  end
+  
+  defp lookup(state, key) do
+    # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
+    case state[key] do
+      nil -> {1, "", 'not_found'}
+      value -> {0, value, ''}
+    end
   end
 end
