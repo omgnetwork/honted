@@ -2,8 +2,23 @@ defmodule ExposeSpec do
   @moduledoc """
   `use ExposeSpec` to expose all @spec in the runtime via YourModule._spec()
 
+  There is undocumented Kernel.Typespec.beam_specs/1 which exposes similar
+  functionality. Unfortunately it is considered to be unstable.
+
   FIXME: functions with the same name but different arity are not yet supported
   FIXME: spec AST parser is primitive, it does not handle all correct possibilities
+
+  Avoid multiple arity functions
+  # @spec arity(x :: integer, y :: integer) :: integer
+  # def arity(x, y), do: x + y
+  # @spec arity(x :: integer) :: integer
+  # def arity(x), do: x + 2
+
+  Avoid aliasing of types in specs - it will get silently dropped by AST parser
+  # @spec aliased(x) :: x when x: integer
+  # def aliased(x) do
+  # x + 1
+  # end
   """
 
   def quoted_spec_to_kv({:spec, {_, _, []}, _}) do
@@ -77,14 +92,10 @@ defmodule ExposeSpec do
 
   defmacro __before_compile__(env) do
     module = env.module
-    quoted_specs = Module.get_attribute(module, :spec)
-    cleanup = fn(spec) ->
-      case quoted_spec_to_kv(spec) do
-        :incomplete_spec -> :false
-        map -> {:true, {map[:name], map}}
-      end
-    end
-    nice_spec = :lists.filtermap(cleanup, quoted_specs)
+    nice_spec = Module.get_attribute(module, :spec)
+      |> Enum.map(&quoted_spec_to_kv/1)
+      |> Enum.filter(fn(x) -> x != :incomplete_spec end)
+      |> Enum.map(fn(map) -> {map[:name], map} end)
     arity_sanity_check(nice_spec)
     escaped = Macro.escape(Map.new(nice_spec))
     quote do

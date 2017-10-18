@@ -34,25 +34,6 @@ defmodule ExampleTest do
       x + 1
     end
 
-
-    # # next two should crash ExposeSpec on assert
-    # @spec arity(x :: integer, y :: integer) :: integer
-    # def arity(x, y), do: x + y
-    # @spec arity(x :: integer) :: integer
-    # def arity(x), do: x + 2
-
-    # # will not compile, should not crash ExposeSpec
-    # @spec underdefined(x) :: :ok
-    # def underdefined(x) do
-    #   :ok
-    # end
-
-    # # will not compile, should not crash ExposeSpec
-    # @spec crash(x :: integer, y :: integer)
-    # def crash(x, y) do
-    #   throw(:yep)
-    # end
-
   end
 
   test "cleans up spec AST to kv form" do

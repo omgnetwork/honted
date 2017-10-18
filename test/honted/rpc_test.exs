@@ -1,26 +1,54 @@
 defmodule HonteD.JSONRPC2.Server.HandlerTest do
-  @moduledoc """
-  **NOTE** this test will pretend to be Tendermint core
-  """
-  use ExUnit.Case, async: true
-  doctest HonteD
+  use ExUnit.Case
 
-  import HonteD.JSONRPC2.Server.Handler
-
-  defmodule TransformRequestTest do
+  defmodule ExampleAPI do
     use ExposeSpec
-    @spec basic(x :: integer, y :: integer) :: integer
-    def basic(x, y) do
-      x + y
+
+    @spec is_even_N(x :: integer) :: boolean | {:error, :badarg}
+    def is_even_N(x) when x > 0 and is_integer(x) do
+      {:ok, rem(x, 2) == 0}
+    end
+    def is_even_N(_) do
+      {:error, :badarg}
     end
   end
 
-  test "map to API, don't check the types correctness" do
-    spec = TransformRequestTest._spec()
-    endpoint = "basic"
-    params = %{"x" => "2", "y" => "3"}
-    assert {:ok, :basic, ["2", "3"]} == translate_request(endpoint, params, spec)
+  # SUT (System Under Test):
+  defmodule ExampleHandler do
+    use JSONRPC2.Server.Handler
+
+    @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
+    def handle_request(method, params) do
+      with {:ok, fname, args} <- RPCTranslate.to_fa(method, params, ExampleAPI._spec()),
+        do: apply_call(ExampleAPI, fname, args)
+    end
+
+    defp apply_call(module, fname, args) do
+      case :erlang.apply(module, fname, args) do
+        {:ok, any} -> any
+        {:error, any} -> {:internal_error, any}
+      end
+    end
   end
 
+  # test "crashing test" do
+  #   assert false
+  # end
+
+  test "sane handler" do
+    f = fn(x) ->
+      {:reply, rep} = JSONRPC2.Server.Handler.handle(ExampleHandler, Poison, x)
+      {:ok, decoded} = Poison.decode(rep)
+      decoded
+    end
+    assert %{"result" => true} =
+      f.(~s({"method": "is_even_N", "params": {"x": 26}, "id": 1, "jsonrpc": "2.0"}))
+    assert %{"result" => false} =
+      f.(~s({"method": "is_even_N", "params": {"x": 1}, "id": 1, "jsonrpc": "2.0"}))
+    assert %{"error" => %{"code" => -32603}} =
+      f.(~s({"method": "is_even_N", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
+    assert %{"result" => "method_not_found"} =
+      f.(~s({"method": ":lists.filtermap", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
+  end
 
 end
