@@ -35,7 +35,7 @@ defmodule ExampleTest do
     end
 
     @spec triple(x :: {integer, integer, integer}) :: :ok
-    def triple(x) do
+    def triple(_x) do
       :ok
     end
 

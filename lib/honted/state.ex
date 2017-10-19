@@ -2,26 +2,44 @@ defmodule HonteD.State do
   @moduledoc """
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
+  
+  @max_amount round(:math.pow(2,256))  # used to limit integers handled on-chain
 
   @type t :: map()
   def empty(), do: %{}
 
-  def exec(state, {:issue, asset, amount, dest}) do
-    key = "accounts/#{asset}/#{dest}"
-    state = Map.update(state, key, amount, &(&1 + amount))
-    {:ok, state}
+  def exec(state, {nonce, :create_token, issuer, signature}) do
+    signed_part = 
+      {nonce, :create_token, issuer} 
+      |> HonteD.TxCodec.encode
+      
+    with {:ok} <- nonce_valid?(state, issuer, nonce),
+         {:ok} <- signed?(signed_part, signature, issuer),
+         do: {:ok, state |> apply_create_token(issuer, nonce)}
+  end
+
+  def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
+    signed_part = 
+      {nonce, :issue, asset, amount, dest, issuer}
+      |> HonteD.TxCodec.encode
+      
+    with {:ok} <- not_too_much?(amount),
+         {:ok} <- nonce_valid?(state, issuer, nonce),
+         {:ok} <- is_issuer?(state, asset, issuer),
+         {:ok} <- signed?(signed_part, signature, issuer),
+         do: {:ok, state |> apply_issue(asset, amount, dest, issuer)}
   end
 
   def exec(state, {nonce, :send, asset, amount, src, dest, signature}) do
     key_src = "accounts/#{asset}/#{src}"
     key_dest = "accounts/#{asset}/#{dest}"
     signed_part = 
-      {nonce, :send, asset, amount, src, dest} |>
-      HonteD.TxCodec.encode
+      {nonce, :send, asset, amount, src, dest}
+      |> HonteD.TxCodec.encode
 
     with {:ok} <- positive?(amount),
-         {:ok} <- account_has_at_least?(state, key_src, amount),
          {:ok} <- nonce_valid?(state, src, nonce),
+         {:ok} <- account_has_at_least?(state, key_src, amount),
          {:ok} <- signed?(signed_part, signature, src),
          do: {:ok, state |> apply_send(amount, src, key_src, key_dest)}
 
@@ -60,11 +78,44 @@ defmodule HonteD.State do
     if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:invalid_nonce}
   end
   
+  defp not_too_much?(amount_entering) do
+    # limits the ability to exploit BEAM's uncapped integer in an attack.
+    # Has nothing to do with token supply mechanisms
+    if amount_entering < @max_amount, do: {:ok}, else: {:amount_way_too_large}
+  end
+  
+  defp is_issuer?(state, token_addr, address) do
+    case Map.get(state, "tokens/#{token_addr}/issuer") do
+      nil -> {:unknown_issuer}
+      ^address -> {:ok}
+      _ -> {:incorrect_issuer}
+    end
+  end
+  
+  defp apply_create_token(state, issuer, nonce) do
+    token_addr = HonteD.Token.create_address(issuer, nonce)
+    state 
+    |> bump_nonce(issuer)
+    |> Map.put("tokens/#{token_addr}/issuer", issuer)
+  end
+  
+  defp apply_issue(state, asset, amount, dest, issuer) do
+    key_dest = "accounts/#{asset}/#{dest}"
+    state
+    |> bump_nonce(issuer)
+    |> Map.update(key_dest, amount, &(&1 + amount))
+  end
+  
   defp apply_send(state, amount, src, key_src, key_dest) do
-    state |>
-    Map.update("nonces/#{src}", 1, &(&1 + 1)) |> 
-    Map.update!(key_src, &(&1 - amount)) |>
-    Map.update(key_dest, amount, &(&1 + amount))
+    state 
+    |> bump_nonce(src)
+    |> Map.update!(key_src, &(&1 - amount))
+    |> Map.update(key_dest, amount, &(&1 + amount))
+  end
+  
+  defp bump_nonce(state, address) do
+    state 
+    |> Map.update("nonces/#{address}", 1, &(&1 + 1))
   end
   
   defp signed?(signed_part, signature, src) do
@@ -77,8 +128,8 @@ defmodule HonteD.State do
 
   def hash(state) do
     # FIXME: crudest of all app state hashes
-    state |>
-    OJSON.encode! |>  # using OJSON instead of inspect to have crypto-ready determinism
-    HonteD.Crypto.hash
+    state
+    |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
+    |> HonteD.Crypto.hash
   end
 end
