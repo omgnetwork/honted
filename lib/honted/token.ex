@@ -4,7 +4,7 @@ defmodule HonteD.Token do
     |> Kernel.<>(" creates token number ")
     |> Kernel.<>(to_string(nonce))
     |> HonteD.Crypto.hash
-    |> String.slice(0,37)
+    |> Kernel.binary_part(0, 37)
     |> Kernel.<>("tok")
   end
 end

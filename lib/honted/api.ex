@@ -22,6 +22,10 @@ defmodule HonteD.API do
 
   @doc """
   Creates a signable, encoded transaction that issues `amount` `asset`-tokens to `to`
+  
+  NOTE: amount issuable is capped at 2^256, to limit the capability to exploit unlimited integers in BEAM
+        see code that handles state transition for issuing.
+        This cap has nothing to do with token supply
   """
   @spec create_issue_transaction(binary, pos_integer, binary, binary) :: {:ok, binary} | any
   def create_issue_transaction(asset, amount, to, issuer)
@@ -71,7 +75,7 @@ defmodule HonteD.API do
   end
   
   @doc """
-  Queries a current balance in `aaset` for a particular `address`
+  Queries a current balance in `asset` for a particular `address`
   
   {:ok, balance} on success
   garbage on error (FIXME!!)
