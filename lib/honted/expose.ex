@@ -65,6 +65,7 @@ defmodule ExposeSpec do
   end
 
   defp parse_term(atom) when is_atom(atom), do: atom
+  defp parse_term(list) when is_list(list), do: for t <- list, do: parse_term(t)
   defp parse_term({el1, el2}), do: {parse_term(el1), parse_term(el2)}
   defp parse_term({:{}, _, tuple_els}) do
     list = for t <- tuple_els, do: parse_term(t)
