@@ -5,13 +5,16 @@ defmodule HonteD.API do
   Should abstract out all Tendermint-related stuff
   """
 
+  use ExposeSpec
+
   alias HonteD.TendermintRPC
   import HonteD.API.Tools
 
   @doc """
   Creates a signable, encoded transaction that creates a new token for an issuer
   """
-  @spec create_create_token_transaction(binary) :: {:ok, binary} | any
+  @spec create_create_token_transaction(issuer :: binary)
+        :: {:ok, binary} | any
   def create_create_token_transaction(issuer) when is_binary(issuer) do
     client = TendermintRPC.client()
     case get_nonce(client, issuer) do
@@ -22,8 +25,13 @@ defmodule HonteD.API do
 
   @doc """
   Creates a signable, encoded transaction that issues `amount` `asset`-tokens to `to`
+  
+  NOTE: amount issuable is capped at 2^256, to limit the capability to exploit unlimited integers in BEAM
+        see code that handles state transition for issuing.
+        This cap has nothing to do with token supply
   """
-  @spec create_issue_transaction(binary, pos_integer, binary, binary) :: {:ok, binary} | any
+  @spec create_issue_transaction(asset :: binary, amount :: pos_integer, to :: binary, issuer :: binary)
+        :: {:ok, binary} | any
   def create_issue_transaction(asset, amount, to, issuer)
   when is_binary(asset) and
        is_integer(amount) and
@@ -40,7 +48,8 @@ defmodule HonteD.API do
   @doc """
   Creates a signable, encoded transaction that sends `amount` of `asset` from `from` to `to`
   """
-  @spec create_send_transaction(binary, pos_integer, binary, binary) :: {:ok, binary} | any
+  @spec create_send_transaction(asset :: binary, amount :: pos_integer, from :: binary, to :: binary)
+        :: {:ok, binary} | any
   def create_send_transaction(asset, amount, from, to)
   when is_binary(asset) and
        is_integer(amount) and
@@ -60,7 +69,7 @@ defmodule HonteD.API do
   {:ok, hash} on success or duplicate transaction
   garbage on error (FIXME!!)
   """
-  @spec submit_transaction(binary) :: {:ok, binary} | any
+  @spec submit_transaction(transaction :: binary) :: {:ok, binary} | any
   def submit_transaction(transaction) do
     client = TendermintRPC.client()
     case TendermintRPC.broadcast_tx_sync(client, transaction) do
@@ -71,12 +80,12 @@ defmodule HonteD.API do
   end
   
   @doc """
-  Queries a current balance in `aaset` for a particular `address`
+  Queries a current balance in `asset` for a particular `address`
   
   {:ok, balance} on success
   garbage on error (FIXME!!)
   """
-  @spec query_balance(binary, binary) :: {:ok, non_neg_integer} | any
+  @spec query_balance(asset :: binary, address :: binary) :: {:ok, non_neg_integer} | any
   def query_balance(asset, address)
   when is_binary(asset) and
        is_binary(address) do
@@ -114,7 +123,7 @@ defmodule HonteD.API do
   {:ok, details} on success
   garbage on error (FIXME!!)
   """
-  @spec tx(binary) :: {:ok, map} | any
+  @spec tx(hash :: binary) :: {:ok, map} | any
   def tx(hash) when is_binary(hash) do
     client = TendermintRPC.client()
     case TendermintRPC.tx(client, hash) do

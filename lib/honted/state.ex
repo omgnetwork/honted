@@ -79,6 +79,8 @@ defmodule HonteD.State do
   end
   
   defp not_too_much?(amount_entering) do
+    # limits the ability to exploit BEAM's uncapped integer in an attack.
+    # Has nothing to do with token supply mechanisms
     if amount_entering < @max_amount, do: {:ok}, else: {:amount_way_too_large}
   end
   
