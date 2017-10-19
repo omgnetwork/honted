@@ -31,10 +31,6 @@ defmodule HonteD.JSONRPC2.Server.HandlerTest do
     end
   end
 
-  # test "crashing test" do
-  #   assert false
-  # end
-
   test "sane handler" do
     f = fn(x) ->
       {:reply, rep} = JSONRPC2.Server.Handler.handle(ExampleHandler, Poison, x)
