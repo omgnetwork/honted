@@ -71,6 +71,7 @@ defmodule ExposeSpec do
     list = for t <- tuple_els, do: parse_term(t)
     :erlang.list_to_tuple(list)
   end
+  defp parse_term({:%{}, _, list}), do: {:map, parse_term(list)}
   defp parse_term({:|, _, alts}), do: parse_alternative(alts)
   defp parse_term({atom, _, :nil}) when is_atom(atom), do: atom
 
