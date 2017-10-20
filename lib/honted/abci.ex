@@ -67,6 +67,7 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
     {:ok, decoded} = HonteD.TxCodec.decode(tx)
     {:ok, state} = HonteD.State.exec(state, decoded)
+    HonteD.Eventer.notify_committed(decoded)
     {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
   end
 
