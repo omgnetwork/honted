@@ -17,14 +17,14 @@ defmodule HonteD.API do
         :: {:ok, binary} | any
   def create_create_token_transaction(issuer) when is_binary(issuer) do
     client = TendermintRPC.client()
-    with nonce when is_integer(nonce) <- get_nonce(client, issuer),
-         do: HonteD.TxCodec.encode([nonce, :create_token, issuer])
+    with {:ok, nonce} <- get_nonce(client, issuer),
+         do: {:ok, HonteD.TxCodec.encode([nonce, :create_token, issuer])}
   end
 
   @doc """
   Creates a signable, encoded transaction that issues `amount` `asset`-tokens to `to`
   
-  NOTE: amount issuable is capped at 2^256, to limit the capability to exploit unlimited integers in BEAM
+  NOTE: total_supply issuable is capped at 2^256, to limit the capability to exploit unlimited integers in BEAM
         see code that handles state transition for issuing.
         This cap has nothing to do with token supply
   """
@@ -37,8 +37,8 @@ defmodule HonteD.API do
        is_binary(issuer) and
        is_binary(to) do
     client = TendermintRPC.client()
-    with nonce when is_integer(nonce) <- get_nonce(client, issuer),
-         do: HonteD.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])
+    with {:ok, nonce} <- get_nonce(client, issuer),
+         do: {:ok, HonteD.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])}
   end
 
   @doc """
@@ -53,8 +53,8 @@ defmodule HonteD.API do
        is_binary(from) and
        is_binary(to) do
     client = TendermintRPC.client()
-    with nonce when is_integer(nonce) <- get_nonce(client, from),
-         do: HonteD.TxCodec.encode([nonce, :send, asset, amount, from, to])
+    with {:ok, nonce} <- get_nonce(client, from),
+         do: {:ok, HonteD.TxCodec.encode([nonce, :send, asset, amount, from, to])}
   end
 
   @doc """
@@ -77,12 +77,12 @@ defmodule HonteD.API do
   {:ok, balance} on success
   garbage on error (FIXME!!)
   """
-  @spec query_balance(asset :: binary, address :: binary) :: {:ok, non_neg_integer} | any
-  def query_balance(asset, address)
-  when is_binary(asset) and
+  @spec query_balance(token :: binary, address :: binary) :: {:ok, non_neg_integer} | any
+  def query_balance(token, address)
+  when is_binary(token) and
        is_binary(address) do
     client = TendermintRPC.client()
-    rpc_response = TendermintRPC.abci_query(client, "", "/accounts/#{asset}/#{address}")
+    rpc_response = TendermintRPC.abci_query(client, "", "/accounts/#{token}/#{address}")
     with {:ok, %{"response" => %{"code" => 0, "value" => balance_encoded}}} <- rpc_response,
          {:ok, decoded} <- Base.decode16(balance_encoded),
          {balance, ""} <- Integer.parse(decoded),
@@ -104,6 +104,21 @@ defmodule HonteD.API do
          {:ok, decoded} <- Base.decode16(token_list_encoded),
          # translate raw output from abci by cutting into 40-char-long ascii sequences
          do: {:ok, decoded |> String.codepoints |> Enum.chunk_every(40) |> Enum.map(&Enum.join/1)}
+  end
+  
+  @doc """
+  Get detailed information for a particular token
+  
+  {:ok, info} on success
+  garbage on error (FIXME!!)
+  """
+  @spec token_info(token :: binary) :: {:ok, map} | any
+  def token_info(token)
+  when is_binary(token) do
+    client = TendermintRPC.client()
+    with {:ok, issuer} <- get_issuer(client, token),
+         {:ok, total_supply} <- get_total_supply(client, token),
+         do: {:ok, %{token: token, issuer: issuer, total_supply: total_supply}}
   end
   
   @doc """

@@ -12,14 +12,25 @@ defmodule HonteD.API.Tools do
   in case of any failure
   """
   def get_nonce(client, from) do
-    result = TendermintRPC.abci_query(client, "", "/nonces/#{from}")
-    with {:ok, %{"response" => %{"code" => 0, "value" => nonce}}} <- result,
-         {:ok, string_nonce} <- Base.decode16(nonce),
-         {int_nonce, ""} <- Integer.parse(string_nonce)
-    do 
-      int_nonce
-    else 
-      _ -> result
-    end
+    rpc_response = TendermintRPC.abci_query(client, "", "/nonces/#{from}")
+    with {:ok, %{"response" => %{"code" => 0, "value" => nonce_encoded}}} <- rpc_response,
+         {:ok, string_nonce} <- Base.decode16(nonce_encoded),
+         {int_nonce, ""} <- Integer.parse(string_nonce),
+         do: {:ok, int_nonce}
+  end
+  
+  def get_issuer(client, token) do
+    rpc_response = TendermintRPC.abci_query(client, "", "/tokens/#{token}/issuer")
+    with {:ok, %{"response" => %{"code" => 0, "value" => issuer_encoded}}} <- rpc_response,
+         {:ok, decoded} <- Base.decode16(issuer_encoded),
+         do: {:ok, decoded}
+  end
+  
+  def get_total_supply(client, token) do
+    rpc_response = TendermintRPC.abci_query(client, "", "/tokens/#{token}/total_supply")
+    with {:ok, %{"response" => %{"code" => 0, "value" => supply_encoded}}} <- rpc_response,
+         {:ok, decoded} <- Base.decode16(supply_encoded),
+         {supply, ""} <- Integer.parse(decoded),
+         do: {:ok, supply}
   end
 end

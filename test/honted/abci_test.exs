@@ -110,6 +110,17 @@ defmodule HonteD.ABCITest do
       sign("0 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'unknown_issuer') |> same?(state)
     end
     
+    @tag fixtures: [:empty_state, :asset]
+    test "can't find not-created token infos", %{empty_state: state, asset: asset} do
+      query(state, '/tokens/#{asset}/issuer') |> not_found?
+      query(state, '/tokens/#{asset}/total_supply') |> not_found?
+    end
+    
+    @tag fixtures: [:state_with_token, :asset]
+    test "zero total supply on creation", %{state_with_token: state, asset: asset} do
+      query(state, '/tokens/#{asset}/total_supply') |> found?('0')
+    end
+    
     @tag fixtures: [:alice, :state_with_token, :asset]
     test "can't issue other issuer's token", %{alice: alice, state_with_token: state, asset: asset } do
       sign("0 ISSUE #{asset} 5 #{alice.addr} #{alice.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'incorrect_issuer') |> same?(state)
@@ -140,13 +151,14 @@ defmodule HonteD.ABCITest do
     test "can't overflow in issue", %{issuer: issuer, alice: alice, state_with_token: state, asset: asset} do
       sign("1 ISSUE #{asset} #{round(:math.pow(2, 256))} #{alice.addr} #{issuer.addr}", issuer.priv) 
       |> check_tx(state) |> fail?(1, 'amount_way_too_large') |> same?(state)
-      sign("1 ISSUE #{asset} #{round(:math.pow(2, 256)) - 1} #{alice.addr} #{issuer.addr}", issuer.priv) 
-      |> check_tx(state) |> success? |> same?(state)
+      %{state: state} = sign("1 ISSUE #{asset} #{round(:math.pow(2, 256)) - 1} #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      sign("2 ISSUE #{asset} 1 #{alice.addr} #{issuer.addr}", issuer.priv) 
+      |> check_tx(state) |> fail?(1, 'amount_way_too_large') |> same?(state)
     end
     
     @tag fixtures: [:alice, :empty_state]
     test "can get empty list of issued tokens", %{alice: alice, empty_state: state} do
-      query(state, '/issuers/#{alice.addr}') |> not_found?     
+      query(state, '/issuers/#{alice.addr}') |> not_found?
     end
   
     @tag fixtures: [:issuer, :alice, :state_with_token, :asset]
@@ -159,6 +171,17 @@ defmodule HonteD.ABCITest do
 
       query(state, '/issuers/#{issuer.addr}') |> found?([asset1, asset])
       query(state, '/issuers/#{alice.addr}') |> found?([asset2])      
+    end
+  
+    @tag fixtures: [:issuer, :alice, :state_with_token, :asset]
+    test "total supply and balance on issue", %{issuer: issuer, alice: alice, state_with_token: state, asset: asset} do
+      %{state: state} = sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      query(state, '/tokens/#{asset}/total_supply') |> found?('5')
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('5')
+      %{state: state} = sign("2 ISSUE #{asset} 7 #{issuer.addr} #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
+      query(state, '/tokens/#{asset}/total_supply') |> found?('12')
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('5')
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?('7')
     end
   end
   
