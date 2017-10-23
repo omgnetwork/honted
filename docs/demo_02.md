@@ -16,9 +16,7 @@ To run two Tendermint nodes and to ABCI servers on same machine do following.
         
         # wait
         
-        {:ok, decoded_tx} = tx(hash)["decoded_tx"]
-        {:ok, {nonce, :create_token, issuer, _ }} = HonteD.TxCodec.decode(decoded_tx)
-        asset = HonteD.Token.create_address(issuer, nonce)
+        {:ok, [asset]} = tokens_issued_by(alice)
         
         raw_tx = create_issue_transaction(asset, 5, alice, alice)
         {:ok, signature} = sign(raw_tx, alice_priv)

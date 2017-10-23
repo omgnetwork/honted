@@ -17,10 +17,8 @@ defmodule HonteD.API do
         :: {:ok, binary} | any
   def create_create_token_transaction(issuer) when is_binary(issuer) do
     client = TendermintRPC.client()
-    case get_nonce(client, issuer) do
-      nonce when is_integer(nonce) -> HonteD.TxCodec.encode([nonce, :create_token, issuer])
-      result -> result
-    end
+    with nonce when is_integer(nonce) <- get_nonce(client, issuer),
+         do: HonteD.TxCodec.encode([nonce, :create_token, issuer])
   end
 
   @doc """
@@ -39,10 +37,8 @@ defmodule HonteD.API do
        is_binary(issuer) and
        is_binary(to) do
     client = TendermintRPC.client()
-    case get_nonce(client, issuer) do
-      nonce when is_integer(nonce) -> HonteD.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])
-      result -> result
-    end
+    with nonce when is_integer(nonce) <- get_nonce(client, issuer),
+         do: HonteD.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])
   end
 
   @doc """
@@ -57,10 +53,8 @@ defmodule HonteD.API do
        is_binary(from) and
        is_binary(to) do
     client = TendermintRPC.client()
-    case get_nonce(client, from) do
-      nonce when is_integer(nonce) -> HonteD.TxCodec.encode([nonce, :send, asset, amount, from, to])
-      result -> result
-    end
+    with nonce when is_integer(nonce) <- get_nonce(client, from),
+         do: HonteD.TxCodec.encode([nonce, :send, asset, amount, from, to])
   end
 
   @doc """
@@ -72,11 +66,9 @@ defmodule HonteD.API do
   @spec submit_transaction(transaction :: binary) :: {:ok, binary} | any
   def submit_transaction(transaction) do
     client = TendermintRPC.client()
-    case TendermintRPC.broadcast_tx_sync(client, transaction) do
-      {:ok, %{"code" => code, "hash" => hash}} when code in [0, 3] ->
-        {:ok, hash}  # either submitted or duplicate
-      result -> result
-    end
+    rpc_response = TendermintRPC.broadcast_tx_sync(client, transaction)
+    with {:ok, %{"code" => code, "hash" => hash}} when code in [0, 3] <- rpc_response,
+         do: {:ok, hash}  # either submitted or duplicate
   end
   
   @doc """
@@ -90,12 +82,11 @@ defmodule HonteD.API do
   when is_binary(asset) and
        is_binary(address) do
     client = TendermintRPC.client()
-    case TendermintRPC.abci_query(client, "", "/accounts/#{asset}/#{address}") do
-      {:ok, %{"response" => %{"code" => 0, "value" => balance_enc}}} ->
-        {balance, ""} = Integer.parse(Base.decode16!(balance_enc))
-        {:ok, balance}
-      result -> result
-    end
+    rpc_response = TendermintRPC.abci_query(client, "", "/accounts/#{asset}/#{address}")
+    with {:ok, %{"response" => %{"code" => 0, "value" => balance_encoded}}} <- rpc_response,
+         {:ok, decoded} <- Base.decode16(balance_encoded),
+         {balance, ""} <- Integer.parse(decoded),
+         do: {:ok, balance}
   end
   
   @doc """
@@ -104,16 +95,15 @@ defmodule HonteD.API do
   {:ok, list_of_tokens} on success
   garbage on error (FIXME!!)
   """
-  @spec list_issued(binary) :: {:ok, [binary]} | any
-  def list_issued(issuer)
+  @spec tokens_issued_by(issuer :: binary) :: {:ok, [binary]} | any
+  def tokens_issued_by(issuer)
   when is_binary(issuer) do
     client = TendermintRPC.client()
-    case TendermintRPC.abci_query(client, "", "/issuers/#{issuer}") do
-      {:ok, %{"response" => %{"code" => 0, "value" => issuers_list_enc}}} ->
-        # translate raw output from abci by cutting into 40-char-long ascii sequences
-        Base.decode16!(issuers_list_enc) |> String.codepoints |> Enum.chunk_every(40) |> Enum.map(&Enum.join/1)
-      result -> result
-    end
+    rpc_response = TendermintRPC.abci_query(client, "", "/issuers/#{issuer}")
+    with {:ok, %{"response" => %{"code" => 0, "value" => token_list_encoded}}} <- rpc_response,
+         {:ok, decoded} <- Base.decode16(token_list_encoded),
+         # translate raw output from abci by cutting into 40-char-long ascii sequences
+         do: {:ok, decoded |> String.codepoints |> Enum.chunk_every(40) |> Enum.map(&Enum.join/1)}
   end
   
   @doc """
@@ -126,10 +116,10 @@ defmodule HonteD.API do
   @spec tx(hash :: binary) :: {:ok, map} | any
   def tx(hash) when is_binary(hash) do
     client = TendermintRPC.client()
-    case TendermintRPC.tx(client, hash) do
-      {:ok, result} -> result |> Map.put("decoded_tx", Base.decode64(result["tx"]))
-      result -> result
-    end
+    with {:ok, result} <- TendermintRPC.tx(client, hash),
+         {:ok, decoded} <- Base.decode64(result["tx"]),
+         result <- Map.put(result, "decoded_tx", decoded), # adding a convenience field to preview the tx
+         do: {:ok, result}
   end
 
 end
