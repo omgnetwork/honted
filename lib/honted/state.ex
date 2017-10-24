@@ -23,9 +23,10 @@ defmodule HonteD.State do
       {nonce, :issue, asset, amount, dest, issuer}
       |> HonteD.TxCodec.encode
       
-    with {:ok} <- not_too_much?(amount),
+    with {:ok} <- positive?(amount),
          {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- is_issuer?(state, asset, issuer),
+         {:ok} <- not_too_much?(state["tokens/#{asset}/total_supply"] + amount),
          {:ok} <- signed?(signed_part, signature, issuer),
          do: {:ok, state |> apply_issue(asset, amount, dest, issuer)}
   end
@@ -79,6 +80,9 @@ defmodule HonteD.State do
   end
   
   defp not_too_much?(amount_entering) do
+    # FIXME: this probably should be changed to be taken care off earlier on - on transaction parsing
+    # probably in state-less transaction validation
+    
     # limits the ability to exploit BEAM's uncapped integer in an attack.
     # Has nothing to do with token supply mechanisms
     if amount_entering < @max_amount, do: {:ok}, else: {:amount_way_too_large}
@@ -97,6 +101,9 @@ defmodule HonteD.State do
     state 
     |> bump_nonce(issuer)
     |> Map.put("tokens/#{token_addr}/issuer", issuer)
+    |> Map.put("tokens/#{token_addr}/total_supply", 0)
+    # FIXME: check for duplicate entries or don't care?
+    |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
   
   defp apply_issue(state, asset, amount, dest, issuer) do
@@ -104,6 +111,7 @@ defmodule HonteD.State do
     state
     |> bump_nonce(issuer)
     |> Map.update(key_dest, amount, &(&1 + amount))
+    |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
   end
   
   defp apply_send(state, amount, src, key_src, key_dest) do

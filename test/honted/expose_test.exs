@@ -21,6 +21,12 @@ defmodule ExampleTest do
       {:ok, x + 2}
     end
 
+    # lazy programmer: mentions type but not the variable name, parses OK
+    @spec lists(integer) :: {:ok, [integer]}
+    def lists(x) do
+      {:ok, [x + 2]}
+    end
+
     # parse result here is a bit ugly because series
     # of alternatives are nested in quoted (AST)
     @spec alts(x :: {:ok, integer | float}) :: {:ok, integer} | :error | :error2
@@ -42,7 +48,7 @@ defmodule ExampleTest do
   end
 
   test "expected list of parsed specs" do
-    assert [:alts, :basic, :complex_return, :lazy, :triple] ==
+    assert [:alts, :basic, :complex_return, :lazy, :lists, :triple] ==
       Enum.sort(Map.keys(ExposeSpecTest.get_specs()))
   end
 

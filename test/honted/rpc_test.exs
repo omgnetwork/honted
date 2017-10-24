@@ -4,11 +4,28 @@ defmodule HonteD.JSONRPC2.Server.HandlerTest do
   defmodule ExampleAPI do
     use ExposeSpec
 
-    @spec is_even_N(x :: integer) :: boolean | {:error, :badarg}
+    @spec is_even_N(x :: integer) :: {:ok, boolean} | {:error, :badarg}
     def is_even_N(x) when x > 0 and is_integer(x) do
       {:ok, rem(x, 2) == 0}
     end
     def is_even_N(_) do
+      {:error, :badarg}
+    end
+
+    @spec is_even_list(x :: [integer]) :: {:ok, boolean} | {:error, :badarg}
+    def is_even_list(x) when is_list(x) do
+     {:ok, Enum.all?(x, fn(x) -> rem(x, 2) == 0 end)}
+    end
+    def is_even_list(_) do
+      {:error, :badarg}
+    end
+
+    @spec is_map_values_even(x :: %{:atom => integer}) :: {:ok, boolean} | {:error, :badarg}
+    def is_map_values_even(x) when is_map(x) do
+      checker = fn(x) -> rem(x, 2) == 0 end
+      {:ok, Enum.all?(Map.values(x), checker)}
+    end
+    def is_map_values_even(_) do
       {:error, :badarg}
     end
   end
@@ -39,6 +56,11 @@ defmodule HonteD.JSONRPC2.Server.HandlerTest do
     end
     assert %{"result" => true} =
       f.(~s({"method": "is_even_N", "params": {"x": 26}, "id": 1, "jsonrpc": "2.0"}))
+    assert %{"result" => true} =
+      f.(~s({"method": "is_even_list", "params": {"x": [2, 4]}, "id": 1, "jsonrpc": "2.0"}))
+    assert %{"result" => false} =
+      f.(~s({"method": "is_map_values_even", "params": {"x": {"a": 97, "b": 98}},
+             "id": 1, "jsonrpc": "2.0"}))
     assert %{"result" => false} =
       f.(~s({"method": "is_even_N", "params": {"x": 1}, "id": 1, "jsonrpc": "2.0"}))
     assert %{"error" => %{"code" => -32603}} =
