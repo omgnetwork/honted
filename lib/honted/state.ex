@@ -23,7 +23,8 @@ defmodule HonteD.State do
       {nonce, :issue, asset, amount, dest, issuer}
       |> HonteD.TxCodec.encode
       
-    with {:ok} <- nonce_valid?(state, issuer, nonce),
+    with {:ok} <- positive?(amount),
+         {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- is_issuer?(state, asset, issuer),
          {:ok} <- not_too_much?(state["tokens/#{asset}/total_supply"] + amount),
          {:ok} <- signed?(signed_part, signature, issuer),

@@ -110,6 +110,11 @@ defmodule HonteD.ABCITest do
       sign("0 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'unknown_issuer') |> same?(state)
     end
     
+    @tag fixtures: [:issuer, :alice, :state_with_token, :asset]
+    test "can't issue negative amount", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
+      sign("0 ISSUE #{asset} -1 #{alice.addr} #{issuer.addr}", issuer.priv) |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+    end
+    
     @tag fixtures: [:empty_state, :asset]
     test "can't find not-created token infos", %{empty_state: state, asset: asset} do
       query(state, '/tokens/#{asset}/issuer') |> not_found?
