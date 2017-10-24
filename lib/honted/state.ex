@@ -103,7 +103,7 @@ defmodule HonteD.State do
     |> Map.put("tokens/#{token_addr}/issuer", issuer)
     |> Map.put("tokens/#{token_addr}/total_supply", 0)
     # FIXME: check for duplicate entries or don't care?
-    |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr] ++ previous end)
+    |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
   
   defp apply_issue(state, asset, amount, dest, issuer) do
