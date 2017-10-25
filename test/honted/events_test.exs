@@ -3,7 +3,7 @@ defmodule HonteD.EventerTest do
 
   """
   use ExUnitFixtures
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   doctest HonteD
 
   import HonteD.API
@@ -11,7 +11,7 @@ defmodule HonteD.EventerTest do
   ## fixtures
 
   deffixture server do
-    {:ok, pid} = HonteD.Eventer.start_link([], [])
+    {:ok, pid} = HonteD.Eventer.start_link([])
     pid
   end
 
@@ -76,8 +76,8 @@ defmodule HonteD.EventerTest do
     test "Subscribe, send event, receive event.", %{server: server} do
       e1 = event_send(address1())
       pid = client(fn() -> assert_receive({:committed, ^e1}, 200) end)
-      send_filter_new(server, pid, address1())
-      HonteD.Eventer.notify_committed(server, e1)
+      send_filter_new(pid, address1())
+      HonteD.Eventer.notify_committed(e1)
       join()
     end
   end
@@ -86,11 +86,11 @@ defmodule HonteD.EventerTest do
     @tag fixtures: [:server]
     test "Manual unsubscribe.", %{server: server} do
       pid = client(fn() -> assert_receive(:stop) end)
-      assert {:ok, false} = send_filter_status?(server, pid, address1())
-      send_filter_new(server, pid, address1())
-      assert {:ok, true} = send_filter_status?(server, pid, address1())
-      send_filter_drop(server, pid, address1())
-      assert {:ok, false} = send_filter_status?(server, pid, address1())
+      assert {:ok, false} = send_filter_status?(pid, address1())
+      send_filter_new(pid, address1())
+      assert {:ok, true} = send_filter_status?(pid, address1())
+      send_filter_drop(pid, address1())
+      assert {:ok, false} = send_filter_status?(pid, address1())
       send(pid, :stop)
       join()
     end
@@ -103,14 +103,14 @@ defmodule HonteD.EventerTest do
         assert_receive({:committed, ^e1})
         assert_receive({:committed, ^e1})
       end)
-      send_filter_new(server, pid1, address1())
-      send_filter_new(server, pid2, address1())
-      assert {:ok, true} = send_filter_status?(server, pid1, address1())
-      HonteD.Eventer.notify_committed(server, e1)
+      send_filter_new(pid1, address1())
+      send_filter_new(pid2, address1())
+      assert {:ok, true} = send_filter_status?(pid1, address1())
+      HonteD.Eventer.notify_committed(e1)
       join(pid1)
-      assert {:ok, false} = send_filter_status?(server, pid1, address1())
-      assert {:ok, true} = send_filter_status?(server, pid2, address1())
-      HonteD.Eventer.notify_committed(server, e1)
+      assert {:ok, false} = send_filter_status?(pid1, address1())
+      assert {:ok, true} = send_filter_status?(pid2, address1())
+      HonteD.Eventer.notify_committed(e1)
       join()
     end
   end
@@ -121,9 +121,9 @@ defmodule HonteD.EventerTest do
       e1 = event_send(address1())
       pid1 = client(fn() -> assert_receive({:committed, ^e1}) end)
       pid2 = client(fn() -> refute_receive({:committed, ^e1}, 200) end)
-      send_filter_new(server, pid1, address1())
-      send_filter_new(server, pid2, address2())
-      HonteD.Eventer.notify_committed(server, e1)
+      send_filter_new(pid1, address1())
+      send_filter_new(pid2, address2())
+      HonteD.Eventer.notify_committed(e1)
       join()
     end
   end
@@ -131,19 +131,19 @@ defmodule HonteD.EventerTest do
   describe "API does sanity checks on arguments." do
     @tag fixtures: [:server]
     test "Good topic.", %{server: server}  do
-      assert :ok = send_filter_new(server, self(), address1())
+      assert :ok = send_filter_new(self(), address1())
     end
     @tag fixtures: [:server]
     test "Bad topic.", %{server: server}  do
-      assert {:error, _} = send_filter_new(server, self(), 'this is not a binary')
+      assert {:error, _} = send_filter_new(self(), 'this is not a binary')
     end
     @tag fixtures: [:server]
     test "Good sub.", %{server: server}  do
-      assert :ok = send_filter_new(server, self(), address1())
+      assert :ok = send_filter_new(self(), address1())
     end
     @tag fixtures: [:server]
     test "Bad sub.", %{server: server}  do
-      assert {:error, _} = send_filter_new(server, :registered_processes_will_not_be_handled,
+      assert {:error, _} = send_filter_new(:registered_processes_will_not_be_handled,
                                            address1())
     end
   end

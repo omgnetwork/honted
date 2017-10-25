@@ -44,7 +44,7 @@ defmodule HonteD.Eventer do
   ## guards
 
   # Note that subscriber defined via registered atom is useless
-  # as it will lead to loss of messages in case of it's downtime.
+  # as it will lead to loss of messages in case of its downtime.
   defp is_valid_subscriber(pid) when is_pid(pid), do: true
   defp is_valid_subscriber(_), do: {:error, :subscriber_must_be_pid}
 
@@ -60,8 +60,12 @@ defmodule HonteD.Eventer do
             monitors: Map.new()}}
   end
 
-  def handle_cast({:event, event}, state) do
+  def handle_cast({:event, {_, :send, _, _, _, _, _} = event}, state) do
     do_notify(event, state[:topic2sub])
+    {:noreply, state}
+  end
+
+  def handle_cast({:event, _}, state) do
     {:noreply, state}
   end
 
