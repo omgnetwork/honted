@@ -5,6 +5,10 @@ defmodule HonteD.Mixfile do
     [
       app: :honted,
       version: "0.1.0",
+      build_path: "../../_build",
+      config_path: "../../config/config.exs",
+      deps_path: "../../deps",
+      lockfile: "../../mix.lock",
       elixir: "~> 1.5",
       start_permanent: Mix.env == :prod,
       deps: deps()
@@ -18,7 +22,7 @@ defmodule HonteD.Mixfile do
         abci_port: 46658, # our own abci port tendermint connects to
       ],
       extra_applications: [:logger],
-      applications: [:plug, :cowboy, :hackney],
+      applications: [:cowboy],
       mod: {HonteD.Application, []}
     ]
   end
@@ -27,13 +31,13 @@ defmodule HonteD.Mixfile do
   defp deps do
     [
       {:abci_server, github: 'KrzysiekJ/abci_server'},
+      {:cowboy, "~> 1.1"},
       {:ranch, "~> 1.3.2"},
-      {:poison, "~> 3.1"},
-      {:plug, "~> 1.3"},
-      {:hackney, "~> 1.7"},
       {:ojson, "~> 1.0.0"},
       {:bimap, "~> 0.1.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
+      #
+      {:honted_lib, in_umbrella: true},
     ]
   end
 end

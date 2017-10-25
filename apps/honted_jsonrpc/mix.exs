@@ -22,7 +22,7 @@ defmodule HonteDJSONRPC.Mixfile do
         honted_api_ws_port: 4004, # our own websocket port where HonteDAPI is exposed
       ],
       extra_applications: [:logger],
-      applications: [:jsonrpc2, :poison, :cowboy],
+      applications: [:jsonrpc2, :cowboy],
       mod: {HonteDJSONRPC.Application, []}
     ]
   end
@@ -32,6 +32,8 @@ defmodule HonteDJSONRPC.Mixfile do
       {:jsonrpc2, "~> 1.0"},
       {:cowboy, "~> 1.1"},
       {:poison, "~> 3.1"},
+      #
+      {:honted_api, in_umbrella: true},
     ]
   end
 end

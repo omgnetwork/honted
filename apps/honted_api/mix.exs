@@ -14,20 +14,23 @@ defmodule HonteDAPI.Mixfile do
       deps: deps()
     ]
   end
-  
+
   def application do
     [
       env: [
         rpc_port: 46657, # tendermint node's rpc port
       ],
       extra_applications: [:logger],
-      applications: [:hackney],
+      applications: [],
     ]
   end
 
   defp deps do
     [
       {:tesla, "~>0.8.0"},
+      {:plug, "~> 1.3"},
+      {:poison, "~> 3.1"},
+      {:honted_lib, in_umbrella: true},
     ]
   end
 end
