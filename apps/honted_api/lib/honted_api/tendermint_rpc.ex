@@ -5,7 +5,7 @@ defmodule HonteDAPI.TendermintRPC do
   use Tesla
 
   def client() do
-    rpc_port = Application.get_env(:honted, :rpc_port)
+    rpc_port = Application.get_env(:honted_api, :tendermint_rpc_port)
     Tesla.build_client [
       {Tesla.Middleware.BaseUrl, "http://localhost:#{rpc_port}"},
       Tesla.Middleware.JSON

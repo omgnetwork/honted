@@ -4,7 +4,7 @@ defmodule HonteDJSONRPC.Application do
   use Application
 
   def start(_type, _args) do
-    honted_port = Application.get_env(:honted, :honted_api_rpc_port)    
+    honted_port = Application.get_env(:honted_jsonrpc, :honted_api_rpc_port)    
     children = [
       JSONRPC2.Servers.HTTP.child_spec(:http, HonteDJSONRPC.Server.Handler,
                                        [port: honted_port])
