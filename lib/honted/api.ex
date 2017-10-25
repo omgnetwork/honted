@@ -137,20 +137,17 @@ defmodule HonteD.API do
          do: {:ok, result}
   end
 
-  @spec send_filter_new(subscriber :: pid, watched :: binary) :: result
-    when result: {:ok, :ok} | {:error, atom}
+  @spec send_filter_new(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
   def send_filter_new(subscriber, watched) do
     HonteD.Eventer.subscribe_send(subscriber, watched)
   end
 
-  @spec send_filter_drop(subscriber :: pid, watched :: binary) :: result
-    when result: {:ok, :ok} | {:error, atom}
+  @spec send_filter_drop(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
   def send_filter_drop(subscriber, watched) do
     HonteD.Eventer.unsubscribe_send(subscriber, watched)
   end
 
-  @spec send_filter_status?(subscriber :: pid, watched :: binary) :: result
-    when result: {:ok, boolean} | {:error, atom}
+  @spec send_filter_status?(subscriber :: pid, watched :: binary) :: {:ok, boolean} | {:error, atom}
   def send_filter_status?(subscriber, watched) do
     HonteD.Eventer.subscribed?(subscriber, watched)
   end
