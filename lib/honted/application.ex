@@ -15,7 +15,8 @@ defmodule HonteD.Application do
       JSONRPC2.Servers.HTTP.child_spec(:http, HonteD.JSONRPC2.Server.Handler,
                                        [port: honted_port]),
       # TODO: move next child to other app; it is not an necessary part of consensus
-      HonteD.Eventer
+      HonteD.Eventer,
+      HonteD.WSRPC,
     ]
 
     opts = [strategy: :one_for_one, name: HonteD.Supervisor]

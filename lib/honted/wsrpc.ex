@@ -1,4 +1,13 @@
 defmodule HonteD.WSRPC do
+  
+  # FIXME: is this enough for sane minimal implemnetation?
+  def child_spec(_) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start, [nil, nil]},
+    }
+  end
+  
   def start(_type, _args) do
     dispatch_config = build_dispatch_config()
     { :ok, _ } = :cowboy.start_http(:http,
