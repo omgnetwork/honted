@@ -36,11 +36,34 @@ defmodule HonteD.WebsocketHandler do
     {:ok, req, state}
   end
 
-  def websocket_info(_info, req, state) do
+  def websocket_info({:committed, _} = event, req, state) do
+    formatted_event = wsrpc_event(event)
+    {:ok, encoded} = Poison.encode(formatted_event)
+    {:reply, {:text, encoded}, req, state}
+  end
+
+  def websocket_info(info, req, state) do
+    IO.puts("got msg #{inspect info}")
     {:ok, req, state}
   end
 
   # translation and execution logic
+
+  defp format_transaction({nonce, :send, asset, amount, src, dest, signature}) do
+    tr = %{"nonce": nonce,
+           "type": :send,
+           "token": asset,
+           "amount": amount,
+           "src": src,
+           "dest": dest,
+           "signature": signature}
+    %{"source": "filter", "type": "committed", "transaction": tr}
+  end
+
+  defp wsrpc_event({:committed, event}) do
+    formatted_event = format_transaction(event)
+    %{"wsrpc": "1.0", "type": "event", "data": formatted_event}
+  end
 
   defp wsrpc_response({:ok, resp}) do
     %{"wsrpc": "1.0", "type": "rs", "result": resp}
@@ -66,6 +89,11 @@ defmodule HonteD.WebsocketHandler do
   defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
   defp error_code_and_message(:server_error), do: {-32000, "Server error"}
 
+  defp zzz(a, b, c) do
+    r = substitute_pid_with_self(a, b, c)
+    IO.puts("a: #{inspect a}, b: #{inspect b}, c: #{inspect c} -> #{inspect r}")
+    r
+  end
   defp substitute_pid_with_self(_, :pid, _), do: self()
   defp substitute_pid_with_self(_, _, value), do: value
 
@@ -73,7 +101,7 @@ defmodule HonteD.WebsocketHandler do
     with {:ok, decoded_rq} <- decode(content),
          {:rpc, {method, params}} <- parse(decoded_rq),
          {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs(),
-                                                  &substitute_pid_with_self/3),
+                                                  &zzz/3),
       do: apply_call(HonteD.API, fname, args)
   end
 
@@ -94,6 +122,7 @@ defmodule HonteD.WebsocketHandler do
     params = Map.get(request, "params", %{})
     type = Map.get(request, "type", :undefined)
     if valid_request?(version, method, params, type) do
+      IO.puts("method: #{inspect method}; params: #{inspect params}")
       {:rpc, {method, params}}
     else
       :invalid_request
@@ -111,7 +140,12 @@ defmodule HonteD.WebsocketHandler do
   end
 
   defp apply_call(module, fname, args) do
-    :erlang.apply(module, fname, args)
+    res = :erlang.apply(module, fname, args)
+    IO.puts("execution result: #{inspect res}")
+    case res do
+      :ok -> {:ok, :ok}
+      other -> other
+    end
   end
 
 end

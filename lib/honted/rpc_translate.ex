@@ -51,7 +51,9 @@ defmodule RPCTranslate do
         nil ->
           {:halt, {:missing_arg, argspec}}
         value ->
+          IO.puts("value before: #{inspect value}")
           value = on_match.(name, type, value)
+          IO.puts("value after: #{inspect value}")
           {:cont, list ++ [value]}
       end
     end
