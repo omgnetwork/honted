@@ -2,7 +2,7 @@ defmodule HonteD.JSONRPC2.Server.HandlerTest do
   use ExUnit.Case
 
   defmodule ExampleAPI do
-    use ExposeSpec
+    use HonteDAPI.ExposeSpec
 
     @spec is_even_N(x :: integer) :: {:ok, boolean} | {:error, :badarg}
     def is_even_N(x) when x > 0 and is_integer(x) do
@@ -36,7 +36,7 @@ defmodule HonteD.JSONRPC2.Server.HandlerTest do
 
     @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
     def handle_request(method, params) do
-      with {:ok, fname, args} <- RPCTranslate.to_fa(method, params, ExampleAPI.get_specs()),
+      with {:ok, fname, args} <- HonteDAPI.RPCTranslate.to_fa(method, params, ExampleAPI.get_specs()),
         do: apply_call(ExampleAPI, fname, args)
     end
 

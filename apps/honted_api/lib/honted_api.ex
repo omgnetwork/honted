@@ -1,14 +1,14 @@
-defmodule HonteD.API do
+defmodule HonteDAPI do
   @moduledoc """
   Implements the API to be exposed via various means: JSONRPC2.0, cli, other?
 
   Should abstract out all Tendermint-related stuff
   """
 
-  use ExposeSpec
+  use HonteDAPI.ExposeSpec
 
-  alias HonteD.TendermintRPC
-  import HonteD.API.Tools
+  alias HonteDAPI.TendermintRPC
+  import HonteDAPI.Tools
 
   @doc """
   Creates a signable, encoded transaction that creates a new token for an issuer
@@ -18,7 +18,7 @@ defmodule HonteD.API do
   def create_create_token_transaction(issuer) when is_binary(issuer) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, issuer),
-         do: {:ok, HonteD.TxCodec.encode([nonce, :create_token, issuer])}
+         do: {:ok, HonteDLib.TxCodec.encode([nonce, :create_token, issuer])}
   end
 
   @doc """
@@ -38,7 +38,7 @@ defmodule HonteD.API do
        is_binary(to) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, issuer),
-         do: {:ok, HonteD.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])}
+         do: {:ok, HonteDLib.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])}
   end
 
   @doc """
@@ -54,7 +54,7 @@ defmodule HonteD.API do
        is_binary(to) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, from),
-         do: {:ok, HonteD.TxCodec.encode([nonce, :send, asset, amount, from, to])}
+         do: {:ok, HonteDLib.TxCodec.encode([nonce, :send, asset, amount, from, to])}
   end
 
   @doc """

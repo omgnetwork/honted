@@ -26,9 +26,9 @@ defmodule HonteD.ABCITest do
   deffixture issuer(entities), do: entities.issuer
 
   deffixture asset(issuer) do
-    # FIXME: as soon as that functionality lands, we should use HonteD.API to discover newly created token addresses
+    # FIXME: as soon as that functionality lands, we should use HonteDAPI to discover newly created token addresses
     # (multiple occurrences!)
-    HonteD.Token.create_address(issuer.addr, 0)
+    HonteDLib.Token.create_address(issuer.addr, 0)
   end
 
   deffixture state_with_token(empty_state, issuer) do
@@ -96,7 +96,7 @@ defmodule HonteD.ABCITest do
 
     @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
     test "signature checking in issue", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
-      {:ok, issuer_signature} = HonteD.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
+      {:ok, issuer_signature} = HonteDLib.Crypto.sign("1 ISSUE #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
       assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
         handle_call({:RequestCheckTx, "1 ISSUE #{asset} 4 #{alice.addr} #{issuer.addr} #{issuer_signature}"}, nil, state)
 
@@ -138,9 +138,9 @@ defmodule HonteD.ABCITest do
       %{state: state} = sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
       %{state: state} = sign("1 CREATE_TOKEN #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
 
-      asset0 = HonteD.Token.create_address(issuer.addr, 0)
-      asset1 = HonteD.Token.create_address(issuer.addr, 1)
-      asset2 = HonteD.Token.create_address(alice.addr, 0)
+      asset0 = HonteDLib.Token.create_address(issuer.addr, 0)
+      asset1 = HonteDLib.Token.create_address(issuer.addr, 1)
+      asset2 = HonteDLib.Token.create_address(alice.addr, 0)
 
       # check that they're different
       assert asset0 != asset1
@@ -171,8 +171,8 @@ defmodule HonteD.ABCITest do
       query(state, '/issuers/#{issuer.addr}') |> found?([asset])
       %{state: state} = sign("1 CREATE_TOKEN #{issuer.addr}", issuer.priv) |> deliver_tx(state) |> success?
       %{state: state} = sign("0 CREATE_TOKEN #{alice.addr}", alice.priv) |> deliver_tx(state) |> success?
-      asset1 = HonteD.Token.create_address(issuer.addr, 1)
-      asset2 = HonteD.Token.create_address(alice.addr, 0)
+      asset1 = HonteDLib.Token.create_address(issuer.addr, 1)
+      asset2 = HonteDLib.Token.create_address(alice.addr, 0)
 
       query(state, '/issuers/#{issuer.addr}') |> found?([asset1, asset])
       query(state, '/issuers/#{alice.addr}') |> found?([asset2])
@@ -280,7 +280,7 @@ defmodule HonteD.ABCITest do
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
     test "signature checking in send", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      {:ok, alice_signature} = HonteD.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
+      {:ok, alice_signature} = HonteDLib.Crypto.sign("0 SEND #{asset} 1 #{alice.addr} #{bob.addr}", alice.priv)
       assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
         handle_call({:RequestCheckTx, "0 SEND #{asset} 4 #{alice.addr} #{bob.addr} #{alice_signature}"}, nil, state)
 
@@ -290,14 +290,14 @@ defmodule HonteD.ABCITest do
 
   ## HELPER functions
   defp generate_entity() do
-    {:ok, priv} = HonteD.Crypto.generate_private_key
-    {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
-    {:ok, addr} = HonteD.Crypto.generate_address(pub)
+    {:ok, priv} = HonteDLib.Crypto.generate_private_key
+    {:ok, pub} = HonteDLib.Crypto.generate_public_key(priv)
+    {:ok, addr} = HonteDLib.Crypto.generate_address(pub)
     %{priv: priv, addr: addr}
   end
 
   defp sign(raw_tx, priv_key) do
-    {:ok, signature} = HonteD.Crypto.sign(raw_tx, priv_key)
+    {:ok, signature} = HonteDLib.Crypto.sign(raw_tx, priv_key)
     "#{raw_tx} #{signature}"
   end
 

@@ -1,4 +1,4 @@
-defmodule HonteD.TendermintRPC do
+defmodule HonteDAPI.TendermintRPC do
   @moduledoc """
   Wraps Tendermints RPC to allow to broadcast transactions from Elixir functions, inter alia
   """
@@ -37,14 +37,3 @@ defmodule HonteD.TendermintRPC do
     end
   end
 end
-
-# TODO: consider alternative version, but I cannot get the tendermint json querries to execute
-# defmodule HonteD.TendermintRPC do
-#   alias JSONRPC2.Clients.HTTP
-#
-#   @url "http://localhost:46657/"
-#
-#   def broadcast_tx_sync(tx) do
-#     HTTP.call(@url, "broadcast_tx_sync", [tx])
-#   end
-# end

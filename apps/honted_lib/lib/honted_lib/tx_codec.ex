@@ -1,4 +1,4 @@
-defmodule HonteD.TxCodec do
+defmodule HonteDLib.TxCodec do
   @moduledoc """
   Handles transforming correctly formed transaction encodings to tuples and vice versa
 

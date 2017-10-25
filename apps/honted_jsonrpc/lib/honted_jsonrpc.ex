@@ -1,8 +1,8 @@
-defmodule HonteD.JSONRPC2.Server.Handler do
+defmodule HonteDJSONRPC.Server.Handler do
   @moduledoc """
-  Exposes HonteD.API via jsonrpc 2.0 over HTTP.
+  Exposes HonteDAPI via jsonrpc 2.0 over HTTP.
 
-  Internally uses ExposeSpec macro to expose function argument names
+  Internally uses HonteDAPI.ExposeSpec macro to expose function argument names
   so that pairing between JSON keys and arg names becomes possible.
 
   Note: it ignores extra args and does not yet handle functions
@@ -12,8 +12,8 @@ defmodule HonteD.JSONRPC2.Server.Handler do
 
   @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
   def handle_request(method, params) do
-    with {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs()),
-      do: apply_call(HonteD.API, fname, args)
+    with {:ok, fname, args} <- HonteDAPI.RPCTranslate.to_fa(method, params, HonteDAPI.get_specs()),
+      do: apply_call(HonteDAPI, fname, args)
   end
 
   defp apply_call(module, fname, args) do

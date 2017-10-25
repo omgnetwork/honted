@@ -10,7 +10,7 @@ defmodule HonteD.State do
   def exec(state, {nonce, :create_token, issuer, signature}) do
     signed_part =
       {nonce, :create_token, issuer}
-      |> HonteD.TxCodec.encode
+      |> HonteDLib.TxCodec.encode
 
     with {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- signed?(signed_part, signature, issuer),
@@ -20,7 +20,8 @@ defmodule HonteD.State do
   def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
     signed_part =
       {nonce, :issue, asset, amount, dest, issuer}
-      |> HonteD.TxCodec.encode
+      |> HonteDLib.TxCodec.encode
+
     with {:ok} <- positive?(amount),
          {:ok} <- nonce_valid?(state, issuer, nonce),
          {:ok} <- is_issuer?(state, asset, issuer),
@@ -34,7 +35,7 @@ defmodule HonteD.State do
     key_dest = "accounts/#{asset}/#{dest}"
     signed_part =
       {nonce, :send, asset, amount, src, dest}
-      |> HonteD.TxCodec.encode
+      |> HonteDLib.TxCodec.encode
 
     with {:ok} <- positive?(amount),
          {:ok} <- nonce_valid?(state, src, nonce),
@@ -95,7 +96,7 @@ defmodule HonteD.State do
   end
 
   defp apply_create_token(state, issuer, nonce) do
-    token_addr = HonteD.Token.create_address(issuer, nonce)
+    token_addr = HonteDLib.Token.create_address(issuer, nonce)
     state
     |> bump_nonce(issuer)
     |> Map.put("tokens/#{token_addr}/issuer", issuer)
@@ -125,7 +126,7 @@ defmodule HonteD.State do
   end
 
   defp signed?(signed_part, signature, src) do
-    case HonteD.Crypto.verify(signed_part, signature, src) do
+    case HonteDLib.Crypto.verify(signed_part, signature, src) do
       {:ok, true} -> {:ok}
       {:ok, false} -> {:invalid_signature}
       _ -> {:malformed_signature}
@@ -136,6 +137,6 @@ defmodule HonteD.State do
     # FIXME: crudest of all app state hashes
     state
     |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
-    |> HonteD.Crypto.hash
+    |> HonteDLib.Crypto.hash
   end
 end

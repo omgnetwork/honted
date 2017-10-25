@@ -1,9 +1,9 @@
-defmodule ExampleTest do
+defmodule HonteDAPI.ExposeSpecTest do
   use ExUnit.Case
 
-  defmodule ExposeSpecTest do
+  defmodule SomeModule do
 
-    use ExposeSpec
+    use HonteDAPI.ExposeSpec
 
     @spec basic(x :: integer, y :: integer) :: integer
     def basic(x, y) do
@@ -34,7 +34,7 @@ defmodule ExampleTest do
       {:ok, x + 2}
     end
 
-    # this one is too complex - will be just dropped by ExposeSpec
+    # this one is too complex - will be just dropped by HonteDAPI.ExposeSpec
     @spec aliased(x) :: x when x: integer
     def aliased(x) do
       x + 1
@@ -49,16 +49,16 @@ defmodule ExampleTest do
 
   test "expected list of parsed specs" do
     assert [:alts, :basic, :complex_return, :lazy, :lists, :triple] ==
-      Enum.sort(Map.keys(ExposeSpecTest.get_specs()))
+      Enum.sort(Map.keys(SomeModule.get_specs()))
   end
 
   test "test one spec" do
-    assert ExposeSpecTest.get_specs().lazy ==
+    assert SomeModule.get_specs().lazy ==
       %{args: [:integer], arity: 1, name: :lazy, returns: {:ok, :integer}}
   end
 
   test "test triple" do
-    assert ExposeSpecTest.get_specs().triple ==
+    assert SomeModule.get_specs().triple ==
       %{args: [{:x, {:integer, :integer, :integer}}], arity: 1, name: :triple, returns: :ok}
   end
 end

@@ -1,6 +1,6 @@
-defmodule ExposeSpec do
+defmodule HonteDAPI.ExposeSpec do
   @moduledoc """
-  `use ExposeSpec` to expose all @spec in the runtime via YourModule.get_specs()
+  `use HonteDAPI.ExposeSpec` to expose all @spec in the runtime via YourModule.get_specs()
 
   There is undocumented Kernel.Typespec.beam_specs/1 which exposes similar
   functionality. Unfortunately it is considered to be unstable.
@@ -104,9 +104,9 @@ defmodule ExposeSpec do
 
   defmacro __using__(_opts) do
     quote do
-      import ExposeSpec
+      import HonteDAPI.ExposeSpec
 
-      @before_compile ExposeSpec
+      @before_compile HonteDAPI.ExposeSpec
     end
   end
 

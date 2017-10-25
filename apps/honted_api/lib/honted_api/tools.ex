@@ -1,11 +1,11 @@
-defmodule HonteD.API.Tools do
+defmodule HonteDAPI.Tools do
   @moduledoc """
-  Shared functionality used by HonteD.API _not to be auto-exposed_
+  Shared functionality used by HonteDAPI _not to be auto-exposed_
   
   TODO: we should avoid having "tools" and "utils" modules, but where would this belong?
   """
   
-  alias HonteD.TendermintRPC
+  alias HonteDAPI.TendermintRPC
   
   @doc """
   Uses a TendermintRPC `client` to get the current nonce for the `from` address. Returns raw Tendermint response

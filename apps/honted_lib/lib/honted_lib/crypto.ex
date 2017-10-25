@@ -1,4 +1,4 @@
-defmodule HonteD.Crypto do
+defmodule HonteDLib.Crypto do
   @moduledoc """
   Mock of a real cryptography API, to be replaced by Ethereum-compliant primitives
   """

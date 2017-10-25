@@ -10,8 +10,8 @@ To run two Tendermint nodes and to ABCI servers on same machine do following.
 6. second T node: `tendermint node --proxy_app tcp://127.0.0.1:46668 --rpc.laddr tcp://0.0.0.0:46667 --p2p.laddr tcp://0.0.0.0:46666 --p2p.seeds 127.0.0.1:46656 --home ~/.tendermint2`
 7. in the one of the `iex` REPLs:
 
-        import HonteD.API
-        import HonteD.Crypto
+        import HonteDAPI
+        import HonteDLib.Crypto
     
         {:ok, alice_priv} = generate_private_key
         {:ok, alice_pub} = generate_public_key alice_priv

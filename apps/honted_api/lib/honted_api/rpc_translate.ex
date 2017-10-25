@@ -1,4 +1,4 @@
-defmodule RPCTranslate do
+defmodule HonteDAPI.RPCTranslate do
   @moduledoc """
   Translate JSONRPC2 call to a form that can be executed with :erlang.apply/3
   Returns JSONRPC2-specific error values if there is a problem.
@@ -6,7 +6,7 @@ defmodule RPCTranslate do
 
   @type function_name :: binary
   @type arg_name :: binary
-  @type spec :: ExposeSpec.spec()
+  @type spec :: HonteDAPI.ExposeSpec.spec()
   @type json_args :: %{required(arg_name) => any}
   @type rpc_error :: :method_not_found | {:invalid_params, %{}}
 

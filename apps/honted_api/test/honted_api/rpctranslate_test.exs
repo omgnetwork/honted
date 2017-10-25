@@ -1,11 +1,11 @@
-defmodule RPCTranslateTest do
+defmodule HonteDAPI.RPCTranslateTest do
   @moduledoc """
   """
   use ExUnit.Case, async: true
   doctest HonteD
 
   defmodule TransformRequestTest do
-    use ExposeSpec
+    use HonteDAPI.ExposeSpec
     @spec basic(x :: integer, y :: integer) :: integer
     def basic(x, y) do
       x + y
@@ -16,7 +16,7 @@ defmodule RPCTranslateTest do
     spec = TransformRequestTest.get_specs()
     method = "basic"
     params = %{"x" => "2", "y" => "3"}
-    assert {:ok, :basic, ["2", "3"]} == RPCTranslate.to_fa(method, params, spec)
+    assert {:ok, :basic, ["2", "3"]} == HonteDAPI.RPCTranslate.to_fa(method, params, spec)
   end
 
 
