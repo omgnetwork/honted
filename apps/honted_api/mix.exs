@@ -22,7 +22,6 @@ defmodule HonteDAPI.Mixfile do
       ],
       extra_applications: [:logger],
       applications: [:hackney],
-      mod: {HonteD.Application, []}
     ]
   end
 
