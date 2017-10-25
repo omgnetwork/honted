@@ -66,10 +66,14 @@ defmodule HonteD.WebsocketHandler do
   defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
   defp error_code_and_message(:server_error), do: {-32000, "Server error"}
 
+  defp substitute_pid_with_self(_, :pid, _), do: self()
+  defp substitute_pid_with_self(_, _, value), do: value
+
   defp process_text(content) do
     with {:ok, decoded_rq} <- decode(content),
          {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs()),
+         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs(),
+                                                  &substitute_pid_with_self/3),
       do: apply_call(HonteD.API, fname, args)
   end
 
@@ -85,8 +89,6 @@ defmodule HonteD.WebsocketHandler do
   end
 
   def parse(request) when is_map(request) do
-
-    # %{"wsrpc": "1.0", "type": "rq", "method": method, "params": params}
     version = Map.get(request, "wsrpc", :undefined)
     method = Map.get(request, "method", :undefined)
     params = Map.get(request, "params", %{})
