@@ -22,7 +22,7 @@ defmodule HonteD.TendermintRPC do
       path: "\"#{path}\""
     ])
   end
-  
+
   def tx(client, hash) do
     _result_of get(client, "tx", query: [
       hash: "0x#{hash}",

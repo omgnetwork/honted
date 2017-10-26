@@ -17,6 +17,7 @@ defmodule HonteD.Mixfile do
       env: [
         rpc_port: 46657, # tendermint node's rpc port
         abci_port: 46658, # our own abci port tendermint connects to
+        honted_api_ws_port: 4004 , # our own websocket port where HonteD.API is exposed
         honted_api_rpc_port: 4000 # our own rpc port where HonteD.API is exposed
       ],
       extra_applications: extra_applications(Mix.env),
@@ -41,6 +42,7 @@ defmodule HonteD.Mixfile do
       {:hackney, "~> 1.7"},
       {:tesla, "~>0.8.0"},
       {:ojson, "~> 1.0.0"},
+      {:bimap, "~> 0.1.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
     ]
   end

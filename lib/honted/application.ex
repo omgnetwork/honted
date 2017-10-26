@@ -11,8 +11,12 @@ defmodule HonteD.Application do
     children = [
       :abci_server.child_spec(HonteD.ABCI, abci_port),
       {HonteD.ABCI, name: HonteD.ABCI},
+      # TODO: move next child to other app; it is not an necessary part of consensus
       JSONRPC2.Servers.HTTP.child_spec(:http, HonteD.JSONRPC2.Server.Handler,
-                                       [port: honted_port])
+                                       [port: honted_port]),
+      # TODO: move next child to other app; it is not an necessary part of consensus
+      HonteD.Eventer,
+      HonteD.WSRPC,
     ]
 
     opts = [strategy: :one_for_one, name: HonteD.Supervisor]
