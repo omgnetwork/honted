@@ -140,13 +140,13 @@ defmodule HonteD.Eventer do
 
   @spec mms_insert(%{key => MapSet.t(value)}, key, value)
   :: %{key => MapSet.t(value)} when value: any, key: any
-  def mms_insert(map, key, value) do
+  defp mms_insert(map, key, value) do
     Map.update(map, key, MapSet.new([value]), &(MapSet.put(&1, value)))
   end
 
   @spec mms_delete(%{key => MapSet.t(value)}, key, value)
     :: {:pop | :more, %{key => MapSet.t(value)}} when value: any, key: any
-  def mms_delete(map, key, value) do
+  defp mms_delete(map, key, value) do
     updatefn = fn(mapset) ->
       mapset = MapSet.delete(mapset, value)
       case MapSet.size(mapset) do
