@@ -20,11 +20,6 @@ defmodule HonteD.EventerTest do
     {nil, :send, nil, nil, nil, receiver, nil}
   end
 
-  def received(events, pid) do
-    events = for e <- events, do: {:committed, e}
-    assert {:ok, ^events} = Client.stop(pid)
-  end
-
   defp join(pids) when is_list(pids) do
     for pid <- pids, do: join(pid)
   end
