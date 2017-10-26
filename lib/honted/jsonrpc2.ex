@@ -10,9 +10,9 @@ defmodule HonteD.JSONRPC2.Server.Handler do
   """
   use JSONRPC2.Server.Handler
 
-  @spec handle_request(endpoint :: binary, params :: %{required(binary) => any}) :: any
-  def handle_request(endpoint, params) do
-    with {:ok, fname, args} <- RPCTranslate.to_fa(endpoint, params, HonteD.API.get_specs()),
+  @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
+  def handle_request(method, params) do
+    with {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs()),
       do: apply_call(HonteD.API, fname, args)
   end
 

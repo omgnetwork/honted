@@ -14,9 +14,9 @@ defmodule RPCTranslateTest do
 
   test "map to API, don't check the types correctness" do
     spec = TransformRequestTest.get_specs()
-    endpoint = "basic"
+    method = "basic"
     params = %{"x" => "2", "y" => "3"}
-    assert {:ok, :basic, ["2", "3"]} == RPCTranslate.to_fa(endpoint, params, spec)
+    assert {:ok, :basic, ["2", "3"]} == RPCTranslate.to_fa(method, params, spec)
   end
 
 
