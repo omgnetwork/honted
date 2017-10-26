@@ -16,7 +16,6 @@ defmodule HonteD.Eventer do
   ## API
 
   def notify_committed(server \\ __MODULE__, event) do
-    IO.puts("event! #{inspect event}")
     GenServer.cast(server, {:event, event})
   end
 
@@ -157,9 +156,7 @@ defmodule HonteD.Eventer do
   end
 
   defp do_notify(event, all_subs) do
-    IO.puts("do_notify")
     pids = subscribed(event_topics(event), all_subs)
-    IO.puts("do_notify pids: #{inspect pids}")
     for pid <- pids, do: send(pid, {:committed, event})
   end
 

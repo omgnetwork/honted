@@ -18,14 +18,11 @@ defmodule HonteD.WebsocketHandler do
   def websocket_handle({:text, content}, req, state) do
     try do
       resp = process_text(content)
-      IO.puts("resp: #{inspect resp}")
       reply = wsrpc_response(resp)
-      IO.puts("reply: #{inspect reply}")
       {:ok, encoded} = Poison.encode(reply)
       {:reply, {:text, encoded}, req, state}
     catch
       :throw, {error, data} ->
-        IO.puts("error: #{inspect error}; data: #{inspect data}")
         reply = wsrpc_response({error, data});
         {:ok, encoded} = Poison.encode(reply);
         {:reply, {:text, encoded}, req, state}
@@ -89,11 +86,6 @@ defmodule HonteD.WebsocketHandler do
   defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
   defp error_code_and_message(:server_error), do: {-32000, "Server error"}
 
-  defp zzz(a, b, c) do
-    r = substitute_pid_with_self(a, b, c)
-    IO.puts("a: #{inspect a}, b: #{inspect b}, c: #{inspect c} -> #{inspect r}")
-    r
-  end
   defp substitute_pid_with_self(_, :pid, _), do: self()
   defp substitute_pid_with_self(_, _, value), do: value
 
@@ -101,15 +93,13 @@ defmodule HonteD.WebsocketHandler do
     with {:ok, decoded_rq} <- decode(content),
          {:rpc, {method, params}} <- parse(decoded_rq),
          {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs(),
-                                                  &zzz/3),
+                                                  &substitute_pid_with_self/3),
       do: apply_call(HonteD.API, fname, args)
   end
 
   defp decode(content) do
-    IO.puts("content: #{inspect content}")
     case Poison.decode(content) do
       {:ok, decoded_rq} ->
-        IO.puts("decoded_rq: #{inspect decoded_rq}")
         {:ok, decoded_rq}
       {:error, _} ->
         {:error, :decode_error}
@@ -122,7 +112,6 @@ defmodule HonteD.WebsocketHandler do
     params = Map.get(request, "params", %{})
     type = Map.get(request, "type", :undefined)
     if valid_request?(version, method, params, type) do
-      IO.puts("method: #{inspect method}; params: #{inspect params}")
       {:rpc, {method, params}}
     else
       :invalid_request
@@ -141,7 +130,6 @@ defmodule HonteD.WebsocketHandler do
 
   defp apply_call(module, fname, args) do
     res = :erlang.apply(module, fname, args)
-    IO.puts("execution result: #{inspect res}")
     case res do
       :ok -> {:ok, :ok}
       other -> other

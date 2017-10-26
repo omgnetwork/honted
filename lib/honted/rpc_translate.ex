@@ -15,8 +15,8 @@ defmodule RPCTranslate do
   `to_fa/3` transforms JSONRPC2 method and params to Elixir's Function and Arguments,
   since the naming. See also type mfa() in Elixir's typespecs.
   """
-  # @spec to_fa(method :: function_name, params :: json_args, spec :: spec)
-  #       :: {:ok, atom, list(any)} | rpc_error
+  @spec to_fa(method :: function_name, params :: json_args, spec :: spec)
+        :: {:ok, atom, list(any)} | rpc_error
   def to_fa(method, params, spec, on_match \\ &on_match_default/3) do
     with {:ok, fname} <- existing_atom(method),
          :ok <- is_exposed(fname, spec),
@@ -51,9 +51,7 @@ defmodule RPCTranslate do
         nil ->
           {:halt, {:missing_arg, argspec}}
         value ->
-          IO.puts("value before: #{inspect value}")
           value = on_match.(name, type, value)
-          IO.puts("value after: #{inspect value}")
           {:cont, list ++ [value]}
       end
     end
