@@ -47,11 +47,12 @@ defmodule RPCTranslate do
         :: {:ok, list(any)} | {:invalid_params, %{}}
   defp get_args(fname, params, spec, on_match) when is_map(params) do
     validate_args = fn({name, type} = argspec, list) ->
-      case Map.get(params, Atom.to_string(name)) do
+      value = Map.get(params, Atom.to_string(name))
+      value = on_match.(name, type, value)
+      case value do
         nil ->
           {:halt, {:missing_arg, argspec}}
         value ->
-          value = on_match.(name, type, value)
           {:cont, list ++ [value]}
       end
     end
