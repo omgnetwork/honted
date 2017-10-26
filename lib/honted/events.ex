@@ -138,12 +138,17 @@ defmodule HonteD.Eventer do
     {do_demonitor, topic2sub, sub2topic}
   end
 
+  # Add value to one-to-many relationship, creating key and mapset if needed
   @spec mms_insert(%{key => MapSet.t(value)}, key, value)
   :: %{key => MapSet.t(value)} when value: any, key: any
   defp mms_insert(map, key, value) do
     Map.update(map, key, MapSet.new([value]), &(MapSet.put(&1, value)))
   end
 
+  # Remove value from one-to-many relationship, cleaning up the key when possible
+  # to prevent memory leaks.
+  # Returns :more if there are some other values for the key and :pop is key is
+  # removed.
   @spec mms_delete(%{key => MapSet.t(value)}, key, value)
     :: {:pop | :more, %{key => MapSet.t(value)}} when value: any, key: any
   defp mms_delete(map, key, value) do
