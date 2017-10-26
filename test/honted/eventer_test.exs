@@ -56,7 +56,7 @@ defmodule HonteD.EventerTest do
     test "Subscribe, send event, receive event." do
       e1 = event_send(address1())
       pid = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
-      send_filter_new(pid, address1())
+      new_send_filter(pid, address1())
       HonteD.Eventer.notify_committed(e1)
       join()
     end
@@ -74,9 +74,9 @@ defmodule HonteD.EventerTest do
         assert_receive({:committed, ^e1}, @timeout)
         refute_receive(_, @timeout)
       end)
-      send_filter_new(pid, address1())
-      send_filter_new(pid, address1())
-      send_filter_new(pid, address1())
+      new_send_filter(pid, address1())
+      new_send_filter(pid, address1())
+      new_send_filter(pid, address1())
       HonteD.Eventer.notify_committed(e1)
       join()
     end
@@ -85,11 +85,11 @@ defmodule HonteD.EventerTest do
   describe "Subscribes and unsubscribes are handled." do
     test "Manual unsubscribe." do
       pid = client(fn() -> refute_receive(_, @timeout) end)
-      assert {:ok, false} = send_filter_status?(pid, address1())
-      send_filter_new(pid, address1())
-      assert {:ok, true} = send_filter_status?(pid, address1())
-      send_filter_drop(pid, address1())
-      assert {:ok, false} = send_filter_status?(pid, address1())
+      assert {:ok, false} = status_send_filter?(pid, address1())
+      new_send_filter(pid, address1())
+      assert {:ok, true} = status_send_filter?(pid, address1())
+      drop_send_filter(pid, address1())
+      assert {:ok, false} = status_send_filter?(pid, address1())
       
       # won't be notified
       e1 = event_send(address1())
@@ -104,13 +104,13 @@ defmodule HonteD.EventerTest do
         assert_receive({:committed, ^e1}, @timeout)
         assert_receive({:committed, ^e1}, @timeout)
       end)
-      send_filter_new(pid1, address1())
-      send_filter_new(pid2, address1())
-      assert {:ok, true} = send_filter_status?(pid1, address1())
+      new_send_filter(pid1, address1())
+      new_send_filter(pid2, address1())
+      assert {:ok, true} = status_send_filter?(pid1, address1())
       HonteD.Eventer.notify_committed(e1)
       join(pid1)
-      assert {:ok, false} = send_filter_status?(pid1, address1())
-      assert {:ok, true} = send_filter_status?(pid2, address1())
+      assert {:ok, false} = status_send_filter?(pid1, address1())
+      assert {:ok, true} = status_send_filter?(pid2, address1())
       HonteD.Eventer.notify_committed(e1)
       join()
     end
@@ -121,8 +121,8 @@ defmodule HonteD.EventerTest do
       e1 = event_send(address1())
       pid1 = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
       pid2 = client(fn() -> refute_receive({:committed, ^e1}, @timeout) end)
-      send_filter_new(pid1, address1())
-      send_filter_new(pid2, address2())
+      new_send_filter(pid1, address1())
+      new_send_filter(pid2, address2())
       HonteD.Eventer.notify_committed(e1)
       join()
     end
@@ -131,7 +131,7 @@ defmodule HonteD.EventerTest do
       # NOTE: behavior will require rethinking
       incorrect_e1 = {nil, :zend, nil, nil, nil, address1(), nil}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
-      send_filter_new(pid1, address1())
+      new_send_filter(pid1, address1())
       HonteD.Eventer.notify_committed(incorrect_e1)
       join()
     end
@@ -140,7 +140,7 @@ defmodule HonteD.EventerTest do
       # NOTE: behavior will require rethinking
       e1 = {nil, :send, nil, nil, address1(), nil, nil}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
-      send_filter_new(pid1, address1())
+      new_send_filter(pid1, address1())
       HonteD.Eventer.notify_committed(e1)
       join()
     end
@@ -148,16 +148,16 @@ defmodule HonteD.EventerTest do
 
   describe "API does sanity checks on arguments." do
     test "Good topic." do
-      assert :ok = send_filter_new(self(), address1())
+      assert :ok = new_send_filter(self(), address1())
     end
     test "Bad topic." do
-      assert {:error, _} = send_filter_new(self(), 'this is not a binary')
+      assert {:error, _} = new_send_filter(self(), 'this is not a binary')
     end
     test "Good sub." do
-      assert :ok = send_filter_new(self(), address1())
+      assert :ok = new_send_filter(self(), address1())
     end
     test "Bad sub." do
-      assert {:error, _} = send_filter_new(:registered_processes_will_not_be_handled,
+      assert {:error, _} = new_send_filter(:registered_processes_will_not_be_handled,
                                            address1())
     end
   end
