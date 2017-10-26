@@ -42,7 +42,7 @@ defmodule HonteD.WebsocketHandlerTest do
 
   def call(x) do
     state = %{api: ExampleAPI}
-    {:reply, {:text, rep}, nil, state} = websocket_handle({:text, x}, nil, state)
+    {:reply, {:text, rep}, nil, _} = websocket_handle({:text, x}, nil, state)
     {:ok, decoded} = Poison.decode(rep)
     decoded
   end
@@ -51,11 +51,11 @@ defmodule HonteD.WebsocketHandlerTest do
     state = %{api: ExampleAPI}
     receive do
       msg ->
-        {:reply, {:text, rep}, nil, state} = websocket_info(msg, nil, state);
+        {:reply, {:text, rep}, nil, _} = websocket_info(msg, nil, state);
         {:ok, decoded} = Poison.decode(rep)
         decoded
     after
-      @timeout -> throw :timeouted
+      timeout -> throw :timeouted
     end
   end
 
