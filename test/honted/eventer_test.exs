@@ -1,19 +1,15 @@
 defmodule HonteD.EventerTest do
   @moduledoc """
-
+  Tests how one can use the API to subscribe to topics and receive event notifications
+  
+  Uses the applications instance of HonteD.Eventer
   """
-  use ExUnitFixtures
+  
   use ExUnit.Case, async: false
-  doctest HonteD
 
   import HonteD.API
-
-  ## fixtures
-
-  deffixture server do
-    {:ok, pid} = HonteD.Eventer.start_link([])
-    pid
-  end
+  
+  @timeout 100
 
   ## helpers
 
@@ -22,10 +18,6 @@ defmodule HonteD.EventerTest do
 
   def event_send(receiver) do
     {nil, :send, nil, nil, nil, receiver, nil}
-  end
-
-  def event_block(number) do
-    {:end_block, number}
   end
 
   def received(events, pid) do
@@ -56,26 +48,39 @@ defmodule HonteD.EventerTest do
 
   ## tests
 
-  describe "Server and clients start and stop." do
-    @tag fixtures: []
-    test "Server can be registered.", %{} do
-      {:ok, _server} = HonteD.Eventer.start_link([])
-      assert {:ok, false} = send_filter_status?(self(), address1())
-    end
-
+  describe "Tests infrastructure sanity: server and test clients start and stop." do
     test "Inlined clients are useful" do
       msg = :stop
-      pid = client(fn() -> assert_receive(^msg, 100) end)
+      pid = client(fn() -> assert_receive(^msg, @timeout) end)
       send(pid, msg)
       join()
     end
   end
 
   describe "One can register for events and receive it." do
-    @tag fixtures: [:server]
-    test "Subscribe, send event, receive event.", %{server: server} do
+    test "Subscribe, send event, receive event." do
       e1 = event_send(address1())
-      pid = client(fn() -> assert_receive({:committed, ^e1}, 200) end)
+      pid = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
+      send_filter_new(pid, address1())
+      HonteD.Eventer.notify_committed(e1)
+      join()
+    end
+    
+    test "empty subscriptions still work" do
+      e1 = event_send(address1())
+      _ = client(fn() -> refute_receive(_, @timeout) end)
+      HonteD.Eventer.notify_committed(e1)
+      join()
+    end
+    
+    test "multiple subscriptions work once" do
+      e1 = event_send(address1())
+      pid = client(fn() -> 
+        assert_receive({:committed, ^e1}, @timeout)
+        refute_receive(_, @timeout)
+      end)
+      send_filter_new(pid, address1())
+      send_filter_new(pid, address1())
       send_filter_new(pid, address1())
       HonteD.Eventer.notify_committed(e1)
       join()
@@ -83,25 +88,26 @@ defmodule HonteD.EventerTest do
   end
 
   describe "Subscribes and unsubscribes are handled." do
-    @tag fixtures: [:server]
-    test "Manual unsubscribe.", %{server: server} do
-      pid = client(fn() -> assert_receive(:stop) end)
+    test "Manual unsubscribe." do
+      pid = client(fn() -> refute_receive(_, @timeout) end)
       assert {:ok, false} = send_filter_status?(pid, address1())
       send_filter_new(pid, address1())
       assert {:ok, true} = send_filter_status?(pid, address1())
       send_filter_drop(pid, address1())
       assert {:ok, false} = send_filter_status?(pid, address1())
-      send(pid, :stop)
+      
+      # won't be notified
+      e1 = event_send(address1())
+      HonteD.Eventer.notify_committed(e1)
       join()
     end
 
-    @tag fixtures: [:server]
-    test "Automatic unsubscribe/cleanup.", %{server: server} do
+    test "Automatic unsubscribe/cleanup." do
       e1 = event_send(address1())
-      pid1 = client(fn() -> assert_receive({:committed, ^e1}) end)
+      pid1 = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
       pid2 = client(fn() ->
-        assert_receive({:committed, ^e1})
-        assert_receive({:committed, ^e1})
+        assert_receive({:committed, ^e1}, @timeout)
+        assert_receive({:committed, ^e1}, @timeout)
       end)
       send_filter_new(pid1, address1())
       send_filter_new(pid2, address1())
@@ -116,33 +122,46 @@ defmodule HonteD.EventerTest do
   end
 
   describe "Topics are handled." do
-    @tag fixtures: [:server]
-    test "Topics are distinct.", %{server: server}  do
+    test "Topics are distinct." do
       e1 = event_send(address1())
-      pid1 = client(fn() -> assert_receive({:committed, ^e1}) end)
-      pid2 = client(fn() -> refute_receive({:committed, ^e1}, 200) end)
+      pid1 = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
+      pid2 = client(fn() -> refute_receive({:committed, ^e1}, @timeout) end)
       send_filter_new(pid1, address1())
       send_filter_new(pid2, address2())
+      HonteD.Eventer.notify_committed(e1)
+      join()
+    end
+    
+    test "similar send transactions don't match, but get accepted by Eventer" do
+      # NOTE: behavior will require rethinking
+      incorrect_e1 = {nil, :zend, nil, nil, nil, address1(), nil}
+      pid1 = client(fn() -> refute_receive(_, @timeout) end)
+      send_filter_new(pid1, address1())
+      HonteD.Eventer.notify_committed(incorrect_e1)
+      join()
+    end
+    
+    test "outgoing send transaction don't match" do
+      # NOTE: behavior will require rethinking
+      e1 = {nil, :send, nil, nil, address1(), nil, nil}
+      pid1 = client(fn() -> refute_receive(_, @timeout) end)
+      send_filter_new(pid1, address1())
       HonteD.Eventer.notify_committed(e1)
       join()
     end
   end
 
   describe "API does sanity checks on arguments." do
-    @tag fixtures: [:server]
-    test "Good topic.", %{server: server}  do
+    test "Good topic." do
       assert :ok = send_filter_new(self(), address1())
     end
-    @tag fixtures: [:server]
-    test "Bad topic.", %{server: server}  do
+    test "Bad topic." do
       assert {:error, _} = send_filter_new(self(), 'this is not a binary')
     end
-    @tag fixtures: [:server]
-    test "Good sub.", %{server: server}  do
+    test "Good sub." do
       assert :ok = send_filter_new(self(), address1())
     end
-    @tag fixtures: [:server]
-    test "Bad sub.", %{server: server}  do
+    test "Bad sub." do
       assert {:error, _} = send_filter_new(:registered_processes_will_not_be_handled,
                                            address1())
     end
