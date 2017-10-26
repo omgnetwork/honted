@@ -8,7 +8,7 @@ defmodule HonteD.WebsocketHandler do
   end
 
   def websocket_init(_transport_name, req, _opts) do
-    {:ok, req, %{rqs: %{}}}
+    {:ok, req, %{api: HonteD.API}}
   end
 
   def websocket_terminate(_reason, _req, _state) do
@@ -22,7 +22,7 @@ defmodule HonteD.WebsocketHandler do
         id = Map.get(decoded_rq, "id", nil);
         IO.puts("id: #{inspect id}")
         try do
-          resp = process_request(decoded_rq)
+          resp = process_request(decoded_rq, state)
           IO.puts("resp: #{inspect resp}")
           ws_reply(id, resp, req, state)
         catch
@@ -142,11 +142,11 @@ defmodule HonteD.WebsocketHandler do
   defp substitute_pid_with_self(_, :pid, _), do: self()
   defp substitute_pid_with_self(_, _, value), do: value
 
-  defp process_request(decoded_rq) do
+  defp process_request(decoded_rq, %{api: target}) do
     with {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs(),
+         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, target.get_specs(),
                                                   &substitute_pid_with_self/3),
-      do: apply_call(HonteD.API, fname, args)
+      do: apply_call(target, fname, args)
   end
 
   defp apply_call(module, fname, args) do
