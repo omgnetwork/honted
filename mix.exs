@@ -41,6 +41,7 @@ defmodule HonteD.Mixfile do
       {:hackney, "~> 1.7"},
       {:tesla, "~>0.8.0"},
       {:ojson, "~> 1.0.0"},
+      {:bimap, "~> 0.1.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
     ]
   end
