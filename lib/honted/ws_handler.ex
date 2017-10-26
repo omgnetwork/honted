@@ -16,16 +16,21 @@ defmodule HonteD.WebsocketHandler do
   end
 
   def websocket_handle({:text, content}, req, state) do
-    try do
-      resp = process_text(content)
-      reply = wsrpc_response(resp)
-      {:ok, encoded} = Poison.encode(reply)
-      {:reply, {:text, encoded}, req, state}
-    catch
-      :throw, {error, data} ->
-        reply = wsrpc_response({error, data});
-        {:ok, encoded} = Poison.encode(reply);
-        {:reply, {:text, encoded}, req, state}
+    case decode(content) do
+      {:ok, decoded_rq} ->
+        IO.puts("decoded_rq: #{inspect decoded_rq}")
+        id = Map.get(decoded_rq, "id", nil);
+        IO.puts("id: #{inspect id}")
+        try do
+          resp = process_request(decoded_rq)
+          IO.puts("resp: #{inspect resp}")
+          ws_reply(id, resp, req, state)
+        catch
+          :throw, {error, data} ->
+            ws_reply(id, {error, data}, req, state)
+        end
+      {:error, :decode_error} ->
+        ws_reply(nil, {:error, :decode_error}, req, state)
     end
   end
 
@@ -45,7 +50,49 @@ defmodule HonteD.WebsocketHandler do
     {:ok, req, state}
   end
 
-  # translation and execution logic
+  # RPC+Events protocol handling
+
+  defp ws_reply(id, resp, req, state) do
+    {:ok, encoded} =
+      resp
+      |> wsrpc_response()
+      |> put_id(id)
+      |> put_version()
+      |> Poison.encode()
+    {:reply, {:text, encoded}, req, state}
+  end
+
+  defp put_id(reply, nil), do: reply
+  defp put_id(reply, id), do: Map.put(reply, "id", id)
+
+  defp put_version(reply), do: Map.put(reply, "wsrpc", "1.0")
+
+  defp wsrpc_event({:committed, event}) do
+    formatted_event = format_transaction(event)
+    %{"type": "event", "data": formatted_event}
+  end
+
+  defp wsrpc_response({:ok, resp}) do
+    %{"type": "rs", "result": resp}
+  end
+  defp wsrpc_response({:error, error}) do
+    %{"type": "rs", "error": error}
+  end
+  defp wsrpc_response(error) when is_atom(error) do
+    {code, msg} = error_code_and_message(error)
+    %{"type": "rs", "error": %{"code": code, "message": msg}}
+  end
+  defp wsrpc_response({error, data}) when is_atom(error) do
+    {code, msg} = error_code_and_message(error)
+    %{"type": "rs", "error": %{"code": code, "data": data, "message": msg}}
+  end
+
+  defp error_code_and_message(:parse_error), do: {-32700, "Parse error"}
+  defp error_code_and_message(:invalid_request), do: {-32600, "Invalid Request"}
+  defp error_code_and_message(:method_not_found), do: {-32601, "Method not found"}
+  defp error_code_and_message(:invalid_params), do: {-32602, "Invalid params"}
+  defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
+  defp error_code_and_message(:server_error), do: {-32000, "Server error"}
 
   defp format_transaction({nonce, :send, asset, amount, src, dest, signature}) do
     tr = %{"nonce": nonce,
@@ -58,75 +105,48 @@ defmodule HonteD.WebsocketHandler do
     %{"source": "filter", "type": "committed", "transaction": tr}
   end
 
-  defp wsrpc_event({:committed, event}) do
-    formatted_event = format_transaction(event)
-    %{"wsrpc": "1.0", "type": "event", "data": formatted_event}
-  end
-
-  defp wsrpc_response({:ok, resp}) do
-    %{"wsrpc": "1.0", "type": "rs", "result": resp}
-  end
-  defp wsrpc_response({:error, error}) do
-    %{"wsrpc": "1.0", "type": "rs", "error": error}
-  end
-  defp wsrpc_response(error) when is_atom(error) do
-    {code, msg} = error_code_and_message(error)
-    %{"wsrpc": "1.0", "type": "rs",
-      "error": %{"code": code, "message": msg}}
-  end
-  defp wsrpc_response({error, data}) when is_atom(error) do
-    {code, msg} = error_code_and_message(error)
-    %{"wsrpc": "1.0", "type": "rs",
-      "error": %{"code": code, "data": data, "message": msg}}
-  end
-
-  defp error_code_and_message(:parse_error), do: {-32700, "Parse error"}
-  defp error_code_and_message(:invalid_request), do: {-32600, "Invalid Request"}
-  defp error_code_and_message(:method_not_found), do: {-32601, "Method not found"}
-  defp error_code_and_message(:invalid_params), do: {-32602, "Invalid params"}
-  defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
-  defp error_code_and_message(:server_error), do: {-32000, "Server error"}
-
-  defp substitute_pid_with_self(_, :pid, _), do: self()
-  defp substitute_pid_with_self(_, _, value), do: value
-
-  defp process_text(content) do
-    with {:ok, decoded_rq} <- decode(content),
-         {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs(),
-                                                  &substitute_pid_with_self/3),
-      do: apply_call(HonteD.API, fname, args)
-  end
-
   defp decode(content) do
     case Poison.decode(content) do
-      {:ok, decoded_rq} ->
-        {:ok, decoded_rq}
-      {:error, _} ->
-        {:error, :decode_error}
+      {:ok, decoded_rq} -> {:ok, decoded_rq}
+      {:error, _} -> {:error, :decode_error}
+      {:error, _, _} -> {:error, :decode_error}
     end
   end
 
-  def parse(request) when is_map(request) do
+  defp parse(request) when is_map(request) do
     version = Map.get(request, "wsrpc", :undefined)
     method = Map.get(request, "method", :undefined)
     params = Map.get(request, "params", %{})
     type = Map.get(request, "type", :undefined)
+    IO.puts("version: #{inspect version}, method: #{inspect method}, params: #{inspect params}")
+    IO.puts("type: #{inspect type}")
     if valid_request?(version, method, params, type) do
       {:rpc, {method, params}}
     else
       :invalid_request
     end
   end
-  def parse(_) do
+  defp parse(_) do
     :invalid_request
   end
 
-  def valid_request?(version, method, params, type) do
+  defp valid_request?(version, method, params, type) do
     version == "1.0" and
     is_binary(method) and
     is_map(params) and
     type == "rq"
+  end
+
+  # translation and execution logic
+
+  defp substitute_pid_with_self(_, :pid, _), do: self()
+  defp substitute_pid_with_self(_, _, value), do: value
+
+  defp process_request(decoded_rq) do
+    with {:rpc, {method, params}} <- parse(decoded_rq),
+         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, HonteD.API.get_specs(),
+                                                  &substitute_pid_with_self/3),
+      do: apply_call(HonteD.API, fname, args)
   end
 
   defp apply_call(module, fname, args) do
