@@ -41,7 +41,7 @@ defmodule HonteD.WebsocketHandler do
   end
 
   def websocket_info(info, req, state) do
-    IO.puts("got msg #{inspect info}")
+    IO.puts("websocket unknown info: #{inspect info}")
     {:ok, req, state}
   end
 
