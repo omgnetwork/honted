@@ -153,6 +153,7 @@ defmodule HonteD.WebsocketHandler do
     res = :erlang.apply(module, fname, args)
     case res do
       :ok -> {:ok, :ok}
+      {:error, error} -> {:internal_error, error}
       other -> other
     end
   end
