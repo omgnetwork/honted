@@ -11,7 +11,9 @@ defmodule HonteD.Eventer do
 
   @typep topic2sub :: %{[binary] => MapSet}
   @typep sub2topic :: %{pid => MapSet}
-  @typep state :: %{topic2sub: topic2sub(), sub2topic: sub2topic()}
+  @typep state :: %{:topic2sub => topic2sub(),
+                    :sub2topic => sub2topic(),
+                    :monitors => %{pid => reference}}
 
   ## API
 
