@@ -1,6 +1,5 @@
 defmodule HonteD.WSRPC do
   
-  # FIXME: is this enough for sane minimal implemnetation?
   def child_spec(_) do
     %{
       id: __MODULE__,
