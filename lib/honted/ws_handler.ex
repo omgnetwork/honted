@@ -18,12 +18,9 @@ defmodule HonteD.WebsocketHandler do
   def websocket_handle({:text, content}, req, state) do
     case decode(content) do
       {:ok, decoded_rq} ->
-        IO.puts("decoded_rq: #{inspect decoded_rq}")
         id = Map.get(decoded_rq, "id", nil);
-        IO.puts("id: #{inspect id}")
         try do
           resp = process_request(decoded_rq, state)
-          IO.puts("resp: #{inspect resp}")
           ws_reply(id, resp, req, state)
         catch
           :throw, {error, data} ->
@@ -118,8 +115,6 @@ defmodule HonteD.WebsocketHandler do
     method = Map.get(request, "method", :undefined)
     params = Map.get(request, "params", %{})
     type = Map.get(request, "type", :undefined)
-    IO.puts("version: #{inspect version}, method: #{inspect method}, params: #{inspect params}")
-    IO.puts("type: #{inspect type}")
     if valid_request?(version, method, params, type) do
       {:rpc, {method, params}}
     else
