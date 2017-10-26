@@ -29,8 +29,9 @@ defmodule HonteD.WebsocketHandler do
     end
   end
 
-  def websocket_handle(_data, req, state) do
-    {:ok, req, state}
+  def websocket_handle({:binary, _data}, req, state) do
+    IO.puts("websocket got binary frame, closing")
+    {:shutdown, req, state}
   end
 
   def websocket_info({:committed, _} = event, req, state) do
