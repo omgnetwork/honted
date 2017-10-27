@@ -21,7 +21,7 @@ defmodule HonteD.Mixfile do
       env: [
         abci_port: 46658, # our own abci port tendermint connects to
       ],
-      extra_applications: [:logger],
+      extra_applications: [:logger, :honted_events, :honted_lib],
       applications: [:cowboy],
       mod: {HonteD.Application, []}
     ]
@@ -38,6 +38,7 @@ defmodule HonteD.Mixfile do
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_lib, in_umbrella: true},
+      {:honted_events, in_umbrella: true},
     ]
   end
 end

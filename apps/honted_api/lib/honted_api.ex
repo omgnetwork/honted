@@ -137,39 +137,39 @@ defmodule HonteDAPI do
          do: {:ok, result}
   end
 
-  @doc """
-  Subscribe to notification about :send transaction mined for particular address.
-  Notifications will be delivered as {:committed, event} messages to `subscriber`.
+  # @doc """
+  # Subscribe to notification about :send transaction mined for particular address.
+  # Notifications will be delivered as {:committed, event} messages to `subscriber`.
 
-  {:ok, :ok} on success
-  {:error, reason} on failure
-  """
-  @spec new_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
-  def new_send_filter(subscriber, watched) do
-    HonteD.Eventer.subscribe_send(subscriber, watched)
-  end
+  # {:ok, :ok} on success
+  # {:error, reason} on failure
+  # """
+  # @spec new_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
+  # def new_send_filter(subscriber, watched) do
+  #   HonteD.Eventer.subscribe_send(subscriber, watched)
+  # end
 
-  @doc """
-  Stop subscribing to notifications about :send transactions mined for particular address.
+  # @doc """
+  # Stop subscribing to notifications about :send transactions mined for particular address.
 
-  {:ok, :ok} on success
-  {:error, reason} on failure
-  """
-  @spec drop_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
-  def drop_send_filter(subscriber, watched) do
-    HonteD.Eventer.unsubscribe_send(subscriber, watched)
-  end
+  # {:ok, :ok} on success
+  # {:error, reason} on failure
+  # """
+  # @spec drop_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
+  # def drop_send_filter(subscriber, watched) do
+  #   HonteD.Eventer.unsubscribe_send(subscriber, watched)
+  # end
 
-  @doc """
-  Check if one is subscribed to notifications about :send transactions mined for particular
-  address.
+  # @doc """
+  # Check if one is subscribed to notifications about :send transactions mined for particular
+  # address.
 
-  {:ok, boolean} on success
-  {:error, reason} on failure
-  """
-  @spec status_send_filter?(subscriber :: pid, watched :: binary) :: {:ok, boolean} | {:error, atom}
-  def status_send_filter?(subscriber, watched) do
-    HonteD.Eventer.subscribed?(subscriber, watched)
-  end
+  # {:ok, boolean} on success
+  # {:error, reason} on failure
+  # """
+  # @spec status_send_filter?(subscriber :: pid, watched :: binary) :: {:ok, boolean} | {:error, atom}
+  # def status_send_filter?(subscriber, watched) do
+  #   HonteD.Eventer.subscribed?(subscriber, watched)
+  # end
 
 end

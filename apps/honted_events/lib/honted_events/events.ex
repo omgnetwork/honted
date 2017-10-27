@@ -1,4 +1,4 @@
-defmodule HonteD.Eventer do
+defmodule HonteDEventer do
   @moduledoc """
   Handles stream of send events from HonteD.ABCI and forwards them to subscribers.
 
@@ -53,6 +53,14 @@ defmodule HonteD.Eventer do
   defp is_valid_topic(_), do: {:error, :topic_must_be_a_string}
 
   ## callbacks
+
+  def child_spec(_) do
+    %{id: __MODULE__,
+      start: {__MODULE__, :start_link, [[]]},
+      type: :worker,
+      restart: :permanent,
+    }
+  end
 
   @spec init([]) :: {:ok, state}
   def init([]) do

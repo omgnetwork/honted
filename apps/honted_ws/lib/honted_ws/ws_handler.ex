@@ -138,9 +138,10 @@ defmodule HonteD.WebsocketHandler do
   defp substitute_pid_with_self(_, _, value), do: value
 
   defp process_request(decoded_rq, %{api: target}) do
+    translate = &HonteDAPI.RPCTranslate.to_fa/4
     with {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, target.get_specs(),
-                                                  &substitute_pid_with_self/3),
+         {:ok, fname, args} <- translate.(method, params, target.get_specs(),
+                                          &substitute_pid_with_self/3),
       do: apply_call(target, fname, args)
   end
 

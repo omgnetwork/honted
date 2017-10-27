@@ -1,9 +1,9 @@
-defmodule HonteDJSONRPC.Mixfile do
+defmodule HonteDEvents.Mixfile do
   use Mix.Project
 
   def project do
     [
-      app: :honted_jsonrpc,
+      app: :honted_events,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -15,24 +15,22 @@ defmodule HonteDJSONRPC.Mixfile do
     ]
   end
 
+  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       env: [
-        honted_api_rpc_port: 4000, # our own rpc port where HonteDAPI is exposed
       ],
       extra_applications: [:logger],
-      applications: [:jsonrpc2, :cowboy],
-      mod: {HonteDJSONRPC.Application, []}
+      applications: [],
+      mod: {HonteDEvents.Application, []}
     ]
   end
 
+  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jsonrpc2, "~> 1.0"},
-      {:cowboy, "~> 1.1"},
-      {:poison, "~> 3.1"},
-      #
-      {:honted_api, in_umbrella: true},
+      {:bimap, "~> 0.1.1"},
+      {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
     ]
   end
 end

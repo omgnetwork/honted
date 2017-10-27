@@ -21,7 +21,7 @@ defmodule HonteDAPI.Mixfile do
         rpc_port: 46657, # tendermint node's rpc port
       ],
       extra_applications: [:logger],
-      applications: [],
+      applications: [:honted_events],
     ]
   end
 
@@ -31,6 +31,7 @@ defmodule HonteDAPI.Mixfile do
       {:plug, "~> 1.3"},
       {:poison, "~> 3.1"},
       {:honted_lib, in_umbrella: true},
+      {:honted_events, in_umbrella: true},
     ]
   end
 end

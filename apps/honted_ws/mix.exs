@@ -1,9 +1,9 @@
-defmodule HonteDJSONRPC.Mixfile do
+defmodule HonteDWSRPC.Mixfile do
   use Mix.Project
 
   def project do
     [
-      app: :honted_jsonrpc,
+      app: :honted_wsrpc,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -18,17 +18,16 @@ defmodule HonteDJSONRPC.Mixfile do
   def application do
     [
       env: [
-        honted_api_rpc_port: 4000, # our own rpc port where HonteDAPI is exposed
+        honted_api_ws_port: 4004, # our own websocket port where HonteDAPI is exposed
       ],
       extra_applications: [:logger],
-      applications: [:jsonrpc2, :cowboy],
-      mod: {HonteDJSONRPC.Application, []}
+      applications: [:cowboy, :honted_events],
+      mod: {HonteDWSRPC.Application, []}
     ]
   end
 
   defp deps do
     [
-      {:jsonrpc2, "~> 1.0"},
       {:cowboy, "~> 1.1"},
       {:poison, "~> 3.1"},
       #

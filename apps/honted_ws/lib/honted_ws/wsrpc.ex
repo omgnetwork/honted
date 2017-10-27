@@ -1,4 +1,4 @@
-defmodule HonteD.WSRPC do
+defmodule HonteDWSRPC.Application do
   
   def child_spec(_) do
     %{
@@ -8,7 +8,7 @@ defmodule HonteD.WSRPC do
   end
   
   def start(_type, _args) do
-    ws_port = Application.get_env(:honted, :honted_api_ws_port)
+    ws_port = Application.get_env(:honted_wsrpc, :honted_api_ws_port)
     dispatch_config = build_dispatch_config()
     { :ok, _ } = :cowboy.start_http(:http,
                                     100,
