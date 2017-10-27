@@ -10,7 +10,7 @@ defmodule HonteDEvents.Application do
       {HonteDEventer, name: HonteDEventer},
     ]
 
-    opts = [strategy: :one_for_one, name: HonteD.Supervisor]
+    opts = [strategy: :one_for_one, name: HonteDEvents.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
