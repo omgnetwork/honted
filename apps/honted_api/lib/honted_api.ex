@@ -16,10 +16,10 @@ defmodule HonteDAPI do
   """
   @spec create_create_token_transaction(issuer :: binary)
         :: {:ok, binary} | any
-  def create_create_token_transaction(issuer) when is_binary(issuer) do
+  def create_create_token_transaction(issuer) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, issuer),
-         do: {:ok, Transaction.create_encoded(Transaction.CreateToken, %{nonce: nonce, issuer: issuer})}
+         do: Transaction.create_create_token(nonce: nonce, issuer: issuer)
   end
 
   @doc """
@@ -31,19 +31,14 @@ defmodule HonteDAPI do
   """
   @spec create_issue_transaction(asset :: binary, amount :: pos_integer, to :: binary, issuer :: binary)
         :: {:ok, binary} | any
-  def create_issue_transaction(asset, amount, to, issuer)
-  when is_binary(asset) and
-       is_integer(amount) and
-       amount > 0 and
-       is_binary(issuer) and
-       is_binary(to) do
+  def create_issue_transaction(asset, amount, to, issuer) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, issuer),
-         do: {:ok, Transaction.create_encoded(Transaction.Issue, %{nonce: nonce,
-                                                                   asset: asset,
-                                                                   amount: amount,
-                                                                   dest: to,
-                                                                   issuer: issuer})}
+         do: Transaction.create_issue(nonce: nonce,
+                                      asset: asset,
+                                      amount: amount,
+                                      dest: to,
+                                      issuer: issuer)
   end
 
   @doc """
@@ -51,19 +46,14 @@ defmodule HonteDAPI do
   """
   @spec create_send_transaction(asset :: binary, amount :: pos_integer, from :: binary, to :: binary)
         :: {:ok, binary} | any
-  def create_send_transaction(asset, amount, from, to)
-  when is_binary(asset) and
-       is_integer(amount) and
-       amount > 0 and
-       is_binary(from) and
-       is_binary(to) do
+  def create_send_transaction(asset, amount, from, to) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, from),
-         do: {:ok, Transaction.create_encoded(Transaction.Send, %{nonce: nonce,
-                                                                  asset: asset,
-                                                                  amount: amount,
-                                                                  to: to,
-                                                                  from: from})}
+         do: Transaction.create_send(nonce: nonce,
+                                     asset: asset,
+                                     amount: amount,
+                                     from: from,
+                                     to: to)
   end
 
   @doc """
