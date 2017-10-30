@@ -22,13 +22,6 @@ defmodule HonteDLib.TxCodec do
           {{int_amount, ""}, {int_nonce, ""}} -> {:ok, {int_nonce, :send, asset, int_amount, from, to, signature}}
           _ -> {:error, :malformed_numbers}
         end
-      ["ORDER", buy_asset, sell_asset, buy_amount, price, initiate_at, ttl, buyer] ->
-        case {Integer.parse(buy_amount), Float.parse(price)} do
-          {{int_buy_amount, ""}, {float_price, ""}} ->
-            {:ok, {:order, buy_asset, sell_asset, int_buy_amount, float_price, initiate_at, ttl, buyer}}
-          _ ->
-            {:error, :malformed_numbers}
-        end
       _ -> {:error, :malformed_transaction}
     end
   end
