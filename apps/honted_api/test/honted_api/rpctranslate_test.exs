@@ -2,7 +2,6 @@ defmodule HonteDAPI.RPCTranslateTest do
   @moduledoc """
   """
   use ExUnit.Case, async: true
-  doctest HonteD
 
   defmodule TransformRequestTest do
     use HonteDAPI.ExposeSpec

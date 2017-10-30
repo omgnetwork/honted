@@ -1,4 +1,4 @@
-defmodule HonteD.JSONRPC2.Server.HandlerTest do
+defmodule HonteDJSONRPC.Server.HandlerTest do
   use ExUnit.Case
 
   defmodule ExampleAPI do
