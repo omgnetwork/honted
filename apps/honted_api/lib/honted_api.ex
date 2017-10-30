@@ -8,6 +8,7 @@ defmodule HonteDAPI do
   use HonteDAPI.ExposeSpec
 
   alias HonteDAPI.TendermintRPC
+  alias HonteDLib.{Transaction}
   import HonteDAPI.Tools
 
   @doc """
@@ -18,7 +19,7 @@ defmodule HonteDAPI do
   def create_create_token_transaction(issuer) when is_binary(issuer) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, issuer),
-         do: {:ok, HonteDLib.TxCodec.encode([nonce, :create_token, issuer])}
+         do: {:ok, Transaction.create_encoded(Transaction.CreateToken, %{nonce: nonce, issuer: issuer})}
   end
 
   @doc """
@@ -38,7 +39,11 @@ defmodule HonteDAPI do
        is_binary(to) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, issuer),
-         do: {:ok, HonteDLib.TxCodec.encode([nonce, :issue, asset, amount, to, issuer])}
+         do: {:ok, Transaction.create_encoded(Transaction.Issue, %{nonce: nonce,
+                                                                   asset: asset,
+                                                                   amount: amount,
+                                                                   dest: to,
+                                                                   issuer: issuer})}
   end
 
   @doc """
@@ -54,7 +59,11 @@ defmodule HonteDAPI do
        is_binary(to) do
     client = TendermintRPC.client()
     with {:ok, nonce} <- get_nonce(client, from),
-         do: {:ok, HonteDLib.TxCodec.encode([nonce, :send, asset, amount, from, to])}
+         do: {:ok, Transaction.create_encoded(Transaction.Send, %{nonce: nonce,
+                                                                  asset: asset,
+                                                                  amount: amount,
+                                                                  to: to,
+                                                                  from: from})}
   end
 
   @doc """

@@ -2,46 +2,47 @@ defmodule HonteD.State do
   @moduledoc """
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
+  alias HonteDLib.Transaction
 
   @max_amount round(:math.pow(2,256))  # used to limit integers handled on-chain
 
   def empty(), do: %{}
 
-  def exec(state, {nonce, :create_token, issuer, signature}) do
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.CreateToken{} = tx, signature: signature}) do
     signed_part =
-      {nonce, :create_token, issuer}
+      tx
       |> HonteDLib.TxCodec.encode
 
-    with {:ok} <- nonce_valid?(state, issuer, nonce),
-         {:ok} <- signed?(signed_part, signature, issuer),
-         do: {:ok, state |> apply_create_token(issuer, nonce)}
+    with {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
+         {:ok} <- signed?(signed_part, signature, tx.issuer),
+         do: {:ok, state |> apply_create_token(tx.issuer, tx.nonce)}
   end
 
-  def exec(state, {nonce, :issue, asset, amount, dest, issuer, signature}) do
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Issue{} = tx, signature: signature}) do
     signed_part =
-      {nonce, :issue, asset, amount, dest, issuer}
+      tx
       |> HonteDLib.TxCodec.encode
 
-    with {:ok} <- positive?(amount),
-         {:ok} <- nonce_valid?(state, issuer, nonce),
-         {:ok} <- is_issuer?(state, asset, issuer),
-         {:ok} <- not_too_much?(state["tokens/#{asset}/total_supply"] + amount),
-         {:ok} <- signed?(signed_part, signature, issuer),
-         do: {:ok, state |> apply_issue(asset, amount, dest, issuer)}
+    with {:ok} <- positive?(tx.amount),
+         {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
+         {:ok} <- is_issuer?(state, tx.asset, tx.issuer),
+         {:ok} <- not_too_much?(state["tokens/#{tx.asset}/total_supply"] + tx.amount),
+         {:ok} <- signed?(signed_part, signature, tx.issuer),
+         do: {:ok, state |> apply_issue(tx.asset, tx.amount, tx.dest, tx.issuer)}
   end
 
-  def exec(state, {nonce, :send, asset, amount, src, dest, signature}) do
-    key_src = "accounts/#{asset}/#{src}"
-    key_dest = "accounts/#{asset}/#{dest}"
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx, signature: signature}) do
+    key_src = "accounts/#{tx.asset}/#{tx.from}"
+    key_dest = "accounts/#{tx.asset}/#{tx.to}"
     signed_part =
-      {nonce, :send, asset, amount, src, dest}
+      tx
       |> HonteDLib.TxCodec.encode
 
-    with {:ok} <- positive?(amount),
-         {:ok} <- nonce_valid?(state, src, nonce),
-         {:ok} <- account_has_at_least?(state, key_src, amount),
-         {:ok} <- signed?(signed_part, signature, src),
-         do: {:ok, state |> apply_send(amount, src, key_src, key_dest)}
+    with {:ok} <- positive?(tx.amount),
+         {:ok} <- nonce_valid?(state, tx.from, tx.nonce),
+         {:ok} <- account_has_at_least?(state, key_src, tx.amount),
+         {:ok} <- signed?(signed_part, signature, tx.from),
+         do: {:ok, state |> apply_send(tx.amount, tx.from, key_src, key_dest)}
 
   end
 
