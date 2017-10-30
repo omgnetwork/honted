@@ -1,4 +1,5 @@
 defmodule HonteDLib.Transaction do
+  
   defmodule CreateToken do
     defstruct [:nonce, :issuer]
     
@@ -49,14 +50,34 @@ defmodule HonteDLib.Transaction do
   end
   
   def valid?(%CreateToken{}), do: :ok
-  def valid?(%Issue{amount: amount}) when amount > 0, do: :ok
-  def valid?(%Issue{}), do: {:error, :negative_amount}
-  def valid?(%Send{amount: amount}) when amount > 0, do: :ok
-  def valid?(%Send{}), do: {:error, :negative_amount}
-  def valid?(%SignedTx{raw_tx: raw_tx, signature: _}) do
+  
+  def valid?(%Issue{amount: amount}) do
+    positive?(amount)
+  end
+  
+  def valid?(%Send{amount: amount}) do
+    positive?(amount)
+  end
+  
+  def valid_signed?(%SignedTx{raw_tx: raw_tx, signature: signature}) do
     with :ok <- valid?(raw_tx),
-         # valid signature
+         :ok <- signed?(HonteDLib.TxCodec.encode(raw_tx), signature, sender(raw_tx)),
          do: :ok
+  end
+  
+  defp sender(%CreateToken{issuer: sender}), do: sender
+  defp sender(%Issue{issuer: sender}), do: sender
+  defp sender(%Send{from: sender}), do: sender
+  
+  defp positive?(amount) when amount > 0, do: :ok
+  defp positive?(_), do: {:error, :positive_amount_required}
+
+  defp signed?(signed_part, signature, src) do
+    case HonteDLib.Crypto.verify(signed_part, signature, src) do
+      {:ok, true} -> :ok
+      {:ok, false} -> {:error, :invalid_signature}
+      _ -> {:error, :malformed_signature}
+    end
   end
   
   defp create_encoded(type, args) do

@@ -8,53 +8,36 @@ defmodule HonteD.State do
 
   def empty(), do: %{}
 
-  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.CreateToken{} = tx, signature: signature}) do
-    signed_part =
-      tx
-      |> HonteDLib.TxCodec.encode
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.CreateToken{} = tx}) do
 
     with {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
-         {:ok} <- signed?(signed_part, signature, tx.issuer),
          do: {:ok, state |> apply_create_token(tx.issuer, tx.nonce)}
   end
 
-  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Issue{} = tx, signature: signature}) do
-    signed_part =
-      tx
-      |> HonteDLib.TxCodec.encode
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Issue{} = tx}) do
 
-    with {:ok} <- positive?(tx.amount),
-         {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
+    with {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
          {:ok} <- is_issuer?(state, tx.asset, tx.issuer),
          {:ok} <- not_too_much?(state["tokens/#{tx.asset}/total_supply"] + tx.amount),
-         {:ok} <- signed?(signed_part, signature, tx.issuer),
          do: {:ok, state |> apply_issue(tx.asset, tx.amount, tx.dest, tx.issuer)}
   end
 
-  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx, signature: signature}) do
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx}) do
     key_src = "accounts/#{tx.asset}/#{tx.from}"
     key_dest = "accounts/#{tx.asset}/#{tx.to}"
-    signed_part =
-      tx
-      |> HonteDLib.TxCodec.encode
 
-    with {:ok} <- positive?(tx.amount),
-         {:ok} <- nonce_valid?(state, tx.from, tx.nonce),
+    with {:ok} <- nonce_valid?(state, tx.from, tx.nonce),
          {:ok} <- account_has_at_least?(state, key_src, tx.amount),
-         {:ok} <- signed?(signed_part, signature, tx.from),
          do: {:ok, state |> apply_send(tx.amount, tx.from, key_src, key_dest)}
 
   end
 
-  defp positive?(amount) when amount > 0, do: {:ok}
-  defp positive?(_), do: {:positive_amount_required}
-
   defp account_has_at_least?(state, key_src, amount) do
-    if Map.get(state, key_src, 0) >= amount, do: {:ok}, else: {:insufficient_funds}
+    if Map.get(state, key_src, 0) >= amount, do: {:ok}, else: {:error, :insufficient_funds}
   end
 
   defp nonce_valid?(state, src, nonce) do
-    if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:invalid_nonce}
+    if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:error, :invalid_nonce}
   end
 
   defp not_too_much?(amount_entering) do
@@ -63,14 +46,14 @@ defmodule HonteD.State do
     
     # limits the ability to exploit BEAM's uncapped integer in an attack.
     # Has nothing to do with token supply mechanisms
-    if amount_entering < @max_amount, do: {:ok}, else: {:amount_way_too_large}
+    if amount_entering < @max_amount, do: {:ok}, else: {:error, :amount_way_too_large}
   end
 
   defp is_issuer?(state, token_addr, address) do
     case Map.get(state, "tokens/#{token_addr}/issuer") do
-      nil -> {:unknown_issuer}
+      nil -> {:error, :unknown_issuer}
       ^address -> {:ok}
-      _ -> {:incorrect_issuer}
+      _ -> {:error, :incorrect_issuer}
     end
   end
 
@@ -102,14 +85,6 @@ defmodule HonteD.State do
   defp bump_nonce(state, address) do
     state
     |> Map.update("nonces/#{address}", 1, &(&1 + 1))
-  end
-
-  defp signed?(signed_part, signature, src) do
-    case HonteDLib.Crypto.verify(signed_part, signature, src) do
-      {:ok, true} -> {:ok}
-      {:ok, false} -> {:invalid_signature}
-      _ -> {:malformed_signature}
-    end
   end
 
   def hash(state) do

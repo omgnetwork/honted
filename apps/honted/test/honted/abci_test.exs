@@ -18,11 +18,13 @@ defmodule HonteD.ABCITest do
       alice: generate_entity(),
       bob: generate_entity(),
       issuer: generate_entity(),
+      carol: generate_entity(),
     }
   end
 
   deffixture alice(entities), do: entities.alice
   deffixture bob(entities), do: entities.bob
+  deffixture carol(entities), do: entities.carol
   deffixture issuer(entities), do: entities.issuer
 
   deffixture asset(issuer) do
@@ -263,9 +265,10 @@ defmodule HonteD.ABCITest do
       sign("0 SEND #{asset} 0 #{alice.addr} #{bob.addr}", alice.priv) |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
 
-    @tag fixtures: [:bob, :state_alice_has_tokens, :asset]
-    test "unknown sender", %{state_alice_has_tokens: state, bob: bob, asset: asset} do
-      "0 SEND #{asset} 1 carol #{bob.addr} carols_signaturecarols_signaturecarols_signaturecarols_signature"
+    @tag fixtures: [:bob, :carol, :state_alice_has_tokens, :asset]
+    test "unknown sender", %{state_alice_has_tokens: state, bob: bob, carol: carol, asset: asset} do
+      "0 SEND #{asset} 1 #{carol.addr} #{bob.addr}"
+      |> sign(carol.priv)
       |> check_tx(state) |> fail?(1, 'insufficient_funds') |> same?(state)
     end
 
