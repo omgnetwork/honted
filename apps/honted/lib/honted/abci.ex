@@ -54,25 +54,27 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call({:RequestCheckTx, tx}, _from, state) do
-    case HonteDLib.TxCodec.decode(tx) do
-      {:ok, decoded} -> case HonteDLib.Transaction.valid_signed?(decoded) do
-        :ok -> case HonteD.State.exec(state, decoded) do
-          # no change to state! we don't allow to build upon uncommited transactions
-          {:ok, _} -> {:reply, {:ResponseCheckTx, 0, '', ''}, state}
-          {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
-        end
-        {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
-      end
+    with {:ok, decoded} <- HonteDLib.TxCodec.decode(tx),
+         :ok <- HonteDLib.Transaction.valid_signed?(decoded),
+         {:ok, _} <- HonteD.State.exec(state, decoded)
+    do
+      # no change to state! we don't allow to build upon uncommited transactions
+      {:reply, {:ResponseCheckTx, 0, '', ''}, state}
+    else
       {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
     end
   end
 
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
-    {:ok, decoded} = HonteDLib.TxCodec.decode(tx)
-    :ok = HonteDLib.Transaction.valid_signed?(decoded)
-    {:ok, state} = HonteD.State.exec(state, decoded)
-    HonteDEvents.Eventer.notify_committed(decoded)
-    {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
+    with {:ok, decoded} <- HonteDLib.TxCodec.decode(tx),
+         :ok <- HonteDLib.Transaction.valid_signed?(decoded),
+         {:ok, state} <- HonteD.State.exec(state, decoded)
+    do
+      HonteDEvents.Eventer.notify_committed(decoded)
+      {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
+    else
+      {:error, error} -> {:reply, {:ResponseDeliverTx, 1, '', to_charlist(error)}, state}
+    end
   end
 
   @doc """
