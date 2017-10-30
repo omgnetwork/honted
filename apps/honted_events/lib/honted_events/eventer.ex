@@ -1,4 +1,4 @@
-defmodule HonteDEventer do
+defmodule HonteDEvents.Eventer do
   @moduledoc """
   Handles stream of send events from HonteD.ABCI and forwards them to subscribers.
 

@@ -1,12 +1,12 @@
-defmodule HonteD.WebsocketHandlerTest do
+defmodule HonteDWS.HandlerTest do
   use ExUnit.Case
 
-  import HonteD.WebsocketHandler
+  import HonteDWS.Handler
 
   @timeout 100
 
   defmodule ExampleAPI do
-    use ExposeSpec
+    use HonteDAPI.ExposeSpec
 
     @spec is_even_N(x :: integer) :: {:ok, boolean} | {:error, :badarg}
     def is_even_N(x) when x > 0 and is_integer(x) do

@@ -1,9 +1,9 @@
-defmodule HonteDWSRPC.Mixfile do
+defmodule HonteDWS.Mixfile do
   use Mix.Project
 
   def project do
     [
-      app: :honted_wsrpc,
+      app: :honted_ws,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -18,11 +18,11 @@ defmodule HonteDWSRPC.Mixfile do
   def application do
     [
       env: [
-        honted_api_ws_port: 4004, # our own websocket port where HonteDAPI is exposed
+        honted_api_ws_port: 4004, # our own ws port where HonteDAPI is exposed
       ],
       extra_applications: [:logger],
-      applications: [:cowboy, :honted_events],
-      mod: {HonteDWSRPC.Application, []}
+      applications: [:cowboy],
+      mod: {HonteDWS.Application, []}
     ]
   end
 

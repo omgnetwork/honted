@@ -1,4 +1,4 @@
-defmodule HonteD.WebsocketHandler do
+defmodule HonteDWS.Handler do
   @behaviour :cowboy_websocket_handler
 
   # WS callbacks
@@ -8,7 +8,7 @@ defmodule HonteD.WebsocketHandler do
   end
 
   def websocket_init(_transport_name, req, _opts) do
-    {:ok, req, %{api: HonteD.API}}
+    {:ok, req, %{api: HonteDAPI}}
   end
 
   def websocket_terminate(_reason, _req, _state) do
@@ -138,10 +138,9 @@ defmodule HonteD.WebsocketHandler do
   defp substitute_pid_with_self(_, _, value), do: value
 
   defp process_request(decoded_rq, %{api: target}) do
-    translate = &HonteDAPI.RPCTranslate.to_fa/4
     with {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- translate.(method, params, target.get_specs(),
-                                          &substitute_pid_with_self/3),
+         {:ok, fname, args} <- HonteDAPI.RPCTranslate.to_fa(method, params, target.get_specs(),
+                                                  &substitute_pid_with_self/3),
       do: apply_call(target, fname, args)
   end
 
