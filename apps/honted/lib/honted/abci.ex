@@ -55,8 +55,7 @@ defmodule HonteD.ABCI do
 
   def handle_call({:RequestCheckTx, tx}, _from, state) do
     with {:ok, decoded} <- HonteDLib.TxCodec.decode(tx),
-         :ok <- HonteDLib.Transaction.valid_signed?(decoded),
-         {:ok, _} <- HonteD.State.exec(state, decoded)
+         {:ok, _} <- generic_handle_tx(state, decoded)
     do
       # no change to state! we don't allow to build upon uncommited transactions
       {:reply, {:ResponseCheckTx, 0, '', ''}, state}
@@ -67,8 +66,7 @@ defmodule HonteD.ABCI do
 
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
     with {:ok, decoded} <- HonteDLib.TxCodec.decode(tx),
-         :ok <- HonteDLib.Transaction.valid_signed?(decoded),
-         {:ok, state} <- HonteD.State.exec(state, decoded)
+         {:ok, state} <- generic_handle_tx(state, decoded)
     do
       HonteDEvents.Eventer.notify_committed(decoded.raw_tx)
       {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
@@ -136,6 +134,11 @@ defmodule HonteD.ABCI do
   end
   
   ### END GenServer
+  
+  defp generic_handle_tx(state, tx) do
+    with :ok <- HonteDLib.Transaction.valid_signed?(tx),
+         do: HonteD.State.exec(state, tx)
+  end
   
   defp scan_potential_issued(unfiltered_tokens, state, issuer) do
     unfiltered_tokens
