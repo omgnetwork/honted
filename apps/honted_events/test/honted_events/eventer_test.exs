@@ -17,7 +17,17 @@ defmodule HonteDEvents.EventerTest do
   def address2(), do: "address2"
 
   def event_send(receiver) do
-    {nil, :send, nil, nil, nil, receiver, nil}
+    # FIXME: how can I distantiate from the implementation details (like codec/encoding/createion) some more?
+    # for now we use raw HonteDLib.Transaction structs, abandoned alternative is to go through encode/decode
+    tx = %HonteDLib.Transaction.Send{nonce: 0, asset: "asset", amount: 1, from: "from_addr", to: receiver}
+    {tx, receivable_for(tx)}
+  end
+  
+  @doc """
+  Prepared based on documentation of Eventer.notify_xxxx
+  """
+  def receivable_for(%HonteDLib.Transaction.Send{} = tx) do
+    {:event, %{source: :filter, type: :committed, transaction: tx}}
   end
 
   defp join(pids) when is_list(pids) do
@@ -54,24 +64,24 @@ defmodule HonteDEvents.EventerTest do
 
   describe "One can register for events and receive it." do
     test "Subscribe, send event, receive event." do
-      e1 = event_send(address1())
-      pid = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
+      {e1, receivable1} = event_send(address1())
+      pid = client(fn() -> assert_receive(^receivable1, @timeout) end)
       new_send_filter(pid, address1())
       HonteDEvents.Eventer.notify_committed(e1)
       join()
     end
     
     test "empty subscriptions still work" do
-      e1 = event_send(address1())
+      {e1, _} = event_send(address1())
       _ = client(fn() -> refute_receive(_, @timeout) end)
       HonteDEvents.Eventer.notify_committed(e1)
       join()
     end
     
     test "multiple subscriptions work once" do
-      e1 = event_send(address1())
+      {e1, receivable1} = event_send(address1())
       pid = client(fn() -> 
-        assert_receive({:committed, ^e1}, @timeout)
+        assert_receive(^receivable1, @timeout)
         refute_receive(_, @timeout)
       end)
       new_send_filter(pid, address1())
@@ -92,17 +102,17 @@ defmodule HonteDEvents.EventerTest do
       assert {:ok, false} = status_send_filter?(pid, address1())
       
       # won't be notified
-      e1 = event_send(address1())
+      {e1, _} = event_send(address1())
       HonteDEvents.Eventer.notify_committed(e1)
       join()
     end
 
     test "Automatic unsubscribe/cleanup." do
-      e1 = event_send(address1())
-      pid1 = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
+      {e1, receivable1} = event_send(address1())
+      pid1 = client(fn() -> assert_receive(^receivable1, @timeout) end)
       pid2 = client(fn() ->
-        assert_receive({:committed, ^e1}, @timeout)
-        assert_receive({:committed, ^e1}, @timeout)
+        assert_receive(^receivable1, @timeout)
+        assert_receive(^receivable1, @timeout)
       end)
       new_send_filter(pid1, address1())
       new_send_filter(pid2, address1())
@@ -118,9 +128,9 @@ defmodule HonteDEvents.EventerTest do
 
   describe "Topics are handled." do
     test "Topics are distinct." do
-      e1 = event_send(address1())
-      pid1 = client(fn() -> assert_receive({:committed, ^e1}, @timeout) end)
-      pid2 = client(fn() -> refute_receive({:committed, ^e1}, @timeout) end)
+      {e1, receivable1} = event_send(address1())
+      pid1 = client(fn() -> assert_receive(^receivable1, @timeout) end)
+      pid2 = client(fn() -> refute_receive(^receivable1, @timeout) end)
       new_send_filter(pid1, address1())
       new_send_filter(pid2, address2())
       HonteDEvents.Eventer.notify_committed(e1)
@@ -129,16 +139,16 @@ defmodule HonteDEvents.EventerTest do
     
     test "similar send transactions don't match, but get accepted by Eventer" do
       # NOTE: behavior will require rethinking
-      incorrect_e1 = {nil, :zend, nil, nil, nil, address1(), nil}
+      unhandled_e = %HonteDLib.Transaction.Issue{nonce: 0, asset: "asset", amount: 1, dest: address1(), issuer: "issuer_addr"}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
       new_send_filter(pid1, address1())
-      HonteDEvents.Eventer.notify_committed(incorrect_e1)
+      HonteDEvents.Eventer.notify_committed(unhandled_e)
       join()
     end
     
     test "outgoing send transaction don't match" do
       # NOTE: behavior will require rethinking
-      e1 = {nil, :send, nil, nil, address1(), nil, nil}
+      e1 = %HonteDLib.Transaction.Send{nonce: 0, asset: "asset", amount: 1, from: address1(), to: "to_addr"}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
       new_send_filter(pid1, address1())
       HonteDEvents.Eventer.notify_committed(e1)

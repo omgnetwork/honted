@@ -1,4 +1,7 @@
 defmodule HonteDWS.HandlerTest do
+  @moduledoc """
+  Tests the process of exposing APIs via websocket using a test module ExampleAPI
+  """
   use ExUnit.Case
 
   import HonteDWS.Handler
@@ -7,7 +10,11 @@ defmodule HonteDWS.HandlerTest do
 
   defmodule ExampleAPI do
     use HonteDAPI.ExposeSpec
-
+    
+    @test_event_payload %{"test_event_payload" => "payload"}
+    
+    def test_event_payload(), do: @test_event_payload
+    
     @spec is_even_N(x :: integer) :: {:ok, boolean} | {:error, :badarg}
     def is_even_N(x) when x > 0 and is_integer(x) do
       {:ok, rem(x, 2) == 0}
@@ -35,7 +42,7 @@ defmodule HonteDWS.HandlerTest do
 
     @spec event_me(subscriber :: pid) :: :ok
     def event_me(subscriber) do
-      send(subscriber, {:committed, {1, :send, "asset", "amount", "src", "dest", "signature"}})
+      send(subscriber, {:event, @test_event_payload})
       :ok
     end
   end
@@ -62,8 +69,7 @@ defmodule HonteDWS.HandlerTest do
   test "processes events" do
     assert %{"result" => "ok"} =
       call(~s({"method": "event_me", "params": {}, "type": "rq", "wsrpc": "1.0"}))
-    assert %{"data" => %{"transaction" => %{"type" => "send"}}} =
-      get_event()
+    assert get_event() == ExampleAPI.test_event_payload
   end
 
   test "sane handler" do

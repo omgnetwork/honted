@@ -137,7 +137,7 @@ defmodule HonteDAPI do
   end
 
   @doc """
-  Subscribe to notification about :send transaction mined for particular address.
+  Subscribe to notification about Send transaction mined for particular address.
   Notifications will be delivered as {:committed, event} messages to `subscriber`.
 
   {:ok, :ok} on success
@@ -149,7 +149,7 @@ defmodule HonteDAPI do
   end
 
   @doc """
-  Stop subscribing to notifications about :send transactions mined for particular address.
+  Stop subscribing to notifications about Send transactions mined for particular address.
 
   {:ok, :ok} on success
   {:error, reason} on failure
@@ -160,7 +160,7 @@ defmodule HonteDAPI do
   end
 
   @doc """
-  Check if one is subscribed to notifications about :send transactions mined for particular
+  Check if one is subscribed to notifications about Send transactions mined for particular
   address.
 
   {:ok, boolean} on success

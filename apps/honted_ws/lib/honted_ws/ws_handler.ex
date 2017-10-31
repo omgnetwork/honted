@@ -36,9 +36,8 @@ defmodule HonteDWS.Handler do
     {:shutdown, req, state}
   end
 
-  def websocket_info({:committed, _} = event, req, state) do
-    formatted_event = wsrpc_event(event)
-    {:ok, encoded} = Poison.encode(formatted_event)
+  def websocket_info({:event, event}, req, state) do
+    {:ok, encoded} = Poison.encode(event)
     {:reply, {:text, encoded}, req, state}
   end
 
@@ -64,11 +63,6 @@ defmodule HonteDWS.Handler do
 
   defp put_version(reply), do: Map.put(reply, "wsrpc", "1.0")
 
-  defp wsrpc_event({:committed, event}) do
-    formatted_event = format_transaction(event)
-    %{"type": "event", "data": formatted_event}
-  end
-
   defp wsrpc_response({:ok, resp}) do
     %{"type": "rs", "result": resp}
   end
@@ -90,17 +84,6 @@ defmodule HonteDWS.Handler do
   defp error_code_and_message(:invalid_params), do: {-32602, "Invalid params"}
   defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
   defp error_code_and_message(:server_error), do: {-32000, "Server error"}
-
-  defp format_transaction({nonce, :send, asset, amount, src, dest, signature}) do
-    tr = %{"nonce": nonce,
-           "type": :send,
-           "token": asset,
-           "amount": amount,
-           "src": src,
-           "dest": dest,
-           "signature": signature}
-    %{"source": "filter", "type": "committed", "transaction": tr}
-  end
 
   defp decode(content) do
     case Poison.decode(content) do

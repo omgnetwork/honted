@@ -8,6 +8,7 @@ defmodule HonteDEvents.Eventer do
   particular use case (bloom filters etc).
   """
   use GenServer
+  require Logger
 
   @typep topic :: binary
   @typep subs :: BiMultiMap.t([topic], pid)
@@ -16,8 +17,13 @@ defmodule HonteDEvents.Eventer do
 
   ## API
 
-  def notify_committed(server \\ __MODULE__, event) do
-    GenServer.cast(server, {:event, event})
+  @doc """
+  Makes eventer send a :committed event to subscrubers.
+  
+  See `defp message` for reference of messages sent to subscribing pids
+  """
+  def notify_committed(server \\ __MODULE__, event_content) do
+    GenServer.cast(server, {:event, :committed, event_content})
   end
 
   def subscribe_send(server \\ __MODULE__, pid, receiver) do
@@ -68,12 +74,14 @@ defmodule HonteDEvents.Eventer do
             monitors: Map.new()}}
   end
 
-  def handle_cast({:event, {_, :send, _, _, _, _, _} = event}, state) do
-    do_notify(event, state[:subs])
+  def handle_cast({:event, :committed = event_type, %HonteDLib.Transaction.Send{} = event_content}, state) do
+    do_notify(event_type, event_content, state[:subs])
     {:noreply, state}
   end
 
-  def handle_cast({:event, _}, state) do
+  def handle_cast({:event, _event_type, _event}, state) do
+    # FIXME: I would like to have the below line, but it barfs during tests, how can I have it?
+    # Logger.debug "Warning: unhandled event #{inspect event_type}: #{inspect event}"
     {:noreply, state}
   end
 
@@ -125,12 +133,18 @@ defmodule HonteDEvents.Eventer do
 
   ## internals
 
-  defp do_notify(event, all_subs) do
-    pids = subscribed(event_topics(event), all_subs)
-    for pid <- pids, do: send(pid, {:committed, event})
+  defp do_notify(event_type, event_content, all_subs) do
+    pids = subscribed(event_topics_for(event_content), all_subs)
+    prepared_message = message(event_type, event_content)
+    for pid <- pids, do: send(pid, {:event, prepared_message})
   end
 
-  defp event_topics({_, :send, _, _, _, dest, _}), do: [dest]
+  defp message(:committed = event_type, %HonteDLib.Transaction.Send{} = event_content) do
+    # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
+    %{source: :filter, type: event_type, transaction: event_content}
+  end
+  
+  defp event_topics_for(%HonteDLib.Transaction.Send{to: dest}), do: [dest]
 
   # FIXME: this maps get should be done for set of all subsets
   defp subscribed(topics, subs) do

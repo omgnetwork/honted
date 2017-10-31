@@ -70,7 +70,7 @@ defmodule HonteD.ABCI do
          :ok <- HonteDLib.Transaction.valid_signed?(decoded),
          {:ok, state} <- HonteD.State.exec(state, decoded)
     do
-      HonteDEvents.Eventer.notify_committed(decoded)
+      HonteDEvents.Eventer.notify_committed(decoded.raw_tx)
       {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
     else
       {:error, error} -> {:reply, {:ResponseDeliverTx, 1, '', to_charlist(error)}, state}
