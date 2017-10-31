@@ -7,9 +7,8 @@ defmodule HonteDAPI do
 
   use HonteDAPI.ExposeSpec
 
-  alias HonteDAPI.TendermintRPC
+  alias HonteDAPI.{TendermintRPC, Tools}
   alias HonteDLib.{Transaction}
-  import HonteDAPI.Tools
 
   @doc """
   Creates a signable, encoded transaction that creates a new token for an issuer
@@ -18,7 +17,7 @@ defmodule HonteDAPI do
         :: {:ok, binary} | any
   def create_create_token_transaction(issuer) do
     client = TendermintRPC.client()
-    with {:ok, nonce} <- get_nonce(client, issuer),
+    with {:ok, nonce} <- Tools.get_nonce(client, issuer),
          do: Transaction.create_create_token(nonce: nonce, issuer: issuer)
   end
 
@@ -33,7 +32,7 @@ defmodule HonteDAPI do
         :: {:ok, binary} | any
   def create_issue_transaction(asset, amount, to, issuer) do
     client = TendermintRPC.client()
-    with {:ok, nonce} <- get_nonce(client, issuer),
+    with {:ok, nonce} <- Tools.get_nonce(client, issuer),
          do: Transaction.create_issue(nonce: nonce,
                                       asset: asset,
                                       amount: amount,
@@ -48,7 +47,7 @@ defmodule HonteDAPI do
         :: {:ok, binary} | any
   def create_send_transaction(asset, amount, from, to) do
     client = TendermintRPC.client()
-    with {:ok, nonce} <- get_nonce(client, from),
+    with {:ok, nonce} <- Tools.get_nonce(client, from),
          do: Transaction.create_send(nonce: nonce,
                                      asset: asset,
                                      amount: amount,
@@ -83,9 +82,7 @@ defmodule HonteDAPI do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.abci_query(client, "", "/accounts/#{token}/#{address}")
     with {:ok, %{"response" => %{"code" => 0, "value" => balance_encoded}}} <- rpc_response,
-         {:ok, decoded} <- Base.decode16(balance_encoded),
-         {balance, ""} <- Integer.parse(decoded),
-         do: {:ok, balance}
+         do: TendermintRPC.to_int(balance_encoded)
   end
   
   @doc """
@@ -100,9 +97,7 @@ defmodule HonteDAPI do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.abci_query(client, "", "/issuers/#{issuer}")
     with {:ok, %{"response" => %{"code" => 0, "value" => token_list_encoded}}} <- rpc_response,
-         {:ok, decoded} <- Base.decode16(token_list_encoded),
-         # translate raw output from abci by cutting into 40-char-long ascii sequences
-         do: {:ok, decoded |> String.codepoints |> Enum.chunk_every(40) |> Enum.map(&Enum.join/1)}
+         do: TendermintRPC.to_list(token_list_encoded, 40)
   end
   
   @doc """
@@ -115,8 +110,8 @@ defmodule HonteDAPI do
   def token_info(token)
   when is_binary(token) do
     client = TendermintRPC.client()
-    with {:ok, issuer} <- get_issuer(client, token),
-         {:ok, total_supply} <- get_total_supply(client, token),
+    with {:ok, issuer} <- Tools.get_issuer(client, token),
+         {:ok, total_supply} <- Tools.get_total_supply(client, token),
          do: {:ok, %{token: token, issuer: issuer, total_supply: total_supply}}
   end
   
@@ -130,9 +125,9 @@ defmodule HonteDAPI do
   @spec tx(hash :: binary) :: {:ok, map} | any
   def tx(hash) when is_binary(hash) do
     client = TendermintRPC.client()
-    with {:ok, result} <- TendermintRPC.tx(client, hash),
-         {:ok, decoded} <- Base.decode64(result["tx"]),
-         result <- Map.put(result, "decoded_tx", decoded), # adding a convenience field to preview the tx
+    with {:ok, rpc_response} <- TendermintRPC.tx(client, hash),
+         {:ok, decoded} <- TendermintRPC.to_binary({:base64, rpc_response["tx"]}),
+         result <- Map.put(rpc_response, "decoded_tx", decoded), # adding a convenience field to preview the tx
          do: {:ok, result}
   end
 
