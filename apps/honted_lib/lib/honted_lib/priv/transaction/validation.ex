@@ -32,7 +32,7 @@ defmodule HonteDLib.Transaction.Validation do
     case HonteDLib.Crypto.verify(signed_part, signature, src) do
       {:ok, true} -> :ok
       {:ok, false} -> {:error, :invalid_signature}
-      _ -> {:error, :malformed_signature}
+      _ -> {:error, :malformed_signature} # dialyzer complains here, because Crypto.verify has degenerate returns, disregard
     end
   end
   
