@@ -136,7 +136,7 @@ defmodule HonteD.ABCI do
   ### END GenServer
   
   defp generic_handle_tx(state, tx) do
-    with :ok <- HonteDLib.Transaction.valid_signed?(tx),
+    with :ok <- HonteDLib.Transaction.Validation.valid_signed?(tx),
          do: HonteD.State.exec(state, tx)
   end
   

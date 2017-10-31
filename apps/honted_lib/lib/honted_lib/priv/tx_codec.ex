@@ -12,7 +12,7 @@ defmodule HonteDLib.TxCodec do
         case Integer.parse(nonce) do
           {int_nonce, ""} -> {:ok, %Transaction.CreateToken{nonce: int_nonce, 
                                                             issuer: issuer}
-                                   |> Transaction.with_signature(signature)}
+                                   |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
       [nonce, "ISSUE", asset, amount, dest, issuer, signature] when byte_size(signature) == 64 ->
@@ -22,7 +22,7 @@ defmodule HonteDLib.TxCodec do
                                                                           amount: int_amount,
                                                                           dest: dest,
                                                                           issuer: issuer}
-                                                       |> Transaction.with_signature(signature)}
+                                                       |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
       [nonce, "SEND", asset, amount, from, to, signature] when byte_size(signature) == 64 ->
@@ -32,7 +32,7 @@ defmodule HonteDLib.TxCodec do
                                                                          amount: int_amount,
                                                                          from: from,
                                                                          to: to}
-                                                       |> Transaction.with_signature(signature)}
+                                                       |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
       _ -> {:error, :malformed_transaction}
@@ -66,4 +66,8 @@ defmodule HonteDLib.TxCodec do
   defp _encode(term) when is_binary(term), do: term
   defp _encode(term) when is_atom(term), do: String.upcase(to_string(term))
   defp _encode(term) when is_number(term), do: "#{term}"
+  
+  defp with_signature(tx, signature) do
+    %Transaction.SignedTx{raw_tx: tx, signature: signature}
+  end
 end
