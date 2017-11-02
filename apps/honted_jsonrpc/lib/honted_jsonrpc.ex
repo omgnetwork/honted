@@ -1,2 +1,0 @@
-defmodule HonteDJSONRPC do
-end

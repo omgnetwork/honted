@@ -1,4 +1,4 @@
-defmodule HonteDJSONRPC.Mixfile do
+defmodule HonteD.JSONRPC.Mixfile do
   use Mix.Project
 
   def project do
@@ -18,11 +18,11 @@ defmodule HonteDJSONRPC.Mixfile do
   def application do
     [
       env: [
-        honted_api_rpc_port: 4000, # our own rpc port where HonteDAPI is exposed
+        honted_api_rpc_port: 4000, # our own rpc port where HonteD.API is exposed
       ],
       extra_applications: [:logger],
       applications: [:jsonrpc2, :cowboy],
-      mod: {HonteDJSONRPC.Application, []}
+      mod: {HonteD.JSONRPC.Application, []}
     ]
   end
 

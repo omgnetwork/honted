@@ -3,8 +3,8 @@ To run two Tendermint nodes and to ABCI servers on same machine do following.
 1. Run a single node HonteD-Tendermint as usual (both apps!)
 7. in `iex`/`wscat`/shell:
 
-        import HonteDAPI
-        import HonteDLib.Crypto
+        import HonteD.API
+        import HonteD.Crypto
     
         {:ok, alice_priv} = generate_private_key
         {:ok, alice_pub} = generate_public_key alice_priv

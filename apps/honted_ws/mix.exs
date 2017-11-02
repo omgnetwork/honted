@@ -1,4 +1,4 @@
-defmodule HonteDWS.Mixfile do
+defmodule HonteD.WS.Mixfile do
   use Mix.Project
 
   def project do
@@ -18,11 +18,11 @@ defmodule HonteDWS.Mixfile do
   def application do
     [
       env: [
-        honted_api_ws_port: 4004, # our own ws port where HonteDAPI is exposed
+        honted_api_ws_port: 4004, # our own ws port where HonteD.API is exposed
       ],
       extra_applications: [:logger],
       applications: [:cowboy],
-      mod: {HonteDWS.Application, []}
+      mod: {HonteD.WS.Application, []}
     ]
   end
 
