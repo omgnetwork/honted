@@ -3,8 +3,6 @@ To run two Tendermint nodes and to ABCI servers on same machine do following.
 1. Run a single node HonteD-Tendermint as usual (both apps!)
 7. in `iex`/`wscat`/shell:
 
-        # v PREPARATIONS v
-        
         import HonteD.API
         import HonteD.Crypto
     
@@ -39,7 +37,7 @@ To run two Tendermint nodes and to ABCI servers on same machine do following.
         # http --json localhost:4000 method=token_info params:='{"token": ""}' jsonrpc=2.0 id=1
         
         # subscribe to filter
-        # {"wsrpc": "1.0", "type": "rq", "method": "new_send_filter", "params": {"subscriber": "", "watched": ""}}
+        # {"wsrpc": "1.0", "type": "rq", "method": "new_send_filter", "params": {"watched": ""}}
         
         {:ok, raw_tx} = create_send_transaction(asset, 5, alice, alice)
         {:ok, signature} = sign(raw_tx, alice_priv)
