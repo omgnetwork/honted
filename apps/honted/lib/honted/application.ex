@@ -1,5 +1,3 @@
-Application.ensure_all_started(:hackney)
-
 defmodule HonteD.Application do
   @moduledoc false
 
