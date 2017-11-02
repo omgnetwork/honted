@@ -1,4 +1,4 @@
-defmodule HonteDEvents.EventerTest do
+defmodule HonteDEventsTest do
   @moduledoc """
   Tests how one can use the API to subscribe to topics and receive event notifications
   
@@ -67,14 +67,14 @@ defmodule HonteDEvents.EventerTest do
       {e1, receivable1} = event_send(address1())
       pid = client(fn() -> assert_receive(^receivable1, @timeout) end)
       new_send_filter(pid, address1())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
     
     test "empty subscriptions still work" do
       {e1, _} = event_send(address1())
       _ = client(fn() -> refute_receive(_, @timeout) end)
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
     
@@ -87,7 +87,7 @@ defmodule HonteDEvents.EventerTest do
       new_send_filter(pid, address1())
       new_send_filter(pid, address1())
       new_send_filter(pid, address1())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
   end
@@ -103,7 +103,7 @@ defmodule HonteDEvents.EventerTest do
       
       # won't be notified
       {e1, _} = event_send(address1())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
 
@@ -117,11 +117,11 @@ defmodule HonteDEvents.EventerTest do
       new_send_filter(pid1, address1())
       new_send_filter(pid2, address1())
       assert {:ok, true} = status_send_filter?(pid1, address1())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join(pid1)
       assert {:ok, false} = status_send_filter?(pid1, address1())
       assert {:ok, true} = status_send_filter?(pid2, address1())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
   end
@@ -133,7 +133,7 @@ defmodule HonteDEvents.EventerTest do
       pid2 = client(fn() -> refute_receive(^receivable1, @timeout) end)
       new_send_filter(pid1, address1())
       new_send_filter(pid2, address2())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
     
@@ -142,7 +142,7 @@ defmodule HonteDEvents.EventerTest do
       unhandled_e = %HonteDLib.Transaction.Issue{nonce: 0, asset: "asset", amount: 1, dest: address1(), issuer: "issuer_addr"}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
       new_send_filter(pid1, address1())
-      HonteDEvents.Eventer.notify_committed(unhandled_e)
+      HonteDEvents.notify_committed(unhandled_e)
       join()
     end
     
@@ -151,7 +151,7 @@ defmodule HonteDEvents.EventerTest do
       e1 = %HonteDLib.Transaction.Send{nonce: 0, asset: "asset", amount: 1, from: address1(), to: "to_addr"}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
       new_send_filter(pid1, address1())
-      HonteDEvents.Eventer.notify_committed(e1)
+      HonteDEvents.notify_committed(e1)
       join()
     end
   end

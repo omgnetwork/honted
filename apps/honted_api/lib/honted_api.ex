@@ -140,7 +140,7 @@ defmodule HonteDAPI do
   """
   @spec new_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
   def new_send_filter(subscriber, watched) do
-    HonteDEvents.Eventer.subscribe_send(subscriber, watched)
+    HonteDEvents.subscribe_send(subscriber, watched)
   end
 
   @doc """
@@ -151,7 +151,7 @@ defmodule HonteDAPI do
   """
   @spec drop_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
   def drop_send_filter(subscriber, watched) do
-    HonteDEvents.Eventer.unsubscribe_send(subscriber, watched)
+    HonteDEvents.unsubscribe_send(subscriber, watched)
   end
 
   @doc """
@@ -163,7 +163,7 @@ defmodule HonteDAPI do
   """
   @spec status_send_filter?(subscriber :: pid, watched :: binary) :: {:ok, boolean} | {:error, atom}
   def status_send_filter?(subscriber, watched) do
-    HonteDEvents.Eventer.subscribed?(subscriber, watched)
+    HonteDEvents.subscribed?(subscriber, watched)
   end
 
 end
