@@ -13,7 +13,12 @@ defmodule HonteD.JSONRPC.Server.Handler do
   @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
   def handle_request(method, params) do
     with {:ok, fname, args} <- HonteD.API.RPCTranslate.to_fa(method, params, HonteD.API.get_specs()),
-      do: apply_call(HonteD.API, fname, args)
+         {:ok, result} <- apply_call(HonteD.API, fname, args)
+    do
+      result
+    else
+      error -> throw error # JSONRPC requires to throw whatever fails, for proper handling of jsonrpc errors
+    end
   end
 
   defp apply_call(module, fname, args) do
@@ -21,8 +26,8 @@ defmodule HonteD.JSONRPC.Server.Handler do
       # FIXME: Mapping between Elixir-style errors
       #        and JSONRPC errors is needed here.
       #        Code below is a stub.
-      {:ok, any} -> any
-      {:error, any} -> throw {:internal_error, any}
+      {:ok, any} -> {:ok, any}
+      {:error, any} -> {:internal_error, any}
     end
   end
 

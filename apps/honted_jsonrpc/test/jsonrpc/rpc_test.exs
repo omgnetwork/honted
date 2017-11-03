@@ -37,12 +37,17 @@ defmodule HonteD.JSONRPC.Server.HandlerTest do
     @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
     def handle_request(method, params) do
       with {:ok, fname, args} <- HonteD.API.RPCTranslate.to_fa(method, params, ExampleAPI.get_specs()),
-        do: apply_call(ExampleAPI, fname, args)
+           {:ok, result} <- apply_call(ExampleAPI, fname, args)
+      do
+        result
+      else
+        error -> throw error # JSONRPC requires to throw whatever fails, for proper handling of jsonrpc errors
+      end
     end
 
     defp apply_call(module, fname, args) do
       case :erlang.apply(module, fname, args) do
-        {:ok, any} -> any
+        {:ok, any} -> {:ok, any}
         {:error, any} -> {:internal_error, any}
       end
     end
@@ -65,7 +70,9 @@ defmodule HonteD.JSONRPC.Server.HandlerTest do
       f.(~s({"method": "is_even_N", "params": {"x": 1}, "id": 1, "jsonrpc": "2.0"}))
     assert %{"error" => %{"code" => -32603}} =
       f.(~s({"method": "is_even_N", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
-    assert %{"result" => "method_not_found"} =
+    assert %{"error" => %{"code" => -32601,
+             "data" => %{"method" => ":lists.filtermap"},
+             "message" => "Method not found"}} =
       f.(~s({"method": ":lists.filtermap", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
   end
 
