@@ -8,7 +8,7 @@ defmodule HonteD.API.RPCTranslate do
   @type arg_name :: binary
   @type spec :: HonteD.API.ExposeSpec.spec()
   @type json_args :: %{required(arg_name) => any}
-  @type rpc_error :: :method_not_found | {:invalid_params, %{}}
+  @type rpc_error :: {:method_not_found, map} | {:invalid_params, map}
 
 
   @doc """
@@ -26,25 +26,25 @@ defmodule HonteD.API.RPCTranslate do
 
   defp on_match_default(_name, _type, value), do: value
 
-  @spec existing_atom(method :: function_name) :: {:ok, atom} | :method_not_found
+  @spec existing_atom(method :: function_name) :: {:ok, atom} | {:method_not_found, map}
   defp existing_atom(method) do
     try do
       {:ok, String.to_existing_atom(method)}
     rescue
-      ArgumentError -> :method_not_found
+      ArgumentError -> {:method_not_found, %{method: method}}
     end
   end
 
-  @spec is_exposed(fname :: atom, spec :: spec) :: {:ok, atom} | :method_not_found
+  @spec is_exposed(fname :: atom, spec :: spec) :: {:ok, atom} | {:method_not_found, map}
   defp is_exposed(fname, spec) do
     case fname in Map.keys(spec) do
       true -> :ok
-      false -> :method_not_found
+      false -> {:method_not_found, %{method: fname}}
     end
   end
 
   @spec get_args(fname :: atom, params :: json_args, spec :: spec, on_match :: fun())
-        :: {:ok, list(any)} | {:invalid_params, %{}}
+        :: {:ok, list(any)} | {:invalid_params, map}
   defp get_args(fname, params, spec, on_match) when is_map(params) do
     validate_args = fn({name, type} = argspec, list) ->
       value = Map.get(params, Atom.to_string(name))
@@ -59,13 +59,13 @@ defmodule HonteD.API.RPCTranslate do
     case Enum.reduce_while(spec[fname].args, [], validate_args) do
       {:missing_arg, {name, type}} ->
         msg = "Please provide parameter `#{name}` of type `#{inspect type}`"
-        throw {:invalid_params, %{msg: msg, name: name, type: type}}
+        {:invalid_params, %{msg: msg, name: name, type: type}}
       args ->
         {:ok, args}
     end
   end
   defp get_args(_, _, _, _) do
-    throw {:invalid_params, %{msg: "params should be a JSON key-value pair array"}}
+    {:invalid_params, %{msg: "params should be a JSON key-value pair array"}}
   end
 
 end
