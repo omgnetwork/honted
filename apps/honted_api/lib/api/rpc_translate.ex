@@ -8,7 +8,7 @@ defmodule HonteD.API.RPCTranslate do
   @type arg_name :: binary
   @type spec :: HonteD.API.ExposeSpec.spec()
   @type json_args :: %{required(arg_name) => any}
-  @type rpc_error :: :method_not_found | {:invalid_params, %{}}
+  @type rpc_error :: {:method_not_found, %{}} | {:invalid_params, %{}}
 
 
   @doc """
@@ -31,7 +31,7 @@ defmodule HonteD.API.RPCTranslate do
     try do
       {:ok, String.to_existing_atom(method)}
     rescue
-      ArgumentError -> :method_not_found
+      ArgumentError -> throw {:method_not_found, %{method: method}}
     end
   end
 
@@ -39,7 +39,7 @@ defmodule HonteD.API.RPCTranslate do
   defp is_exposed(fname, spec) do
     case fname in Map.keys(spec) do
       true -> :ok
-      false -> :method_not_found
+      false -> throw {:method_not_found, %{method: fname}}
     end
   end
 

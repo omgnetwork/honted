@@ -56,17 +56,27 @@ defmodule HonteD.API do
   end
 
   @doc """
-  Submits a signed transaction
-  
-  {:ok, hash} on success or duplicate transaction
-  garbage on error (FIXME!!)
+  Submits a signed transaction, blocks until its committed by the validators
   """
-  @spec submit_transaction(transaction :: binary) :: {:ok, binary} | any
+  @spec submit_transaction(transaction :: binary) :: {:ok, map} | {:error, map}
   def submit_transaction(transaction) do
     client = TendermintRPC.client()
-    rpc_response = TendermintRPC.broadcast_tx_sync(client, transaction)
-    with {:ok, %{"code" => code, "hash" => hash}} when code in [0, 3] <- rpc_response,
-         do: {:ok, hash}  # either submitted or duplicate
+    rpc_response = TendermintRPC.broadcast_tx_commit(client, transaction)
+    case rpc_response do
+      # successes / no-ops
+      {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash, "height" => height,
+              "deliver_tx" => %{"code" => 0}}} ->
+        {:ok, %{tx_hash: hash, duplicate: false, committed_in: height}}
+      {:ok, %{"check_tx" => %{"code" => 3}, "hash" => hash}} ->
+        {:ok, %{tx_hash: hash, duplicate: true, committed_in: nil}}
+      # failures
+      {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash} = result} ->
+        {:error, %{reason: :deliver_tx_failed, tx_hash: hash, raw_result: result}}
+      {:ok, %{"check_tx" => %{"code" => code, "data" => data, "log" => log}, "hash" => hash}} ->
+        {:error, %{reason: :check_tx_failed, tx_hash: hash, code: code, data: data, log: log}}
+      result -> 
+        {:error, %{reason: :unknown_error, raw_result: inspect result}}
+    end
   end
   
   @doc """
@@ -118,17 +128,27 @@ defmodule HonteD.API do
   @doc """
   Queries for detailed data on a particular submitted transaction with hash `hash`.
   Appends a convenience field `decoded_tx` to the details supplied by Tendermint
-  
-  {:ok, details} on success
-  garbage on error (FIXME!!)
   """
-  @spec tx(hash :: binary) :: {:ok, map} | any
+  @spec tx(hash :: binary) :: {:ok, map} | {:error, map}
   def tx(hash) when is_binary(hash) do
     client = TendermintRPC.client()
-    with {:ok, rpc_response} <- TendermintRPC.tx(client, hash),
-         {:ok, decoded} <- TendermintRPC.to_binary({:base64, rpc_response["tx"]}),
-         result <- Map.put(rpc_response, "decoded_tx", decoded), # adding a convenience field to preview the tx
-         do: {:ok, result}
+    rpc_response = TendermintRPC.tx(client, hash)
+    case rpc_response do
+      # successes
+      {:ok, %{"height" => _, "tx" => encoded_tx, "tx_result" => %{"code" => 0, "data" => "", "log" => ""}} = tx_info} ->
+        {:ok, tx_info |> Map.put(:status, :committed)
+                      |> Tools.append_decoded(encoded_tx)}
+      {:ok, %{"tx" => encoded_tx, "tx_result" => %{"code" => 0, "data" => "", "log" => ""}} = tx_info} ->
+        {:ok, tx_info |> Map.put(:status, :pending)
+                      |> Tools.append_decoded(encoded_tx)} # NOTE not sure if possible!
+      # successful look up of failed tx
+      {:ok, %{"tx" => encoded_tx, "tx_result" => _} = tx_info} ->
+        {:ok, tx_info |> Map.put(:status, :failed)
+                      |> Tools.append_decoded(encoded_tx)} # NOTE not sure if possible!
+      # failures
+      result -> 
+        {:error, %{reason: :unknown_error, raw_result: inspect result}} # NOTE not able to handle "not found"!
+    end
   end
 
   @doc """

@@ -22,7 +22,7 @@ defmodule HonteD.JSONRPC.Server.Handler do
       #        and JSONRPC errors is needed here.
       #        Code below is a stub.
       {:ok, any} -> any
-      {:error, any} -> {:internal_error, any}
+      {:error, any} -> throw {:internal_error, any}
     end
   end
 
