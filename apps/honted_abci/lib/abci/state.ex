@@ -10,15 +10,15 @@ defmodule HonteD.ABCI.State do
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.CreateToken{} = tx}) do
 
-    with {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
+    with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          do: {:ok, state |> apply_create_token(tx.issuer, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Issue{} = tx}) do
 
-    with {:ok} <- nonce_valid?(state, tx.issuer, tx.nonce),
-         {:ok} <- is_issuer?(state, tx.asset, tx.issuer),
-         {:ok} <- not_too_much?(state["tokens/#{tx.asset}/total_supply"] + tx.amount),
+    with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
+         :ok <- is_issuer?(state, tx.asset, tx.issuer),
+         :ok <- not_too_much?(state["tokens/#{tx.asset}/total_supply"] + tx.amount),
          do: {:ok, state |> apply_issue(tx.asset, tx.amount, tx.dest, tx.issuer)}
   end
 
@@ -26,18 +26,25 @@ defmodule HonteD.ABCI.State do
     key_src = "accounts/#{tx.asset}/#{tx.from}"
     key_dest = "accounts/#{tx.asset}/#{tx.to}"
 
-    with {:ok} <- nonce_valid?(state, tx.from, tx.nonce),
-         {:ok} <- account_has_at_least?(state, key_src, tx.amount),
+    with :ok <- nonce_valid?(state, tx.from, tx.nonce),
+         :ok <- account_has_at_least?(state, key_src, tx.amount),
          do: {:ok, state |> apply_send(tx.amount, tx.from, key_src, key_dest)}
 
   end
 
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.SignOff{} = tx}) do
+
+    with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
+         :ok <- sign_off_incremental?(state, tx.height, tx.sender),
+         do: {:ok, state |> apply_sign_off(tx.height, tx.hash, tx.sender)}
+  end
+  
   defp account_has_at_least?(state, key_src, amount) do
-    if Map.get(state, key_src, 0) >= amount, do: {:ok}, else: {:error, :insufficient_funds}
+    if Map.get(state, key_src, 0) >= amount, do: :ok, else: {:error, :insufficient_funds}
   end
 
   defp nonce_valid?(state, src, nonce) do
-    if Map.get(state, "nonces/#{src}", 0) == nonce, do: {:ok}, else: {:error, :invalid_nonce}
+    if Map.get(state, "nonces/#{src}", 0) == nonce, do: :ok, else: {:error, :invalid_nonce}
   end
 
   defp not_too_much?(amount_entering) do
@@ -46,14 +53,22 @@ defmodule HonteD.ABCI.State do
     
     # limits the ability to exploit BEAM's uncapped integer in an attack.
     # Has nothing to do with token supply mechanisms
-    if amount_entering < @max_amount, do: {:ok}, else: {:error, :amount_way_too_large}
+    if amount_entering < @max_amount, do: :ok, else: {:error, :amount_way_too_large}
   end
 
   defp is_issuer?(state, token_addr, address) do
     case Map.get(state, "tokens/#{token_addr}/issuer") do
       nil -> {:error, :unknown_issuer}
-      ^address -> {:ok}
+      ^address -> :ok
       _ -> {:error, :incorrect_issuer}
+    end
+  end
+
+  defp sign_off_incremental?(state, height, sender) do
+    case Map.get(state, "sign_offs/#{sender}") do
+      nil -> :ok  # first sign off ever always correct
+      %{height: old_height} when is_integer(old_height) and old_height < height -> :ok
+      %{height: old_height} when is_integer(old_height) -> {:error, :sign_off_not_incremental}
     end
   end
 
@@ -82,6 +97,12 @@ defmodule HonteD.ABCI.State do
     |> Map.update(key_dest, amount, &(&1 + amount))
   end
 
+  defp apply_sign_off(state, height, hash, sender) do
+    state
+    |> bump_nonce(sender)
+    |> Map.put("sign_offs/#{sender}", %{height: height, hash: hash})
+  end
+  
   defp bump_nonce(state, address) do
     state
     |> Map.update("nonces/#{address}", 1, &(&1 + 1))
