@@ -47,6 +47,10 @@ defmodule HonteD.TxCodec do
       _ -> {:error, :malformed_transaction}
     end
   end
+  def decode!(line) do
+    {:ok, decoded} = decode(line)
+    decoded
+  end
 
   @doc """
   Encodes a generic list of terms into a Tendermint transaction

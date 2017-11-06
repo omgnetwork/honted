@@ -107,7 +107,7 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.abci_query(client, "", "/accounts/#{token}/#{address}")
     with {:ok, %{"response" => %{"code" => 0, "value" => balance_encoded}}} <- rpc_response,
-         do: TendermintRPC.to_int(balance_encoded)
+         do: TendermintRPC.from_json(balance_encoded)
   end
   
   @doc """
@@ -122,7 +122,7 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.abci_query(client, "", "/issuers/#{issuer}")
     with {:ok, %{"response" => %{"code" => 0, "value" => token_list_encoded}}} <- rpc_response,
-         do: TendermintRPC.to_list(token_list_encoded, 40)
+         do: TendermintRPC.from_json(token_list_encoded)
   end
   
   @doc """
@@ -149,23 +149,17 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.tx(client, hash)
     case rpc_response do
-      # successes
-      {:ok, %{"height" => _, "tx" => encoded_tx, "tx_result" => %{"code" => 0, "data" => "", "log" => ""}} = tx_info} ->
-        {:ok, tx_info |> Map.put(:status, :committed)
-                      |> Tools.append_decoded(encoded_tx)}
-      {:ok, %{"tx" => encoded_tx, "tx_result" => %{"code" => 0, "data" => "", "log" => ""}} = tx_info} ->
-        {:ok, tx_info |> Map.put(:status, :pending)
-                      |> Tools.append_decoded(encoded_tx)} # NOTE not sure if possible!
-      # successful look up of failed tx
-      {:ok, %{"tx" => encoded_tx, "tx_result" => _} = tx_info} ->
-        {:ok, tx_info |> Map.put(:status, :failed)
-                      |> Tools.append_decoded(encoded_tx)} # NOTE not sure if possible!
+      # successes (incl.successful look up of failed tx)
+      {:ok, %{"tx" => encoded_tx} = tx_info} ->
+        {:ok, tx_info
+              |> Tools.append_decoded(encoded_tx)
+              |> Tools.append_status(client)}
       # failures
       result -> 
         {:error, %{reason: :unknown_error, raw_result: inspect result}} # NOTE not able to handle "not found"!
     end
   end
-
+  
   @doc """
   Subscribe to notification about Send transaction mined for particular address.
   Notifications will be delivered as {:committed, event} messages to `subscriber`.

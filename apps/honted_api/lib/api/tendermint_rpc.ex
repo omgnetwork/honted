@@ -15,26 +15,26 @@ defmodule HonteD.API.TendermintRPC do
   end
 
   def broadcast_tx_sync(client, tx) do
-    decode get(client, "/broadcast_tx_sync", query: encode(
+    decode_jsonrpc get(client, "/broadcast_tx_sync", query: encode(
       tx: tx
     ))
   end
 
   def broadcast_tx_commit(client, tx) do
-    decode get(client, "/broadcast_tx_commit", query: encode(
+    decode_jsonrpc get(client, "/broadcast_tx_commit", query: encode(
       tx: tx
     ))
   end
 
   def abci_query(client, data, path) do
-    decode get(client, "abci_query", query: encode(
+    decode_jsonrpc get(client, "abci_query", query: encode(
       data: data,
       path: path
     ))
   end
 
   def tx(client, hash) do
-    decode get(client, "tx", query: encode(
+    decode_jsonrpc get(client, "tx", query: encode(
       hash: {:hash, hash},
       prove: false
     ))
@@ -42,26 +42,17 @@ defmodule HonteD.API.TendermintRPC do
   
   ### convenience functions to decode fields returned from Tendermint rpc
   
-  def to_int(value) do
-    with {:ok, decoded} <- Base.decode16(value),
-         {parsed, ""} <- Integer.parse(decoded),
-         do: {:ok, parsed}    
-  end
   def to_binary({:base64, value}) do
     Base.decode64(value)
   end
-  def to_binary(value) do
-    Base.decode16(value)
-  end
-  def to_list(value, length) do
+  def from_json(value) do
     with {:ok, decoded} <- Base.decode16(value),
-         # translate raw output from abci by cutting into 40-char-long ascii sequences
-         do: {:ok, decoded |> String.codepoints |> Enum.chunk_every(length) |> Enum.map(&Enum.join/1)}
+         do: Poison.decode(decoded)
   end
   
   ### private
 
-  defp decode(response) do
+  defp decode_jsonrpc(response) do
     case response.body do
       %{"error" => "", "result" => result} -> {:ok, result}
       %{"error" => error, "result" => nil} -> {:error, error}

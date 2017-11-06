@@ -89,7 +89,7 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, state) do
     key = "nonces" <> to_string(address)
     value = Map.get(state, key, 0)
-    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, ''}, state}
+    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, ''}, state}
   end
   
   @doc """
@@ -100,7 +100,9 @@ defmodule HonteD.ABCI do
     "/" <> str_address = to_string(address)
     case lookup(state, key) do
       {0, value, log} ->
-        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> scan_potential_issued(state, str_address) |> to_charlist,
+        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value 
+                                                          |> scan_potential_issued(state, str_address) 
+                                                          |> encode_query_response,
                   'no proof', 0, log}, state}
       {code, value, log} ->
         # problems - forward raw
@@ -116,7 +118,7 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
     "/" <> key = to_string(path)
     {code, value, log} = lookup(state, key)
-    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
+    {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
   end
 
   @doc """
@@ -133,6 +135,12 @@ defmodule HonteD.ABCI do
   end
   
   ### END GenServer
+  
+  defp encode_query_response(object) do
+    object
+    |> Poison.encode!
+    |> to_charlist
+  end
   
   defp generic_handle_tx(state, tx) do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
