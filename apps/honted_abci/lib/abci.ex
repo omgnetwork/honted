@@ -5,6 +5,7 @@ defmodule HonteD.ABCI do
   This manages the `honted` ABCI app's state.
   ABCI calls originate from :abci_server (Erlang)
   """
+  require Logger
   use GenServer
 
   def start_link(opts) do
@@ -127,9 +128,7 @@ defmodule HonteD.ABCI do
 
   # FIXME: all-matching clause to keep tendermint from complaining, remove!
   def handle_call(request, from, state) do
-    IO.puts "UNHANDLED"
-    IO.inspect request
-    IO.inspect from
+    Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
     {:reply, {}, state}
   end
   

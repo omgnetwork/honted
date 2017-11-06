@@ -79,9 +79,8 @@ defmodule HonteD.Events.Eventer do
     {:noreply, state}
   end
 
-  def handle_cast({:event, _event_type, _event}, state) do
-    # FIXME: I would like to have the below line, but it barfs during tests, how can I have it?
-    # Logger.debug "Warning: unhandled event #{inspect event_type}: #{inspect event}"
+  def handle_cast({:event, event_type, event}, state) do
+    Logger.warn("Warning: unhandled event #{inspect event_type}: #{inspect event}")
     {:noreply, state}
   end
 

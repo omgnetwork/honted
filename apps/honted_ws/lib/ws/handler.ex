@@ -1,4 +1,6 @@
 defmodule HonteD.WS.Handler do
+  require Logger
+  
   @behaviour :cowboy_websocket_handler
 
   # WS callbacks
@@ -31,8 +33,8 @@ defmodule HonteD.WS.Handler do
     end
   end
 
-  def websocket_handle({:binary, _data}, req, state) do
-    IO.puts("websocket got binary frame, closing")
+  def websocket_handle({:binary, data}, req, state) do
+    Logger.error("websocket got binary frame: #{inspect data}, closing")
     {:shutdown, req, state}
   end
 
@@ -42,7 +44,7 @@ defmodule HonteD.WS.Handler do
   end
 
   def websocket_info(info, req, state) do
-    IO.puts("websocket unknown info: #{inspect info}")
+    Logger.error("websocket unknown info: #{inspect info}")
     {:ok, req, state}
   end
 
