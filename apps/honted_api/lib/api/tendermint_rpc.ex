@@ -20,6 +20,12 @@ defmodule HonteD.API.TendermintRPC do
     ))
   end
 
+  def broadcast_tx_commit(client, tx) do
+    decode get(client, "/broadcast_tx_commit", query: encode(
+      tx: tx
+    ))
+  end
+
   def abci_query(client, data, path) do
     decode get(client, "abci_query", query: encode(
       data: data,

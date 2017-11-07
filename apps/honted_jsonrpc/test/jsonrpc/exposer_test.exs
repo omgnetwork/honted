@@ -1,4 +1,7 @@
-defmodule HonteD.JSONRPC.Server.HandlerTest do
+defmodule HonteD.JSONRPC.ExposerTest do
+  @moduledoc """
+  Tests whether given an ExposeSpec-conformant API module, the exposer can serve a JSONRPC.Server.Handler
+  """
   use ExUnit.Case
 
   defmodule ExampleAPI do
@@ -34,17 +37,8 @@ defmodule HonteD.JSONRPC.Server.HandlerTest do
   defmodule ExampleHandler do
     use JSONRPC2.Server.Handler
 
-    @spec handle_request(method :: binary, params :: %{required(binary) => any}) :: any
     def handle_request(method, params) do
-      with {:ok, fname, args} <- HonteD.API.RPCTranslate.to_fa(method, params, ExampleAPI.get_specs()),
-        do: apply_call(ExampleAPI, fname, args)
-    end
-
-    defp apply_call(module, fname, args) do
-      case :erlang.apply(module, fname, args) do
-        {:ok, any} -> any
-        {:error, any} -> {:internal_error, any}
-      end
+      HonteD.JSONRPC.Exposer.handle_request_on_api(method, params, ExampleAPI)
     end
   end
 
@@ -65,7 +59,9 @@ defmodule HonteD.JSONRPC.Server.HandlerTest do
       f.(~s({"method": "is_even_N", "params": {"x": 1}, "id": 1, "jsonrpc": "2.0"}))
     assert %{"error" => %{"code" => -32603}} =
       f.(~s({"method": "is_even_N", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
-    assert %{"result" => "method_not_found"} =
+    assert %{"error" => %{"code" => -32601,
+             "data" => %{"method" => ":lists.filtermap"},
+             "message" => "Method not found"}} =
       f.(~s({"method": ":lists.filtermap", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
   end
 

@@ -26,4 +26,12 @@ defmodule HonteD.API.Tools do
     with {:ok, %{"response" => %{"code" => 0, "value" => supply_encoded}}} <- rpc_response,
          do: TendermintRPC.to_int(supply_encoded)
   end
+  
+  def append_decoded(map, tx) do
+    # adding a convenience field to preview the tx
+    case TendermintRPC.to_binary({:base64, tx}) do
+      {:ok, decoded} -> Map.put(map, :decoded_tx, decoded)
+      _ -> Map.put(map, :decoded_tx, :decode_failed)
+    end
+  end
 end
