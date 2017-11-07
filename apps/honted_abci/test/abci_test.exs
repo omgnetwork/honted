@@ -153,7 +153,7 @@ defmodule HonteD.ABCITest do
 
     @tag fixtures: [:state_with_token, :asset]
     test "zero total supply on creation", %{state_with_token: state, asset: asset} do
-      query(state, '/tokens/#{asset}/total_supply') |> found?('0')
+      query(state, '/tokens/#{asset}/total_supply') |> found?(0)
     end
 
     @tag fixtures: [:alice, :state_with_token, :asset]
@@ -232,16 +232,16 @@ defmodule HonteD.ABCITest do
         create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
         |> sign(issuer.priv) |> deliver_tx(state) |> success?
         
-      query(state, '/tokens/#{asset}/total_supply') |> found?('5')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('5')
+      query(state, '/tokens/#{asset}/total_supply') |> found?(5)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(5)
       
       %{state: state} = 
         create_issue(nonce: 2, asset: asset, amount: 7, dest: issuer.addr, issuer: issuer.addr)
         |> sign(issuer.priv) |> deliver_tx(state) |> success?
         
-      query(state, '/tokens/#{asset}/total_supply') |> found?('12')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('5')
-      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?('7')
+      query(state, '/tokens/#{asset}/total_supply') |> found?(12)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(5)
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(7)
     end
   end
 
@@ -270,14 +270,14 @@ defmodule HonteD.ABCITest do
   describe "generic nonce tests" do
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
     test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      query(state, '/nonces/#{alice.addr}') |> found?('0')
+      query(state, '/nonces/#{alice.addr}') |> found?(0)
 
       %{state: state} =
         create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
 
-      query(state, '/nonces/#{bob.addr}') |> found?('0')
-      query(state, '/nonces/#{alice.addr}') |> found?('1')
+      query(state, '/nonces/#{bob.addr}') |> found?(0)
+      query(state, '/nonces/#{alice.addr}') |> found?(1)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -324,8 +324,8 @@ defmodule HonteD.ABCITest do
       %{state: state} = 
         create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
-      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?('1')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('4')
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?(1)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(4)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -361,8 +361,8 @@ defmodule HonteD.ABCITest do
         create_send(nonce: 1, asset: asset, amount: 4, from: alice.addr, to: bob.addr)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
 
-      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?('5')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('0')
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?(5)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(0)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]

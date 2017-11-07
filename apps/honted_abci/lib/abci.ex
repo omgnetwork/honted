@@ -106,7 +106,7 @@ defmodule HonteD.ABCI do
                   'no proof', 0, log}, state}
       {code, value, log} ->
         # problems - forward raw
-        {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
+        {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
     end
   end
 
