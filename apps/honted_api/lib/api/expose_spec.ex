@@ -98,8 +98,7 @@ defmodule HonteD.API.ExposeSpec do
   defp arity_sanity_check(list) do
     names = for {name, _} <- list, do: name
     testresult = length(Enum.uniq(names)) != length(names)
-    tag = :problem_with_arity
-    {^tag, false} = {tag, testresult}
+    if testresult, do: :problem_with_arity, else: :ok
   end
 
   defmacro __using__(_opts) do
@@ -116,7 +115,7 @@ defmodule HonteD.API.ExposeSpec do
       |> Enum.map(&function_spec/1)
       |> Enum.filter(fn(x) -> x != :incomplete_spec end)
       |> Enum.map(fn(map) -> {map[:name], map} end)
-    arity_sanity_check(nice_spec)
+    :ok = arity_sanity_check(nice_spec)
     escaped = Macro.escape(Map.new(nice_spec))
     quote do
       def get_specs, do: unquote(escaped)

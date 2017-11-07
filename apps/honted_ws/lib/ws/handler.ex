@@ -34,7 +34,7 @@ defmodule HonteD.WS.Handler do
   end
 
   def websocket_handle({:binary, data}, req, state) do
-    Logger.error("websocket got binary frame: #{inspect data}, closing")
+    _ = Logger.error("websocket got binary frame: #{inspect data}, closing")
     {:shutdown, req, state}
   end
 
@@ -44,7 +44,7 @@ defmodule HonteD.WS.Handler do
   end
 
   def websocket_info(info, req, state) do
-    Logger.error("websocket unknown info: #{inspect info}")
+    _ = Logger.error("websocket unknown info: #{inspect info}")
     {:ok, req, state}
   end
 
@@ -105,9 +105,6 @@ defmodule HonteD.WS.Handler do
     else
       :invalid_request
     end
-  end
-  defp parse(_) do
-    :invalid_request
   end
 
   defp valid_request?(version, method, params, type) do

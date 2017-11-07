@@ -80,7 +80,7 @@ defmodule HonteD.Events.Eventer do
   end
 
   def handle_cast({:event, event_type, event}, state) do
-    Logger.warn("Warning: unhandled event #{inspect event_type}: #{inspect event}")
+    _ = Logger.warn("Warning: unhandled event #{inspect event_type}: #{inspect event}")
     {:noreply, state}
   end
 
@@ -136,6 +136,7 @@ defmodule HonteD.Events.Eventer do
     pids = subscribed(event_topics_for(event_content), all_subs)
     prepared_message = message(event_type, event_content)
     for pid <- pids, do: send(pid, {:event, prepared_message})
+    :ok
   end
 
   defp message(:committed = event_type, %HonteD.Transaction.Send{} = event_content) do

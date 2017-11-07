@@ -4,8 +4,6 @@ defmodule HonteD.Transaction do
   """
   alias HonteD.Transaction.Validation
   
-  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t
-  
   defmodule CreateToken do
     defstruct [:nonce, :issuer]
     
@@ -39,15 +37,6 @@ defmodule HonteD.Transaction do
     }
   end
   
-  defmodule SignedTx do
-    defstruct [:raw_tx, :signature]
-    
-    @type t :: %SignedTx{
-      raw_tx: HonteD.Transaction.t,
-      signature: HonteD.signature
-    }
-  end
-  
   defmodule SignOff do
     defstruct [:nonce, :height, :hash, :sender]
     
@@ -58,6 +47,17 @@ defmodule HonteD.Transaction do
       sender: HonteD.address,
     }
   end
+  
+  defmodule SignedTx do
+    defstruct [:raw_tx, :signature]
+    
+    @type t :: %SignedTx{
+      raw_tx: HonteD.Transaction.t,
+      signature: HonteD.signature
+    }
+  end
+  
+  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t
   
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes

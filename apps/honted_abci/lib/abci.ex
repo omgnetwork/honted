@@ -34,13 +34,8 @@ defmodule HonteD.ABCI do
     {:reply, {:ResponseEndBlock, []}, state}
   end
 
-  def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, height, _timestamp, _some_zero_value,
- _block_id, _something1, _something2, _something3, app_hash}}, _from, state) do
-
-    # consistency check after genesis block is required
-    if height > 1 do
-      ^app_hash = HonteD.ABCI.State.hash(state)
-    end
+  def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, _height, _timestamp, _some_zero_value,
+ _block_id, _something1, _something2, _something3, _app_hash}}, _from, state) do
 
     {:reply, {:ResponseBeginBlock}, state}
   end
@@ -130,7 +125,7 @@ defmodule HonteD.ABCI do
 
   # FIXME: all-matching clause to keep tendermint from complaining, remove!
   def handle_call(request, from, state) do
-    Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
+    _ = Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
     {:reply, {}, state}
   end
   

@@ -13,18 +13,16 @@ defmodule HonteD.API.Tools do
     get_and_decode(client, "/nonces/#{from}")
   end
   
+  @doc """
+  Uses a TendermintRPC `client` to the issuer for a token
+  """
   def get_issuer(client, token) do
     get_and_decode(client, "/tokens/#{token}/issuer")
   end
   
-  def get_total_supply(client, token) do
-    get_and_decode(client, "/tokens/#{token}/total_supply")
-  end
-  
-  def get_sign_off(client, address) do
-    get_and_decode(client, "/sign_offs/#{address}")
-  end
-  
+  @doc """
+  Uses a TendermintRPC `client` to query anything from the abci and decode to map
+  """
   def get_and_decode(client, key) do
     rpc_response = TendermintRPC.abci_query(client, "", key)
     with {:ok, %{"response" => %{"code" => 0, "value" => encoded}}} <- rpc_response,
@@ -61,7 +59,7 @@ defmodule HonteD.API.Tools do
                                          tx_height) do
     {:ok, issuer} = get_issuer(client, tx.asset)
       
-    case get_sign_off(client, issuer) do
+    case get_and_decode(client, "/sign_offs/#{issuer}") do
       {:ok, %{"response" => %{"code" => 1}}} -> :committed # FIXME: handle this case in a more appropriate manner
       {:ok, %{"height" => sign_off_height}} -> if sign_off_height >= tx_height, do: :finalized, else: :committed
     end

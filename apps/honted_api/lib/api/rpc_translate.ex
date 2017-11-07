@@ -35,7 +35,7 @@ defmodule HonteD.API.RPCTranslate do
     end
   end
 
-  @spec is_exposed(fname :: atom, spec :: spec) :: {:ok, atom} | {:method_not_found, map}
+  @spec is_exposed(fname :: atom, spec :: spec) :: :ok | {:method_not_found, map}
   defp is_exposed(fname, spec) do
     case fname in Map.keys(spec) do
       true -> :ok
