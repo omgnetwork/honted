@@ -10,38 +10,25 @@ defmodule HonteD.API.Tools do
   in case of any failure
   """
   def get_nonce(client, from) do
-    rpc_response = TendermintRPC.abci_query(client, "", "/nonces/#{from}")
-    with {:ok, %{"response" => %{"code" => 0, "value" => nonce_encoded}}} <- rpc_response,
-         do: TendermintRPC.from_json(nonce_encoded)
+    get_and_decode(client, "/nonces/#{from}")
   end
   
   def get_issuer(client, token) do
-    rpc_response = TendermintRPC.abci_query(client, "", "/tokens/#{token}/issuer")
-    with {:ok, %{"response" => %{"code" => 0, "value" => issuer_encoded}}} <- rpc_response,
-         do: TendermintRPC.from_json(issuer_encoded)
+    get_and_decode(client, "/tokens/#{token}/issuer")
   end
   
   def get_total_supply(client, token) do
-    rpc_response = TendermintRPC.abci_query(client, "", "/tokens/#{token}/total_supply")
-    with {:ok, %{"response" => %{"code" => 0, "value" => supply_encoded}}} <- rpc_response,
-         do: TendermintRPC.from_json(supply_encoded)
+    get_and_decode(client, "/tokens/#{token}/total_supply")
   end
   
   def get_sign_off(client, address) do
-    rpc_response = TendermintRPC.abci_query(client, "", "/sign_offs/#{address}")
-    with {:ok, %{"response" => %{"code" => 0, "value" => supply_encoded}}} <- rpc_response,
-         do: TendermintRPC.from_json(supply_encoded)
+    get_and_decode(client, "/sign_offs/#{address}")
   end
   
-  @doc """
-  ENriches the standard Tendermint tx information with decoded form of the transaction
-  """
-  def append_decoded(tx_info, tx) do
-    # adding a convenience field to preview the tx
-    case TendermintRPC.to_binary({:base64, tx}) do
-      {:ok, decoded} -> Map.put(tx_info, :decoded_tx, decoded)
-      _ -> Map.put(tx_info, :decoded_tx, :decode_failed)
-    end
+  def get_and_decode(client, key) do
+    rpc_response = TendermintRPC.abci_query(client, "", key)
+    with {:ok, %{"response" => %{"code" => 0, "value" => encoded}}} <- rpc_response,
+         do: Poison.decode(encoded)
   end
 
   @doc """
@@ -55,7 +42,7 @@ defmodule HonteD.API.Tools do
 
   defp get_tx_status(tx_info, client) do
     with :committed <- get_tx_tendermint_status(tx_info),
-         do: HonteD.TxCodec.decode!(tx_info.decoded_tx)
+         do: HonteD.TxCodec.decode!(tx_info["tx"])
              |> get_sign_off_status_for_committed(client, tx_info["height"])
   end
 
@@ -73,11 +60,10 @@ defmodule HonteD.API.Tools do
                                          client,
                                          tx_height) do
     {:ok, issuer} = get_issuer(client, tx.asset)
-    {:ok, sign_off} = get_sign_off(client, issuer) 
       
-    case sign_off do
-      "" -> :committed # FIXME: handle this case in a more appropriate manner
-      %{"height" => sign_off_height} -> if sign_off_height >= tx_height, do: :finalized, else: :committed
+    case get_sign_off(client, issuer) do
+      {:ok, %{"response" => %{"code" => 1}}} -> :committed # FIXME: handle this case in a more appropriate manner
+      {:ok, %{"height" => sign_off_height}} -> if sign_off_height >= tx_height, do: :finalized, else: :committed
     end
   end
   defp get_sign_off_status_for_committed(_, _, _), do: :committed

@@ -497,7 +497,10 @@ defmodule HonteD.ABCITest do
   defp query(state, key) do
     assert {:reply, {:ResponseQuery, code, 0, _key, value, 'no proof', 0, log}, ^state} =
       handle_call({:RequestQuery, "", key, 0, false}, nil, state)
-    %{code: code, value: value, log: log}
+      
+    # NOTE that (by the ABCI standard from abci_server) the query result is a char list and
+    #           (by our own standard) a json
+    %{code: code, value: value |> to_string |> Poison.decode!, log: log}
   end
 
   defp found?(response, expected_value) do

@@ -105,9 +105,7 @@ defmodule HonteD.API do
   when is_binary(token) and
        is_binary(address) do
     client = TendermintRPC.client()
-    rpc_response = TendermintRPC.abci_query(client, "", "/accounts/#{token}/#{address}")
-    with {:ok, %{"response" => %{"code" => 0, "value" => balance_encoded}}} <- rpc_response,
-         do: TendermintRPC.from_json(balance_encoded)
+    Tools.get_and_decode(client, "/accounts/#{token}/#{address}")
   end
   
   @doc """
@@ -120,9 +118,7 @@ defmodule HonteD.API do
   def tokens_issued_by(issuer)
   when is_binary(issuer) do
     client = TendermintRPC.client()
-    rpc_response = TendermintRPC.abci_query(client, "", "/issuers/#{issuer}")
-    with {:ok, %{"response" => %{"code" => 0, "value" => token_list_encoded}}} <- rpc_response,
-         do: TendermintRPC.from_json(token_list_encoded)
+    Tools.get_and_decode(client, "/issuers/#{issuer}")
   end
   
   @doc """
@@ -150,10 +146,8 @@ defmodule HonteD.API do
     rpc_response = TendermintRPC.tx(client, hash)
     case rpc_response do
       # successes (incl.successful look up of failed tx)
-      {:ok, %{"tx" => encoded_tx} = tx_info} ->
-        {:ok, tx_info
-              |> Tools.append_decoded(encoded_tx)
-              |> Tools.append_status(client)}
+      {:ok, tx_info} -> {:ok, tx_info
+                              |> Tools.append_status(client)}
       # failures
       result -> 
         {:error, %{reason: :unknown_error, raw_result: inspect result}} # NOTE not able to handle "not found"!

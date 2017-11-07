@@ -2,7 +2,15 @@ defmodule HonteD.API.TendermintRPC do
   @moduledoc """
   Wraps Tendermints RPC to allow to broadcast transactions from Elixir functions, inter alia
   
-  This should only depend on Tendermint rpc's specs, never on any of our stuff
+  This should only depend on Tendermint rpc's specs, never on any of our stuff. Thus it only does the Base16/64
+  decoding, and the Poison decoding of e.g. query responses happens elsewhere.
+  
+  The sequence of every call to the RPC is:
+    - incoming request from Elixir
+    - encode the query using `encode` for their respective types
+    - send request to json rpc via Tesla
+    - decode jsonrpc response via `decode_jsonrpc`
+    - additional decoding depending on the particular request/response (the `case do`)
   """
   use Tesla
 
@@ -15,42 +23,38 @@ defmodule HonteD.API.TendermintRPC do
   end
 
   def broadcast_tx_sync(client, tx) do
-    decode_jsonrpc get(client, "/broadcast_tx_sync", query: encode(
+    get(client, "/broadcast_tx_sync", query: encode(
       tx: tx
     ))
+    |> decode_jsonrpc
   end
 
   def broadcast_tx_commit(client, tx) do
-    decode_jsonrpc get(client, "/broadcast_tx_commit", query: encode(
+    get(client, "/broadcast_tx_commit", query: encode(
       tx: tx
     ))
+    |> decode_jsonrpc
   end
 
   def abci_query(client, data, path) do
-    decode_jsonrpc get(client, "abci_query", query: encode(
+    get(client, "abci_query", query: encode(
       data: data,
       path: path
     ))
+    |> decode_jsonrpc
+    |> decode_abci_query
   end
 
   def tx(client, hash) do
-    decode_jsonrpc get(client, "tx", query: encode(
+    get(client, "tx", query: encode(
       hash: {:hash, hash},
       prove: false
     ))
+    |> decode_jsonrpc
+    |> decode_tx
   end
   
-  ### convenience functions to decode fields returned from Tendermint rpc
-  
-  def to_binary({:base64, value}) do
-    Base.decode64(value)
-  end
-  def from_json(value) do
-    with {:ok, decoded} <- Base.decode16(value),
-         do: Poison.decode(decoded)
-  end
-  
-  ### private
+  ### private - tendermint rpc's specific encoding/decoding
 
   defp decode_jsonrpc(response) do
     case response.body do
@@ -58,6 +62,18 @@ defmodule HonteD.API.TendermintRPC do
       %{"error" => error, "result" => nil} -> {:error, error}
     end
   end
+  
+  defp decode_abci_query({:ok, result}) do
+    {:ok, result 
+          |> update_in(["response", "value"], &Base.decode16!/1)}
+  end
+  defp decode_abci_query(other), do: other
+  
+  defp decode_tx({:ok, result}) do
+    {:ok, result 
+          |> Map.update!("tx", &Base.decode64!/1)}
+  end
+  defp decode_tx(other), do: other
   
   defp encode(arglist) when is_list(arglist) do
     arglist
