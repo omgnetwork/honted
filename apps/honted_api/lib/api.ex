@@ -56,6 +56,21 @@ defmodule HonteD.API do
   end
 
   @doc """
+  Creates a signable, encoded transaction that signs off the blockchain till `height` for `sender`
+  denoting the correct signed-off chain branch by specifying a block `hash`
+  """
+  @spec create_sign_off_transaction(height :: pos_integer, hash :: binary, sender :: binary)
+        :: {:ok, binary} | any
+  def create_sign_off_transaction(height, hash, sender) do
+    client = TendermintRPC.client()
+    with {:ok, nonce} <- Tools.get_nonce(client, sender),
+         do: Transaction.create_sign_off(nonce: nonce,
+                                         height: height,
+                                         hash: hash,
+                                         sender: sender)
+  end
+
+  @doc """
   Submits a signed transaction, blocks until its committed by the validators
   """
   @spec submit_transaction(transaction :: binary) :: {:ok, map} | {:error, map}

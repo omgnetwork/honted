@@ -31,4 +31,13 @@ raw_tx <> " " <> signature
 # http --json localhost:4000 method=submit_transaction params:='{"transaction": ""}' jsonrpc=2.0 id=1
 # paste transaction - fire twice to see handling of duplicates and waiting for commit, and return data
 # http --json localhost:4000 method=submit_transaction params:='{"transaction": ""}' jsonrpc=2.0 id=1
+
+# sign off transaction
+
+{:ok, raw_tx} = create_sign_off_transaction(5, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+submit_transaction raw_tx <> " " <> signature
+
+{:ok, raw_tx} = create_sign_off_transaction(4, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+submit_transaction raw_tx <> " " <> signature
+
 ```

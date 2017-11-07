@@ -4,7 +4,7 @@ defmodule HonteD.Transaction do
   """
   alias HonteD.Transaction.Validation
   
-  @type t :: CreateToken.t | Issue.t | Send.t
+  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t
   
   defmodule CreateToken do
     defstruct [:nonce, :issuer]
@@ -48,6 +48,17 @@ defmodule HonteD.Transaction do
     }
   end
   
+  defmodule SignOff do
+    defstruct [:nonce, :height, :hash, :sender]
+    
+    @type t :: %SignOff{
+      nonce: HonteD.nonce,
+      height: pos_integer,
+      hash: HonteD.block_hash,
+      sender: HonteD.address,
+    }
+  end
+  
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
   """
@@ -87,6 +98,20 @@ defmodule HonteD.Transaction do
        is_binary(from) and
        is_binary(to) do
     create_encoded(Send, args)
+  end
+  
+  @doc """
+  Creates a SignOff transaction, ensures state-less validity and encodes
+  """
+  @spec create_sign_off([nonce: HonteD.nonce, height: pos_integer, hash: HonteD.block_hash, sender: HonteD.address]) ::
+    {:ok, SignOff.t} | {:error, atom}
+  def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender] = args)
+  when is_integer(nonce) and
+       is_integer(height) and
+       height > 0 and
+       is_binary(hash) and
+       is_binary(sender) do
+    create_encoded(SignOff, args)
   end
   
   defp create_encoded(type, args) do

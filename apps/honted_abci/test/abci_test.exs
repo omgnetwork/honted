@@ -44,6 +44,10 @@ defmodule HonteD.ABCITest do
       create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(state_with_token)
     state
   end
+  
+  deffixture some_block_hash() do
+    "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
+  end
 
   describe "info requests from tendermint" do
     @tag fixtures: [:empty_state]
@@ -374,6 +378,88 @@ defmodule HonteD.ABCITest do
     end
   end
 
+  describe "well formedness of sign off transactions" do
+    @tag fixtures: [:issuer, :empty_state, :some_block_hash]
+    test "checking sign off transactions", %{empty_state: state, issuer: issuer, some_block_hash: hash} do
+      create_sign_off(nonce: 0, height: 1, hash: hash, sender: issuer.addr) 
+      |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
+
+      # malformed
+      sign("0 SIGN_OF 1 #{hash} #{issuer.addr}", issuer.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      sign("0 SIGN_OFF 1 2 #{hash} #{issuer.addr}", issuer.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      sign("0 SIGN_OFF #{hash} #{issuer.addr}", issuer.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      
+      sign("0 SIGN_OFF 1.0 #{hash} #{issuer.addr}", issuer.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      
+      # no signature
+      create_sign_off(nonce: 0, height: 1, hash: hash, sender: issuer.addr)
+      |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+    end
+
+    @tag fixtures: [:alice, :issuer, :empty_state, :some_block_hash]
+    test "signature checking in issue", %{empty_state: state, alice: alice, issuer: issuer, some_block_hash: hash} do
+      {:ok, tx1} = create_sign_off(nonce: 0, height: 1, hash: hash, sender: issuer.addr) 
+      {:ok, tx2} = create_sign_off(nonce: 0, height: 2, hash: hash, sender: issuer.addr) 
+      {:ok, issuer_signature} = HonteD.Crypto.sign(tx1, issuer.priv)
+      
+      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+        handle_call({:RequestCheckTx, "#{tx2} #{issuer_signature}"}, nil, state)
+
+      tx1 |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    end
+  end
+
+  describe "sign off transactions logic" do
+    @tag fixtures: [:bob, :empty_state]
+    test "initial sign off (sanity)", %{empty_state: state, bob: bob} do
+      query(state, '/sign_offs/#{bob.addr}') |> not_found?
+    end
+
+    @tag fixtures: [:bob, :empty_state, :some_block_hash]
+    test "correct sign_offs", %{empty_state: state, bob: bob, some_block_hash: hash} do
+      some_height = 100
+      some_next_height = 200
+      %{state: state} = 
+        create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
+        |> sign(bob.priv) |> deliver_tx(state) |> success?
+      # FIXME: test querrying in T95
+      %{state: _} = 
+        create_sign_off(nonce: 1, height: some_next_height, hash: String.reverse(hash), sender: bob.addr)
+        |> sign(bob.priv) |> deliver_tx(state) |> success?
+      # FIXME: as above
+    end
+
+    @tag fixtures: [:bob, :empty_state, :some_block_hash]
+    test "can't sign_off into the past", %{empty_state: state, bob: bob, some_block_hash: hash} do
+      some_height = 100
+      some_previous_height = 50
+      %{state: state} = 
+        create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
+        |> sign(bob.priv) |> deliver_tx(state) |> success?
+      
+      create_sign_off(nonce: 1, height: some_previous_height, hash: String.reverse(hash), sender: bob.addr)
+      |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'sign_off_not_incremental') |> same?(state)
+      create_sign_off(nonce: 1, height: some_previous_height, hash: hash, sender: bob.addr)
+      |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'sign_off_not_incremental') |> same?(state)
+    end
+
+    @tag fixtures: [:bob, :empty_state, :some_block_hash]
+    test "negative height", %{empty_state: state, bob: bob, some_block_hash: hash} do
+      sign("0 SIGN_OFF -1 #{hash} #{bob.addr}", bob.priv)
+      |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+    end
+
+    @tag fixtures: [:bob, :empty_state, :some_block_hash]
+    test "zero height", %{empty_state: state, bob: bob, some_block_hash: hash} do
+      sign("0 SIGN_OFF 0 #{hash} #{bob.addr}", bob.priv)
+      |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+    end
+  end
+  
   ## HELPER functions
   defp generate_entity() do
     {:ok, priv} = HonteD.Crypto.generate_private_key

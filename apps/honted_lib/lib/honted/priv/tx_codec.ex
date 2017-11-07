@@ -35,6 +35,15 @@ defmodule HonteD.TxCodec do
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
+      [nonce, "SIGN_OFF", height, hash, sender, signature] when byte_size(signature) == 64 ->
+        case {Integer.parse(height), Integer.parse(nonce)} do
+          {{int_height, ""}, {int_nonce, ""}} -> {:ok, %Transaction.SignOff{nonce: int_nonce,
+                                                                            height: int_height,
+                                                                            hash: hash,
+                                                                            sender: sender}
+                                                       |> with_signature(signature)}
+          _ -> {:error, :malformed_numbers}
+        end
       _ -> {:error, :malformed_transaction}
     end
   end
@@ -54,6 +63,10 @@ defmodule HonteD.TxCodec do
   end
   def encode(%Transaction.Send{nonce: nonce, asset: asset, amount: amount, from: from, to: to}) do
     {nonce, :send, asset, amount, from, to}
+    |> _encode
+  end
+  def encode(%Transaction.SignOff{nonce: nonce, height: height, hash: hash, sender: sender}) do
+    {nonce, :sign_off, height, hash, sender}
     |> _encode
   end
   
