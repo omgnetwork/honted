@@ -73,11 +73,20 @@ defmodule HonteD.API.ExposeSpec do
   end
   defp parse_term({:%{}, _, list}), do: {:map, parse_term(list)}
   defp parse_term({:|, _, alts}), do: parse_alternative(alts)
+  defp parse_term({{:., _, iex_alias}, _, _}), do: parse_alias(iex_alias)
   defp parse_term({atom, _, :nil}) when is_atom(atom), do: atom
 
   defp parse_alternative(list) do
     alts = for term <- list, do: parse_term(term)
     {:alternative, alts}
+  end
+
+  defp parse_alias([{:__aliases__, _, prefixes} | [last]]) do
+    prefixes = for prefix <- prefixes, do: Atom.to_string(prefix)
+    String.to_atom(Enum.join(prefixes ++ [last], "."))
+  end
+  defp parse_alias([left | [right]]) do
+    String.to_atom(Enum.join([left | [right]], "."))
   end
 
   defp parse_args(args) do
