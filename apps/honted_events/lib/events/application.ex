@@ -5,7 +5,7 @@ defmodule HonteD.Events.Application do
 
   def start(_type, _args) do
     children = [
-      {HonteD.Events.Eventer, name: HonteD.Events.Eventer},
+      {HonteD.Events, name: HonteD.Events},
     ]
 
     opts = [strategy: :one_for_one, name: HonteD.Events.Supervisor]

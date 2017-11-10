@@ -411,6 +411,7 @@ defmodule HonteD.ABCITest do
 
       tx1 |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
+
   end
 
   describe "sign off transactions logic" do
@@ -423,11 +424,11 @@ defmodule HonteD.ABCITest do
     test "correct sign_offs", %{empty_state: state, bob: bob, some_block_hash: hash} do
       some_height = 100
       some_next_height = 200
-      %{state: state} = 
+      %{state: state} =
         create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
       # FIXME: test querrying in T95
-      %{state: _} = 
+      %{state: _} =
         create_sign_off(nonce: 1, height: some_next_height, hash: String.reverse(hash), sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
       # FIXME: as above
@@ -437,7 +438,7 @@ defmodule HonteD.ABCITest do
     test "can't sign_off into the past", %{empty_state: state, bob: bob, some_block_hash: hash} do
       some_height = 100
       some_previous_height = 50
-      %{state: state} = 
+      %{state: state} =
         create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
       
@@ -457,6 +458,17 @@ defmodule HonteD.ABCITest do
     test "zero height", %{empty_state: state, bob: bob, some_block_hash: hash} do
       sign("0 SIGN_OFF 0 #{hash} #{bob.addr}", bob.priv)
       |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+    end
+
+    @tag fixtures: [:state_alice_has_tokens, :some_block_hash, :alice, :asset, :issuer]
+    test "Sign_off emits event with context.", %{state_alice_has_tokens: state, asset: asset,
+                                                 issuer: issuer, some_block_hash: hash} do
+      {:ok, tx1} = create_sign_off(nonce: 2, height: 1, hash: hash, sender: issuer.addr)
+      {:ok, issuer_signature} = HonteD.Crypto.sign(tx1, issuer.priv)
+      Process.register(self(), HonteD.Events.Eventer)
+      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, _} =
+        handle_call({:RequestDeliverTx, "#{tx1} #{issuer_signature}"}, nil, state)
+      assert_receive({:"$gen_cast", {:event, %HonteD.Transaction.SignOff{}, [^asset]}})
     end
   end
   

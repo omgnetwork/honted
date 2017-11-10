@@ -153,28 +153,31 @@ defmodule HonteD.API do
   
   @doc """
   Subscribe to notification about Send transaction mined for particular address.
-  Notifications will be delivered as {:committed, event} messages to `subscriber`.
+  Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
   """
-  @spec new_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
+  @spec new_send_filter(subscriber :: pid, watched :: HonteD.address)
+    :: :ok | {:error, HonteD.Events.badarg}
   def new_send_filter(subscriber, watched) do
-    HonteD.Events.subscribe_send(subscriber, watched)
+    HonteD.Events.new_send_filter(subscriber, watched)
   end
 
   @doc """
   Stop subscribing to notifications about Send transactions mined for particular address.
   """
-  @spec drop_send_filter(subscriber :: pid, watched :: binary) :: {:ok, :ok} | {:error, atom}
+  @spec drop_send_filter(subscriber :: pid, watched :: HonteD.address)
+    :: :ok | {:error, HonteD.Events.badarg}
   def drop_send_filter(subscriber, watched) do
-    HonteD.Events.unsubscribe_send(subscriber, watched)
+    HonteD.Events.drop_send_filter(subscriber, watched)
   end
 
   @doc """
   Check if one is subscribed to notifications about Send transactions mined for particular
   address.
   """
-  @spec status_send_filter?(subscriber :: pid, watched :: binary) :: {:ok, boolean} | {:error, atom}
+  @spec status_send_filter?(subscriber :: pid, watched :: HonteD.address)
+    :: {:ok, boolean} | {:error, HonteD.Events.badarg}
   def status_send_filter?(subscriber, watched) do
-    HonteD.Events.subscribed?(subscriber, watched)
+    HonteD.Events.status_send_filter?(subscriber, watched)
   end
 
 end

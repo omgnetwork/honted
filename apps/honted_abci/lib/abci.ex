@@ -64,7 +64,7 @@ defmodule HonteD.ABCI do
     with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
          {:ok, state} <- generic_handle_tx(state, decoded)
     do
-      HonteD.Events.notify_committed(decoded.raw_tx)
+      do_notify(state, decoded.raw_tx)
       {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
     else
       {:error, error} -> {:reply, {:ResponseDeliverTx, 1, '', to_charlist(error)}, state}
@@ -90,16 +90,13 @@ defmodule HonteD.ABCI do
   @doc """
   Specialized query for issued tokens for an issuer
   """
-  def handle_call({:RequestQuery, "", '/issuers' ++ address, 0, :false}, _from, state) do
-    key = "issuers" <> to_string(address)
-    "/" <> str_address = to_string(address)
-    case lookup(state, key) do
-      {0, value, log} ->
-        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value 
-                                                          |> scan_potential_issued(state, str_address) 
-                                                          |> encode_query_response,
+  def handle_call({:RequestQuery, "", '/issuers/' ++ address, 0, :false}, _from, state) do
+    key = "issuers/" <> to_string(address)
+    case issued_tokens(state, address) do
+      {:ok, 0, value, log} ->
+        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> encode_query_response,
                   'no proof', 0, log}, state}
-      {code, value, log} ->
+      {:error, code, value, log} ->
         # problems - forward raw
         {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
     end
@@ -130,6 +127,29 @@ defmodule HonteD.ABCI do
   end
   
   ### END GenServer
+
+  defp issued_tokens(state, address) do
+    key = "issuers/" <> to_string(address)
+    case lookup(state, key) do
+      {0, value, log} ->
+        {:ok, 0, value |> scan_potential_issued(state, to_string(address)), log}
+      {code, value, log} ->
+        {:error, code, value, log}
+    end
+  end
+
+  # Alternative to extracting list of tokens here is to do mocking of Tendermint/RPC in tests
+  defp do_notify(state, %HonteD.Transaction.SignOff{} = tx) do
+    case issued_tokens(state, tx.sender) do
+      {:ok, 0, value, _} ->
+        HonteD.Events.notify(tx, value)
+      {:error, _, _, _} ->
+        HonteD.Events.notify(tx, [])
+    end
+  end
+  defp do_notify(_, tx) do
+    HonteD.Events.notify(tx, [])
+  end
   
   defp encode_query_response(object) do
     object

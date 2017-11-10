@@ -14,7 +14,7 @@ defmodule HonteD.Umbrella.Mixfile do
 
   defp deps do
     [
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+      {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
     ]
   end
 end
