@@ -21,8 +21,12 @@ defmodule HonteD.API.Mixfile do
         rpc_port: 46657, # tendermint node's rpc port
       ],
       extra_applications: [:logger],
-      applications: [:honted_events],
+      applications: [:honted_events] ++ do_test_applications(),
     ]
+  end
+  
+  defp do_test_applications do
+    if Mix.env == :test, do: [:porcelain], else: []
   end
 
   defp deps do
@@ -30,6 +34,9 @@ defmodule HonteD.API.Mixfile do
       {:tesla, "~>0.8.0"},
       {:plug, "~> 1.3"},
       {:poison, "~> 3.1"},
+      {:porcelain, "~> 2.0", only: :test},
+      {:temp, "~>0.4", only: :test},
+      #
       {:honted_lib, in_umbrella: true},
       {:honted_events, in_umbrella: true},
     ]
