@@ -5,49 +5,10 @@ defmodule HonteD.ABCITest do
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
+  import HonteD.ABCI.TestHelpers
+
   import HonteD.ABCI
   import HonteD.Transaction
-
-  deffixture empty_state do
-    {:ok, state} = HonteD.ABCI.init(:ok)
-    state
-  end
-
-  deffixture entities do
-    %{
-      alice: generate_entity(),
-      bob: generate_entity(),
-      issuer: generate_entity(),
-      carol: generate_entity(),
-    }
-  end
-
-  deffixture alice(entities), do: entities.alice
-  deffixture bob(entities), do: entities.bob
-  deffixture carol(entities), do: entities.carol
-  deffixture issuer(entities), do: entities.issuer
-
-  deffixture asset(issuer) do
-    # FIXME: as soon as that functionality lands, we should use HonteD.API to discover newly created token addresses
-    # (multiple occurrences!)
-    HonteD.Token.create_address(issuer.addr, 0)
-  end
-
-  deffixture state_with_token(empty_state, issuer) do
-    %{code: 0, state: state} = 
-      create_create_token(nonce: 0, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(empty_state)
-    state
-  end
-
-  deffixture state_alice_has_tokens(state_with_token, alice, issuer, asset) do
-    %{code: 0, state: state} =
-      create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(state_with_token)
-    state
-  end
-  
-  deffixture some_block_hash() do
-    "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
-  end
 
   describe "info requests from tendermint" do
     @tag fixtures: [:empty_state]
@@ -459,74 +420,6 @@ defmodule HonteD.ABCITest do
       sign("0 SIGN_OFF 0 #{hash} #{bob.addr}", bob.priv)
       |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
-
-    @tag fixtures: [:state_alice_has_tokens, :some_block_hash, :alice, :asset, :issuer]
-    test "Sign_off emits event with context.", %{state_alice_has_tokens: state, asset: asset,
-                                                 issuer: issuer, some_block_hash: hash} do
-      {:ok, tx1} = create_sign_off(nonce: 2, height: 1, hash: hash, sender: issuer.addr)
-      {:ok, issuer_signature} = HonteD.Crypto.sign(tx1, issuer.priv)
-      Process.register(self(), HonteD.Events.Eventer)
-      assert {:reply, {:ResponseDeliverTx, 0, '', ''}, _} =
-        handle_call({:RequestDeliverTx, "#{tx1} #{issuer_signature}"}, nil, state)
-      assert_receive({:"$gen_cast", {:event, %HonteD.Transaction.SignOff{}, [^asset]}})
-    end
-  end
-  
-  ## HELPER functions
-  defp generate_entity() do
-    {:ok, priv} = HonteD.Crypto.generate_private_key
-    {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
-    {:ok, addr} = HonteD.Crypto.generate_address(pub)
-    %{priv: priv, addr: addr}
-  end
-
-  defp sign({:ok, raw_tx}, priv_key), do: sign(raw_tx, priv_key)
-  defp sign(raw_tx, priv_key) do
-    {:ok, signature} = HonteD.Crypto.sign(raw_tx, priv_key)
-    "#{raw_tx} #{signature}"
-  end
-
-  defp deliver_tx(signed_tx, state), do: do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
-  defp check_tx(signed_tx, state), do: do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
-  defp do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
-    do_tx(request_atom, response_atom, signed_tx, state)
-  end
-  defp do_tx(request_atom, response_atom, signed_tx, state) do
-    assert {:reply, {^response_atom, code, data, log}, state} = handle_call({request_atom, signed_tx}, nil, state)
-    %{code: code, data: data, log: log, state: state}
-  end
-
-  defp success?(response) do
-    assert %{code: 0, data: '', log: ''} = response
-    response
-  end
-
-  defp fail?(response, expected_code, expected_log) do
-    assert %{code: ^expected_code, data: '', log: ^expected_log} = response
-    response
-  end
-
-  defp query(state, key) do
-    assert {:reply, {:ResponseQuery, code, 0, _key, value, 'no proof', 0, log}, ^state} =
-      handle_call({:RequestQuery, "", key, 0, false}, nil, state)
-      
-    # NOTE that (by the ABCI standard from abci_server) the query result is a char list and
-    #           (by our own standard) a json
-    %{code: code, value: value |> to_string |> Poison.decode!, log: log}
-  end
-
-  defp found?(response, expected_value) do
-    assert %{code: 0, value: ^expected_value} = response
-    response
-  end
-
-  defp not_found?(response) do
-    assert %{code: 1, log: 'not_found'} = response
-    response
-  end
-
-  defp same?(response, expected_state) do
-    assert %{state: ^expected_state} = response
   end
 
 end

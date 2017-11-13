@@ -64,7 +64,7 @@ defmodule HonteD.ABCI do
     with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
          {:ok, state} <- generic_handle_tx(state, decoded)
     do
-      do_notify(state, decoded.raw_tx)
+      HonteD.ABCI.Events.notify(state, decoded.raw_tx)
       {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
     else
       {:error, error} -> {:reply, {:ResponseDeliverTx, 1, '', to_charlist(error)}, state}
@@ -128,7 +128,7 @@ defmodule HonteD.ABCI do
   
   ### END GenServer
 
-  defp issued_tokens(state, address) do
+  def issued_tokens(state, address) do
     key = "issuers/" <> to_string(address)
     case lookup(state, key) do
       {0, value, log} ->
@@ -138,25 +138,12 @@ defmodule HonteD.ABCI do
     end
   end
 
-  # Alternative to extracting list of tokens here is to do mocking of Tendermint/RPC in tests
-  defp do_notify(state, %HonteD.Transaction.SignOff{} = tx) do
-    case issued_tokens(state, tx.sender) do
-      {:ok, 0, value, _} ->
-        HonteD.Events.notify(tx, value)
-      {:error, _, _, _} ->
-        HonteD.Events.notify(tx, [])
-    end
-  end
-  defp do_notify(_, tx) do
-    HonteD.Events.notify(tx, [])
-  end
-  
   defp encode_query_response(object) do
     object
     |> Poison.encode!
     |> to_charlist
   end
-  
+
   defp generic_handle_tx(state, tx) do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
          do: HonteD.ABCI.State.exec(state, tx)
