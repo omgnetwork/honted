@@ -13,6 +13,7 @@ defmodule HonteD.Events.Eventer do
   @typep event :: HonteD.Transaction.t
   @typep topic :: HonteD.address
   @typep queue :: :queue.queue(event)
+  @typep height :: pos_integer
   @typep subs :: BiMultiMap.t([topic], pid)
   @typep token :: HonteD.address
   @typep state :: %{
@@ -23,6 +24,7 @@ defmodule HonteD.Events.Eventer do
     # Works ONLY for Send transactions
     # TODO: pull those events from Tendermint
     :committed => %{optional(token) => queue},
+    :height => height,
   }
 
   ## callbacks
@@ -32,6 +34,7 @@ defmodule HonteD.Events.Eventer do
     {:ok, %{subs: BiMultiMap.new(),
             committed: Map.new(),
             monitors: Map.new(),
+            height: 1
            }}
   end
 
@@ -50,6 +53,10 @@ defmodule HonteD.Events.Eventer do
     end
     state = Enum.reduce(tokens, state, notify_token)
     {:noreply, state}
+  end
+
+  def handle_cast({:event, {:new_block, height}, _}, state) do
+    {:noreply, %{state | height: height}}
   end
 
   def handle_cast({:event, event, context}, state) do

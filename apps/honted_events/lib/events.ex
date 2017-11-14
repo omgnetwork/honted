@@ -7,12 +7,14 @@ defmodule HonteD.Events do
 
   @server HonteD.Events.Eventer
 
+  @type event :: HonteD.Transaction.t | {:new_block, pos_integer}
+
   @doc """
   Makes eventer send a :committed event to subscribers.
 
   See `defp message` for reference of messages sent to subscribing pids
   """
-  @spec notify(event :: HonteD.Transaction.t, list(HonteD.address) | any) :: :ok
+  @spec notify(event :: event, list(HonteD.address) | any) :: :ok
   def notify(server \\ @server, event, context) do
     GenServer.cast(server, {:event, event, context})
   end

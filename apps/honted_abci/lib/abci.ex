@@ -34,9 +34,9 @@ defmodule HonteD.ABCI do
     {:reply, {:ResponseEndBlock, []}, state}
   end
 
-  def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, _height, _timestamp, _some_zero_value,
+  def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, height, _timestamp, _some_zero_value,
  _block_id, _something1, _something2, _something3, _app_hash}}, _from, state) do
-
+    HonteD.ABCI.Events.notify(state, {:new_block, height})
     {:reply, {:ResponseBeginBlock}, state}
   end
 
