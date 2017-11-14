@@ -4,7 +4,8 @@ defmodule HonteD.Integration.APITest do
   use ExUnit.Case, async: true
   
   alias HonteD.{Crypto, API}
-  
+
+  @startup_timeout 20000
   @supply 5
   
   deffixture homedir() do
@@ -16,17 +17,25 @@ defmodule HonteD.Integration.APITest do
   end
   
   deffixture tendermint(homedir) do
-    %Porcelain.Result{err: nil, status: 0} = Porcelain.shell("tendermint --home #{homedir} init")
-    %Porcelain.Process{err: nil, out: _outstream} = Porcelain.spawn_shell(
-      "tendermint --home #{homedir} --log_level \"*:info\" node"
+    %Porcelain.Result{err: nil, status: 0} = Porcelain.shell(
+      "tendermint --home #{homedir} init"
     )
-    :ok = Application.ensure_started(:honted_abci)
-    # FIXME: WIP: how to change to timeouted-waiting for Tendermint to start running?
-    # _ = 
-    #   outstream
-    #   |> Stream.take_while(fn line -> String.contains?(line, "Started node") end)
-    #   |> Enum.to_list
-    Process.sleep(5000)
+    
+    # start tendermint and capture the stdout
+    %Porcelain.Process{err: nil, out: outstream} = Porcelain.spawn_shell(
+      "tendermint --home #{homedir} --log_level \"*:info\" node",
+      out: :stream,
+    )
+    fn -> wait_for_tendermint_start(outstream) end
+    |> Task.async
+    |> Task.await(@startup_timeout)
+  end
+  
+  defp wait_for_tendermint_start(outstream) do
+    # monitors the stdout coming out of Tendermint for singal of successful startup
+    outstream
+    |> Stream.take_while(fn line -> not String.contains?(line, "Started node") end)
+    |> Enum.to_list
     :ok
   end
   
