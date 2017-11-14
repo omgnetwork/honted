@@ -46,7 +46,7 @@ defmodule HonteD.Events do
 
   def child_spec(_) do
     %{id: @server,
-      start: {HonteD.Events, :start_link, [[], []]},
+      start: {HonteD.Events, :start_link, [[], [name: @server]]},
       type: :worker,
       restart: :permanent,
     }
