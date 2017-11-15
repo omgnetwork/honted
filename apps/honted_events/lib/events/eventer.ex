@@ -12,8 +12,8 @@ defmodule HonteD.Events.Eventer do
 
   @typep event :: HonteD.Transaction.t
   @typep topic :: HonteD.address
-  @typep queue :: :queue.queue(event)
   @typep height :: pos_integer
+  @typep queue :: Qex.t({height, event})
   @typep subs :: BiMultiMap.t([topic], pid)
   @typep token :: HonteD.address
   @typep state :: %{
@@ -39,19 +39,13 @@ defmodule HonteD.Events.Eventer do
   end
 
   def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
-    _ = Logger.info("#{inspect event}")
     state = insert_committed(event, state)
     do_notify(:committed, event, state[:subs])
     {:noreply, state}
   end
 
-  def handle_cast({:event, %HonteD.Transaction.SignOff{} = _event, tokens}, state) when is_list(tokens) do
-    notify_token = fn(token, acc) ->
-      {:ok, events, acc} = pop_committed(token, acc)
-      for event <- events, do: do_notify(:finalized, event, acc[:subs])
-      acc
-    end
-    state = Enum.reduce(tokens, state, notify_token)
+  def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
+    state = finalize_events(tokens, event.height, state)
     {:noreply, state}
   end
 
@@ -112,21 +106,33 @@ defmodule HonteD.Events.Eventer do
 
   ## internals
 
-  defp insert_committed(event, state = %{committed: committed}) do
+  defp finalize_events(tokens, height, state) do
+    notify_token = fn(token, acc) ->
+      {:ok, events, acc} = pop_committed(token, height, acc)
+      for event <- events, do: do_notify(:finalized, event, acc[:subs])
+      acc
+    end
+    Enum.reduce(tokens, state, notify_token)
+  end
+
+  defp insert_committed(event, state = %{committed: committed, height: height}) do
     token = get_token(event)
-    queue = Map.get(committed, token, :queue.new())
-    queue = :queue.in(event, queue)
+    queue = Map.get(committed, token, Qex.new())
+    queue = Enum.into([{height, event}], queue)
     committed = Map.put(committed, token, queue)
     %{state | :committed => committed}
   end
 
-  defp pop_committed(token, state = %{committed: committed}) do
+  defp pop_committed(token, signed_off_height, state = %{committed: committed}) do
     case Map.get(committed, token, nil) do
       nil ->
         {:ok, [], state}
       queue ->
-        committed = Map.put(committed, token, :queue.new())
-        {:ok, :queue.to_list(queue), %{state | committed: committed}}
+        is_older = fn({h, _event}) -> h <= signed_off_height end
+        {finalized_tuples, rest} = Enum.split_while(queue, is_older)
+        {_, finalized} = Enum.unzip(finalized_tuples)
+        committed = Map.put(committed, token, Qex.new(rest))
+        {:ok, finalized, %{state | committed: committed}}
     end
   end
 
