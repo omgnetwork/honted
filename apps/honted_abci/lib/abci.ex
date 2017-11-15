@@ -8,6 +8,8 @@ defmodule HonteD.ABCI do
   require Logger
   use GenServer
 
+  alias HonteD.ABCI.State, as: State
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, :ok, opts)
   end
@@ -17,7 +19,7 @@ defmodule HonteD.ABCI do
   end
 
   def init(:ok) do
-    {:ok, HonteD.ABCI.State.empty()}
+    {:ok, State.empty()}
   end
 
   def handle_call({:RequestInfo}, _from, state) do
@@ -44,7 +46,7 @@ defmodule HonteD.ABCI do
     {:reply, {
       :ResponseCommit,
       0,
-      (state |> HonteD.ABCI.State.hash |> to_charlist),
+      (state |> State.hash |> to_charlist),
       'commit log: yo!'
     }, state}
   end
@@ -92,11 +94,11 @@ defmodule HonteD.ABCI do
   """
   def handle_call({:RequestQuery, "", '/issuers/' ++ address, 0, :false}, _from, state) do
     key = "issuers/" <> to_string(address)
-    case issued_tokens(state, address) do
-      {:ok, 0, value, log} ->
+    case handle_get(State.issued_tokens(state, address)) do
+      {0, value, log} ->
         {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> encode_query_response,
                   'no proof', 0, log}, state}
-      {:error, code, value, log} ->
+      {code, value, log} ->
         # problems - forward raw
         {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
     end
@@ -128,16 +130,6 @@ defmodule HonteD.ABCI do
   
   ### END GenServer
 
-  def issued_tokens(state, address) do
-    key = "issuers/" <> to_string(address)
-    case lookup(state, key) do
-      {0, value, log} ->
-        {:ok, 0, value |> scan_potential_issued(state, to_string(address)), log}
-      {code, value, log} ->
-        {:error, code, value, log}
-    end
-  end
-
   defp encode_query_response(object) do
     object
     |> Poison.encode!
@@ -146,19 +138,14 @@ defmodule HonteD.ABCI do
 
   defp generic_handle_tx(state, tx) do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
-         do: HonteD.ABCI.State.exec(state, tx)
-  end
-  
-  defp scan_potential_issued(unfiltered_tokens, state, issuer) do
-    unfiltered_tokens
-    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+         do: State.exec(state, tx)
   end
   
   defp lookup(state, key) do
-    # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-    case state[key] do
-      nil -> {1, "", 'not_found'}
-      value -> {0, value, ''}
-    end
+    state |> State.get(key) |> handle_get
   end
+
+  defp handle_get({:ok, value}), do: {0, value, ''}
+  # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
+  defp handle_get(nil), do: {1, "", 'not_found'}
 end

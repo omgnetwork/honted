@@ -5,10 +5,10 @@ defmodule HonteD.ABCI.Events do
   """
 
   def notify(state, %HonteD.Transaction.SignOff{} = tx) do
-    case HonteD.ABCI.issued_tokens(state, tx.sender) do
-      {:ok, 0, value, _} ->
-        HonteD.Events.notify(tx, value)
-      {:error, _, _, _} ->
+    case HonteD.ABCI.State.issued_tokens(state, tx.sender) do
+      {:ok, tokens} ->
+        HonteD.Events.notify(tx, tokens)
+      nil ->
         HonteD.Events.notify(tx, [])
     end
   end
