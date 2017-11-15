@@ -1,4 +1,4 @@
-defmodule HonteD.ABCITest do
+defmodule HonteD.ABCI.StateTest do
   @moduledoc """
   **NOTE** this test will pretend to be Tendermint core
   """
