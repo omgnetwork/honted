@@ -87,17 +87,17 @@ defmodule HonteD.API.EventsTest do
 
     @tag fixtures: [:server]
     test "Both are delivered if sign_off is issued.", %{server: server} do
-      {e1, c1} = event_send(address1(), "asset1")
-      {e2, c2} = event_send(address1(), "asset2")
-      {e3, c3} = event_send(address1(), "asset1")
-      {s1, [f1, f2, f3]} = event_sign_off(address1(), [c1, c2, c3])
+      {e1, com1} = event_send(address1(), "asset1")
+      {e2, com2} = event_send(address1(), "asset2")
+      {e3, com3} = event_send(address1(), "asset1")
+      {s1, [fin1, fin2, fin3]} = event_sign_off(address1(), [com1, com2, com3])
       pid = client(fn() ->
-        assert_receive(^c1, @timeout)
-        assert_receive(^c2, @timeout)
-        assert_receive(^c3, @timeout)
-        assert_receive(^f1, @timeout)
-        assert_receive(^f2, @timeout)
-        assert_receive(^f3, @timeout)
+        assert_receive(^com1, @timeout)
+        assert_receive(^com2, @timeout)
+        assert_receive(^com3, @timeout)
+        assert_receive(^fin1, @timeout)
+        assert_receive(^fin2, @timeout)
+        assert_receive(^fin3, @timeout)
       end)
       new_send_filter(server, pid, address1())
       notify(server, e1, [])
