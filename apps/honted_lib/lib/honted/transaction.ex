@@ -103,7 +103,7 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a SignOff transaction, ensures state-less validity and encodes
   """
-  @spec create_sign_off([nonce: HonteD.nonce, height: pos_integer, hash: HonteD.block_hash, sender: HonteD.address]) ::
+  @spec create_sign_off([nonce: HonteD.nonce, height: HonteD.block_height, hash: HonteD.block_hash, sender: HonteD.address]) ::
     {:ok, SignOff.t} | {:error, atom}
   def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender] = args)
   when is_integer(nonce) and

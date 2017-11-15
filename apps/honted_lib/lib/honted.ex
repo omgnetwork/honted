@@ -4,4 +4,5 @@ defmodule HonteD do
   @type signature :: String.t
   @type nonce :: non_neg_integer
   @type block_hash :: String.t # NOTE: this is a hash external to our APP i.e. consensus engine based, e.g. TM block has
+  @type block_height :: pos_integer
 end

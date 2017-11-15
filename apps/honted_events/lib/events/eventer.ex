@@ -10,22 +10,27 @@ defmodule HonteD.Events.Eventer do
   use GenServer
   require Logger
 
-  @typep event :: HonteD.Transaction.t
-  @typep topic :: HonteD.address
-  @typep height :: pos_integer
-  @typep queue :: Qex.t({height, event})
-  @typep subs :: BiMultiMap.t([topic], pid)
-  @typep token :: HonteD.token
-  @typep state :: %{
-    :subs => subs,
-    :monitors => %{pid => reference},
-    # Events that are waiting to be finalized.
-    # Assumes one source of finality for each of the tokens.
-    # Works ONLY for Send transactions
-    # TODO: pull those events from Tendermint
-    :committed => %{optional(token) => queue},
-    :height => height,
-  }
+  defmodule State do
+    defstruct [:subs, :monitors, :committed, :height]
+
+    @typep event :: HonteD.Transaction.t
+    @typep topic :: HonteD.address
+    @typep queue :: Qex.t({HonteD.block_height, event})
+    @typep token :: HonteD.token
+
+    @type t :: %State{
+      subs: BiMultiMap.t([topic], pid),
+      monitors: %{pid => reference},
+      # Events that are waiting to be finalized.
+      # Assumes one source of finality for each of the tokens.
+      # Works ONLY for Send transactions
+      # TODO: pull those events from Tendermint
+      committed: %{optional(token) => queue},
+      height: HonteD.block_height,
+    }
+  end
+
+  @typep state :: State.t
 
   def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -43,16 +48,16 @@ defmodule HonteD.Events.Eventer do
 
   @spec init([]) :: {:ok, state}
   def init([]) do
-    {:ok, %{subs: BiMultiMap.new(),
-            committed: Map.new(),
-            monitors: Map.new(),
-            height: 1
-           }}
+    {:ok, %State{subs: BiMultiMap.new(),
+                 committed: Map.new(),
+                 monitors: Map.new(),
+                 height: 1
+                }}
   end
 
   def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
     state = insert_committed(event, state)
-    do_notify(:committed, event, state[:subs])
+    do_notify(:committed, event, state.subs)
     {:noreply, state}
   end
 
@@ -76,28 +81,25 @@ defmodule HonteD.Events.Eventer do
 
 
   def handle_call({:subscribe, pid, topics}, _from, state) do
-    mons = state[:monitors]
-    subs = state[:subs]
-    mons = Map.put_new_lazy(mons, pid, fn -> Process.monitor(pid) end)
-    subs = BiMultiMap.put(subs, topics, pid)
+    mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
+    subs = BiMultiMap.put(state.subs, topics, pid)
     {:reply, :ok, %{state | subs: subs, monitors: mons}}
   end
 
   def handle_call({:unsubscribe, pid, topics}, _from, state) do
-    subs = state[:subs]
-    subs = BiMultiMap.delete(subs, topics, pid)
+    subs = BiMultiMap.delete(state.subs, topics, pid)
     mons = case BiMultiMap.has_value?(subs, pid) do
              false ->
-               state[:monitors]
+               state.monitors
              true ->
-               Process.demonitor(state[:monitors][pid], [:flush]);
-               Map.delete(state[:monitors], pid)
+               Process.demonitor(state.monitors[pid], [:flush]);
+               Map.delete(state.monitors, pid)
            end
     {:reply, :ok, %{state | subs: subs, monitors: mons}}
   end
 
   def handle_call({:is_subscribed, pid, topics}, _from, state) do
-    {:reply, {:ok, BiMultiMap.member?(state[:subs], topics, pid)}, state}
+    {:reply, {:ok, BiMultiMap.member?(state.subs, topics, pid)}, state}
   end
 
   def handle_call(msg, from, state) do
@@ -121,16 +123,16 @@ defmodule HonteD.Events.Eventer do
   defp finalize_events(tokens, height, state) do
     notify_token = fn(token, acc) ->
       {:ok, events, acc} = pop_committed(token, height, acc)
-      for event <- events, do: do_notify(:finalized, event, acc[:subs])
+      for event <- events, do: do_notify(:finalized, event, acc.subs)
       acc
     end
     Enum.reduce(tokens, state, notify_token)
   end
 
-  defp insert_committed(event, state = %{committed: committed, height: height}) do
+  defp insert_committed(event, state) do
     token = get_token(event)
-    insert = fn(queue) -> Qex.push(queue, {height, event}) end
-    committed = Map.update(committed, token, Qex.new([{height, event}]), insert)
+    enqueue = fn(queue) -> Qex.push(queue, {state.height, event}) end
+    committed = Map.update(state.committed, token, Qex.new([{state.height, event}]), enqueue)
     %{state | :committed => committed}
   end
 

@@ -12,7 +12,7 @@ defmodule HonteD.Events do
     defstruct [:height]
 
     @type t :: %NewBlock{
-      height: pos_integer
+      height: HonteD.block_height
     }
   end
 
