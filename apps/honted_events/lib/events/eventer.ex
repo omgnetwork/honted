@@ -137,15 +137,17 @@ defmodule HonteD.Events.Eventer do
   end
 
   defp pop_committed(token, signed_off_height, state = %{committed: committed}) do
-    case Map.get(committed, token, nil) do
-      nil ->
-        {:ok, [], state}
-      queue ->
-        is_older = fn({h, _event}) -> h <= signed_off_height end
-        {finalized_tuples, rest} = Enum.split_while(queue, is_older)
-        {_, finalized} = Enum.unzip(finalized_tuples)
-        committed = Map.put(committed, token, Qex.new(rest))
-        {:ok, finalized, %{state | committed: committed}}
+    split_queue_by_block_height = fn
+      (nil) -> :pop
+      (queue) ->
+        is_older = fn({h, _event}) -> h <= signed_off_height end;
+        {finalized_tuples, rest} = Enum.split_while(queue, is_older);
+        {_, finalized} = Enum.unzip(finalized_tuples);
+        {finalized, Qex.new(rest)}
+    end
+    case Map.get_and_update(committed, token, split_queue_by_block_height) do
+      {nil, _} -> {:ok, [], state}
+      {finalized, committed} -> {:ok, finalized, %{state | committed: committed}}
     end
   end
 
