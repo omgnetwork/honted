@@ -21,7 +21,7 @@ defmodule HonteD.Events do
 
   See `defp message` for reference of messages sent to subscribing pids
   """
-  @spec notify(event :: event, list(HonteD.address) | any) :: :ok
+  @spec notify(server :: atom | pid, event :: event, list(HonteD.address) | any) :: :ok
   def notify(server \\ @server, event, context) do
     GenServer.cast(server, {:event, event, context})
   end
@@ -33,7 +33,7 @@ defmodule HonteD.Events do
     do: GenServer.call(server, {:subscribe, pid, [receiver]})
   end
 
-  @spec drop_send_filter(subscriber :: pid, watched :: HonteD.address)
+  @spec drop_send_filter(server :: atom | pid, subscriber :: pid, watched :: HonteD.address)
   :: :ok | {:error, HonteD.Events.badarg}
   def drop_send_filter(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
@@ -41,7 +41,7 @@ defmodule HonteD.Events do
       do: GenServer.call(server, {:unsubscribe, pid, [receiver]})
   end
 
-  @spec status_send_filter?(subscriber :: pid, watched :: HonteD.address)
+  @spec status_send_filter?(server :: atom | pid, subscriber :: pid, watched :: HonteD.address)
   :: {:ok, boolean} | {:error, HonteD.Events.badarg}
   def status_send_filter?(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
