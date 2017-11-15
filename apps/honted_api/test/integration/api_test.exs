@@ -22,11 +22,11 @@ defmodule HonteD.Integration.APITest do
     )
     
     # start tendermint and capture the stdout
-    %Porcelain.Process{err: nil, out: outstream} = Porcelain.spawn_shell(
+    %Porcelain.Process{err: nil, out: tendermint_out} = Porcelain.spawn_shell(
       "tendermint --home #{homedir} --log_level \"*:info\" node",
       out: :stream,
     )
-    fn -> wait_for_tendermint_start(outstream) end
+    fn -> wait_for_tendermint_start(tendermint_out) end
     |> Task.async
     |> Task.await(@startup_timeout)
   end
@@ -56,7 +56,8 @@ defmodule HonteD.Integration.APITest do
 
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok,
+    
+    assert {:ok,
      %{
        committed_in: _,
        duplicate: false,
@@ -64,7 +65,7 @@ defmodule HonteD.Integration.APITest do
      } = API.submit_transaction(raw_tx <> " " <> signature)
     
     # dupliacte
-    {:ok,
+    assert {:ok,
      %{
        committed_in: nil,
        duplicate: true,
@@ -72,7 +73,7 @@ defmodule HonteD.Integration.APITest do
      } = API.submit_transaction(raw_tx <> " " <> signature)
      
      # sane invalid transaction response
-    {:error,
+    assert {:error,
       %{
         code: 1,
         data: "",
@@ -82,7 +83,7 @@ defmodule HonteD.Integration.APITest do
       }
     } = API.submit_transaction(raw_tx <> " ")
     
-    {:ok, [asset]} = API.tokens_issued_by(issuer)
+    assert {:ok, [asset]} = API.tokens_issued_by(issuer)
     
     {:ok, raw_tx} = API.create_issue_transaction(asset, @supply, alice, issuer)
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
@@ -90,8 +91,8 @@ defmodule HonteD.Integration.APITest do
     
     # wait
 
-    {:ok, @supply} = API.query_balance(asset, alice)
-    {:ok,
+    assert {:ok, @supply} = API.query_balance(asset, alice)
+    assert {:ok,
       %{
         issuer: ^issuer,
         token: ^asset,
@@ -114,7 +115,7 @@ defmodule HonteD.Integration.APITest do
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
     {:ok, %{tx_hash: hash}} = API.submit_transaction(raw_tx <> " " <> signature)
 
-    {
+    assert {
       :ok,
       %{
         :decoded_tx => decoded_tx,
