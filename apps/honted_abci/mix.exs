@@ -27,7 +27,7 @@ defmodule HonteD.ABCI.Mixfile do
     ]
   end
 
-  defp extras(:dev), do: extras(:all) ++ [:remix]
+  defp extras(:dev), do: extras(:all)
   defp extras(_all), do: [:logger, :honted_events]
 
   # Run "mix help deps" to learn about dependencies.
@@ -39,7 +39,6 @@ defmodule HonteD.ABCI.Mixfile do
       {:ojson, "~> 1.0.0"},
       {:bimap, "~> 0.1.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
-      {:remix, "~> 0.0.1", only: [:dev]},
       #
       {:honted_lib, in_umbrella: true},
       {:honted_events, in_umbrella: true},
