@@ -27,6 +27,18 @@ defmodule HonteD.Events.Eventer do
     :height => height,
   }
 
+  def start_link(args, opts) do
+    GenServer.start_link(__MODULE__, args, opts)
+  end
+
+  def child_spec(_) do
+    %{id: __MODULE__,
+      start: {__MODULE__, :start_link, [[], [name: __MODULE__]]},
+      type: :worker,
+      restart: :permanent,
+    }
+  end
+
   ## callbacks
 
   @spec init([]) :: {:ok, state}

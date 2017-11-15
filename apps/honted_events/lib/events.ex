@@ -42,18 +42,6 @@ defmodule HonteD.Events do
       do: GenServer.call(server, {:is_subscribed, pid, [receiver]})
   end
 
-  def start_link(args, opts) do
-    GenServer.start_link(@server, args, opts)
-  end
-
-  def child_spec(_) do
-    %{id: @server,
-      start: {HonteD.Events, :start_link, [[], [name: @server]]},
-      type: :worker,
-      restart: :permanent,
-    }
-  end
-
   ## guards
 
   # Note that subscriber defined via registered atom is useless
