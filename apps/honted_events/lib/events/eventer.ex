@@ -61,8 +61,8 @@ defmodule HonteD.Events.Eventer do
     {:noreply, state}
   end
 
-  def handle_cast({:event, {:new_block, height}, _}, state) do
-    {:noreply, %{state | height: height}}
+  def handle_cast({:event, %HonteD.Events.NewBlock{} = event, _}, state) do
+    {:noreply, %{state | height: event.height}}
   end
 
   def handle_cast({:event, event, context}, state) do
@@ -129,9 +129,8 @@ defmodule HonteD.Events.Eventer do
 
   defp insert_committed(event, state = %{committed: committed, height: height}) do
     token = get_token(event)
-    queue = Map.get(committed, token, Qex.new())
-    queue = Enum.into([{height, event}], queue)
-    committed = Map.put(committed, token, queue)
+    insert = fn(queue) -> Qex.push(queue, {height, event}) end
+    committed = Map.update(committed, token, Qex.new([{height, event}]), insert)
     %{state | :committed => committed}
   end
 

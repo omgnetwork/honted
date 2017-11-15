@@ -4,10 +4,17 @@ defmodule HonteD.Events do
   """
 
   @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string
+  @type event :: HonteD.Transaction.t | HonteD.Events.NewBlock.t
 
   @server HonteD.Events.Eventer
 
-  @type event :: HonteD.Transaction.t | {:new_block, pos_integer}
+  defmodule NewBlock do
+    defstruct [:height]
+
+    @type t :: %NewBlock{
+      height: pos_integer
+    }
+  end
 
   @doc """
   Makes eventer send a :committed event to subscribers.

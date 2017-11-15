@@ -106,6 +106,24 @@ defmodule HonteD.API.EventsTest do
       notify(server, s1, ["asset1", "asset2"])
       join()
     end
+
+    @tag fixtures: [:server]
+    test "Sign_off finalizes transactions only to certain height", %{server: server} do
+      {e1, com1} = event_send(address1(), "asset", 0)
+      {e2, com2} = event_send(address1(), "asset", 2)
+      {f1, [fin1, fin2]} = event_sign_off(address1(), [com1, com2], 1)
+      pid = client(fn() ->
+        assert_receive(^fin1, @timeout)
+        refute_receive(^fin2, @timeout)
+      end)
+      new_send_filter(server, pid, address1())
+      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, e1, [])
+      notify(server, %HonteD.Events.NewBlock{height: 2}, [])
+      notify(server, e2, [])
+      notify(server, f1, ["asset"])
+      join()
+    end
   end
 
   describe "Subscribes and unsubscribes are handled." do
