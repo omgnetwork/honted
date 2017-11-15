@@ -18,7 +18,7 @@ defmodule HonteD.Transaction do
     
     @type t :: %Issue{
       nonce: HonteD.nonce,
-      asset: HonteD.address,
+      asset: HonteD.token,
       amount: pos_integer,
       dest: HonteD.address,
       issuer: HonteD.address,
@@ -30,7 +30,7 @@ defmodule HonteD.Transaction do
     
     @type t :: %Send{
       nonce: HonteD.nonce,
-      asset: HonteD.address,
+      asset: HonteD.token,
       amount: pos_integer,
       from: HonteD.address,
       to: HonteD.address,
@@ -73,7 +73,7 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a Issue transaction, ensures state-less validity and encodes
   """
-  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.address, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) :: 
+  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) :: 
     {:ok, Issue.t} | {:error, atom}
   def create_issue([nonce: nonce, asset: asset, amount: amount, dest: dest, issuer: issuer] = args)
   when is_integer(nonce) and
@@ -88,7 +88,7 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a Send transaction, ensures state-less validity and encodes
   """
-  @spec create_send([nonce: HonteD.nonce, asset: HonteD.address, amount: pos_integer, from: HonteD.address, to: HonteD.address]) :: 
+  @spec create_send([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, from: HonteD.address, to: HonteD.address]) :: 
     {:ok, Send.t} | {:error, atom}
   def create_send([nonce: nonce, asset: asset, amount: amount, from: from, to: to] = args)
   when is_integer(nonce) and

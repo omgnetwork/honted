@@ -21,7 +21,7 @@ defmodule HonteD.Events do
 
   See `defp message` for reference of messages sent to subscribing pids
   """
-  @spec notify(server :: atom | pid, event :: event, list(HonteD.address) | any) :: :ok
+  @spec notify(server :: atom | pid, event :: event, list(HonteD.token) | any) :: :ok
   def notify(server \\ @server, event, context) do
     GenServer.cast(server, {:event, event, context})
   end

@@ -15,7 +15,7 @@ defmodule HonteD.Events.Eventer do
   @typep height :: pos_integer
   @typep queue :: Qex.t({height, event})
   @typep subs :: BiMultiMap.t([topic], pid)
-  @typep token :: HonteD.address
+  @typep token :: HonteD.token
   @typep state :: %{
     :subs => subs,
     :monitors => %{pid => reference},
