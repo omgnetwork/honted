@@ -121,34 +121,35 @@ defmodule HonteD.Events.Eventer do
   ## internals
 
   defp finalize_events(tokens, height, state) do
-    notify_token = fn(token, acc) ->
-      {:ok, events, acc} = pop_committed(token, height, acc)
-      for event <- events, do: do_notify(:finalized, event, acc.subs)
-      acc
+    notify_token = fn(token, acc_committed) ->
+      # for a given token will process the queue with events and emit :finalized events to subscribers
+      {events, acc_committed} = pop_finalized(token, height, acc_committed)
+      for event <- events, do: do_notify(:finalized, event, state.subs)
+      acc_committed
     end
-    Enum.reduce(tokens, state, notify_token)
+    %{state | committed: Enum.reduce(tokens, state.committed, notify_token)}
   end
 
   defp insert_committed(event, state) do
     token = get_token(event)
     enqueue = fn(queue) -> Qex.push(queue, {state.height, event}) end
     committed = Map.update(state.committed, token, Qex.new([{state.height, event}]), enqueue)
-    %{state | :committed => committed}
+    %{state | committed: committed}
   end
 
-  defp pop_committed(token, signed_off_height, state = %{committed: committed}) do
+  defp pop_finalized(token, signed_off_height, committed) do
+    # for a given token will pop the events committed earlier, that are before the signed_off_height
     split_queue_by_block_height = fn
-      (nil) -> :pop
+      # should take a queue and split it into a list of finalized events and a queue with the rest of {height, event}'s
+      (nil) -> {[], nil}
       (queue) ->
-        is_older = fn({h, _event}) -> h <= signed_off_height end;
-        {finalized_tuples, rest} = Enum.split_while(queue, is_older);
-        {_, finalized} = Enum.unzip(finalized_tuples);
+        is_older = fn({h, _event}) -> h <= signed_off_height end
+        {finalized_tuples, rest} = Enum.split_while(queue, is_older)
+        # unzip to discard the heights and keep only the events
+        {_, finalized} = Enum.unzip(finalized_tuples)
         {finalized, Qex.new(rest)}
     end
-    case Map.get_and_update(committed, token, split_queue_by_block_height) do
-      {nil, _} -> {:ok, [], state}
-      {finalized, committed} -> {:ok, finalized, %{state | committed: committed}}
-    end
+    Map.get_and_update(committed, token, split_queue_by_block_height)
   end
 
   defp get_token(%HonteD.Transaction.Send{} = event) do
