@@ -38,6 +38,7 @@ defmodule HonteD.ABCI.Mixfile do
       {:ranch, "~> 1.3.2"},
       {:ojson, "~> 1.0.0"},
       {:bimap, "~> 0.1.1"},
+      {:poison, "~> 3.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_lib, in_umbrella: true},
