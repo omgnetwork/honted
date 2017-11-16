@@ -94,14 +94,10 @@ defmodule HonteD.ABCI do
   """
   def handle_call({:RequestQuery, "", '/issuers/' ++ address, 0, :false}, _from, state) do
     key = "issuers/" <> to_string(address)
-    case handle_get(State.issued_tokens(state, address)) do
-      {0, value, log} ->
-        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> encode_query_response,
-                  'no proof', 0, log}, state}
-      {code, value, log} ->
-        # problems - forward raw
-        {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
-    end
+    {code, value, log} = handle_get(State.issued_tokens(state, address))
+    return = {:ResponseQuery, code, 0, to_charlist(key),
+              encode_query_response(value), 'no proof', 0, log}
+    {:reply, return, state}
   end
 
   @doc """
