@@ -1,4 +1,4 @@
-Code.load_file("../honted_api/test/testlib/api/api_helpers.ex")
+Code.load_file("../honted_api/test/testlib/api/test_helpers.ex")
 
 defmodule HonteD.ABCI.EventsTest do
   @moduledoc """
