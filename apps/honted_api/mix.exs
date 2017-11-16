@@ -35,7 +35,8 @@ defmodule HonteD.API.Mixfile do
       {:plug, "~> 1.3"},
       {:poison, "~> 3.1"},
       {:porcelain, "~> 2.0", only: :test},
-      {:temp, "~>0.4", only: :test},
+      {:temp, "~> 0.4", only: :test},
+      {:socket, "~> 0.3", only: :test},
       #
       {:honted_lib, in_umbrella: true},
       {:honted_events, in_umbrella: true},
