@@ -45,13 +45,6 @@ defmodule HonteD.ABCI.Fixtures do
     state
   end
 
-  deffixture state_with_token2(state_with_token, issuer2) do
-    %{code: 0, state: state} =
-      create_create_token(nonce: 1, issuer: issuer2.addr) |> sign(issuer2.priv)
-      |> deliver_tx(state_with_token)
-    state
-  end
-
   deffixture state_alice_has_tokens(state_with_token, alice, issuer, asset) do
     %{code: 0, state: state} =
       create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
