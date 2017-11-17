@@ -6,14 +6,22 @@ defmodule HonteD.API.TestHelpers do
   def event_send(receiver, token \\ "asset") do
     # FIXME: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
-    tx = %HonteD.Transaction.Send{nonce: 123, asset: token, amount: 1, from: "from_addr", to: receiver}
+    tx = %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
     {tx, receivable_for(tx)}
   end
 
   def event_sign_off(sender, send_receivables, height \\ 1) do
-    tx = %HonteD.Transaction.SignOff{nonce: 123, height: height, hash: "hash", sender: sender}
+    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height), sender: sender}
     {tx, receivable_finalized(send_receivables)}
   end
+
+  def event_sign_off_bad_hash(sender, send_receivables, height \\ 1) do
+    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: "BADHASH", sender: sender}
+    {tx, receivable_finalized(send_receivables)}
+  end
+
+  def height2hash(n) when is_integer(n) and n > 0 and n < 100, do: "OK_HASH_" <> Integer.to_string(n)
+  def height2hash(_), do: nil
 
   @doc """
   Prepared based on documentation of HonteD.Events.notify

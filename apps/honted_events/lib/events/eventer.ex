@@ -11,7 +11,12 @@ defmodule HonteD.Events.Eventer do
   require Logger
 
   defmodule State do
-    defstruct [:subs, :monitors, :committed, :height]
+    defstruct [subs: BiMultiMap.new(),
+               monitors: Map.new(),
+               committed: Map.new(),
+               height: 1,
+               tendermint: HonteD.API.TendermintRPC,
+              ]
 
     @typep event :: HonteD.Transaction.t
     @typep topic :: HonteD.address
@@ -27,10 +32,9 @@ defmodule HonteD.Events.Eventer do
       # TODO: pull those events from Tendermint
       committed: %{optional(token) => queue},
       height: HonteD.block_height,
+      tendermint: module()
     }
   end
-
-  @typep state :: State.t
 
   def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -46,14 +50,9 @@ defmodule HonteD.Events.Eventer do
 
   ## callbacks
 
-  @spec init([]) :: {:ok, state}
-  def init([]) do
-    {:ok, %State{subs: BiMultiMap.new(),
-                 committed: Map.new(),
-                 monitors: Map.new(),
-                 height: 1
-                }}
-  end
+  @spec init([map]) :: {:ok, State.t}
+  def init([]), do: {:ok, %State{}}
+  def init([%{tendermint: module}]), do: {:ok, %State{tendermint: module}}
 
   def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
     state = insert_committed(event, state)
@@ -62,8 +61,13 @@ defmodule HonteD.Events.Eventer do
   end
 
   def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
-    state = finalize_events(tokens, event.height, state)
-    {:noreply, state}
+    case valid_signoff?(event, state) do
+      true ->
+        {:noreply, finalize_events(tokens, event.height, state)}
+      false ->
+        Logger.debug("Dropped sign-off: #{inspect event}, #{inspect tokens}")
+        {:noreply, state}
+    end
   end
 
   def handle_cast({:event, %HonteD.Events.NewBlock{} = event, _}, state) do
@@ -140,7 +144,8 @@ defmodule HonteD.Events.Eventer do
   defp pop_finalized(token, signed_off_height, committed) do
     # for a given token will pop the events committed earlier, that are before the signed_off_height
     split_queue_by_block_height = fn
-      # should take a queue and split it into a list of finalized events and a queue with the rest of {height, event}'s
+      # should take a queue and split it into a list of finalized events and
+      # a queue with the rest of {height, event}'s
       (nil) -> {[], nil}
       (queue) ->
         is_older = fn({h, _event}) -> h <= signed_off_height end
@@ -176,6 +181,23 @@ defmodule HonteD.Events.Eventer do
   # FIXME: this maps get should be done for set of all subsets
   defp subscribed(topics, subs) do
     BiMultiMap.get(subs, topics)
+  end
+
+  defp valid_signoff?(event, state) do
+    with {:ok, blockhash} <- get_block_hash(event.height, state.tendermint),
+    do: event.hash == blockhash
+  end
+
+  defp get_block_hash(height, tm_module) do
+    client = tm_module.client()
+    case tm_module.block(client, height) do
+      {:ok, block} -> {:ok, block_hash(block)}
+      nil -> false
+    end
+  end
+
+  defp block_hash(block) do
+    block["block_meta"]["block_id"]["hash"]
   end
 
 end
