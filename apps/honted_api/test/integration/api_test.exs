@@ -1,7 +1,7 @@
 defmodule HonteD.Integration.APITest do
   
   use ExUnitFixtures
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   
   alias HonteD.{Crypto, API}
 
@@ -16,13 +16,16 @@ defmodule HonteD.Integration.APITest do
     dir_path
   end
   
-  deffixture tendermint(homedir) do
+  deffixture tendermint(homedir, honted) do
+    # we just depend on honted running, so match to prevent compiler woes
+    :ok = honted
+    
     %Porcelain.Result{err: nil, status: 0} = Porcelain.shell(
       "tendermint --home #{homedir} init"
     )
     
     # start tendermint and capture the stdout
-    %Porcelain.Process{err: nil, out: tendermint_out} = Porcelain.spawn_shell(
+    tendermint_proc = %Porcelain.Process{err: nil, out: tendermint_out} = Porcelain.spawn_shell(
       "tendermint --home #{homedir} --log_level \"*:info\" node",
       out: :stream,
     )
@@ -30,6 +33,22 @@ defmodule HonteD.Integration.APITest do
       fn -> wait_for_tendermint_start(tendermint_out) end
       |> Task.async
       |> Task.await(@startup_timeout)
+      
+    on_exit fn -> 
+      Porcelain.Process.stop(tendermint_proc)
+    end
+  end
+  
+  deffixture honted() do
+    started_apps = 
+      [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc, :honted_events]
+      |> Enum.map(&Application.ensure_all_started/1)
+      |> Enum.flat_map(fn {:ok, app_list} -> app_list end)
+    on_exit fn -> 
+      started_apps
+      |> Enum.map(&Application.stop/1)
+    end
+    :ok
   end
   
   defp wait_for_tendermint_start(outstream) do
@@ -59,6 +78,7 @@ defmodule HonteD.Integration.APITest do
       case Poison.decode!(response) do
         %{"result" => decoded_result, "type" => "rs", "wsrpc" => "1.0"} -> decoded_result
         %{"source" => source} = event when source in ["filter"] -> event
+        %{"error" => decoded_error, "type" => "rs", "wsrpc" => "1.0"} -> {:error, decoded_error}
       end
     end
     
@@ -112,9 +132,9 @@ defmodule HonteD.Integration.APITest do
     # dupliacte
     assert {:ok,
       %{
-       committed_in: nil,
-       duplicate: true,
-       tx_hash: ^some_hash
+        committed_in: nil,
+        duplicate: true,
+        tx_hash: ^some_hash
       } = submit_result
     } = API.submit_transaction(full_transaction)
      
@@ -197,12 +217,11 @@ defmodule HonteD.Integration.APITest do
     assert {
       :ok,
       %{
-        :decoded_tx => decoded_tx,
         :status => :committed, 
         "height" => _, 
         "index" => _,
         "proof" => _,
-        "tx" => _,
+        "tx" => decoded_tx,
         "tx_result" => %{"code" => 0, "data" => "", "log" => ""}
       } = tx_query_result
     } = API.tx(hash)
@@ -212,11 +231,35 @@ defmodule HonteD.Integration.APITest do
     
     assert String.starts_with?(decoded_tx, "0 SEND #{asset} 5 #{alice} #{bob}")
     
-    # only smoke test rest of methods
-    TestWebsocket.send!(websocket, :token_info, %{token: asset})
-    assert %{} = TestWebsocket.recv!(websocket)
+    assert {
+      :ok,
+      %{
+        issuer: ^issuer,
+        token: ^asset,
+        total_supply: @supply
+      } = token_info_query_result
+    } = API.token_info(asset)
     
+    TestWebsocket.send!(websocket, :token_info, %{token: asset})
+    assert TestWebsocket.codec(token_info_query_result) == TestWebsocket.recv!(websocket)
     
     # FIXME: demo_03.md contents
+  end
+  
+  @tag :integration
+  @tag fixtures: [:tendermint, :websocket]
+  test "incorrect calls to websockets should return sensible response not crash", %{websocket: websocket} do
+    # bad method
+    TestWebsocket.send!(websocket, :token_inf, %{token: ""})
+    {:error, %{"data" => %{"method" => "token_inf"}, "message" => "Method not found"}} = TestWebsocket.recv!(websocket)
+    
+    # bad params
+    TestWebsocket.send!(websocket, :token_info, %{toke: ""})
+    {:error, %{"data" => %{"msg" => "Please provide parameter `token` of type `:binary`",
+                           "name" => "token",
+                           "type" => "binary"
+                         },
+               "message" => "Invalid params"}
+     } = TestWebsocket.recv!(websocket)
   end
 end
