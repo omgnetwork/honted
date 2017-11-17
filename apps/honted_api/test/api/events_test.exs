@@ -5,6 +5,8 @@ defmodule HonteD.API.EventsTest do
   Uses the application's instance of HonteD.Events.Eventer
 
   Uses the public HonteD.API for subscription/unsubscription and the public HonteD.Events api to emit events
+  
+  We test the logic of the events here
   """
 
   import HonteD.API.TestHelpers
@@ -106,11 +108,34 @@ defmodule HonteD.API.EventsTest do
       notify(server, s1, ["asset1", "asset2"])
       join()
     end
+    
+    @tag fixtures: [:server]
+    test "Sign_off delivers tokens of the issuer who did the sign off", %{server: server} do
+      {e1, com1} = event_send(address1(), "asset1")
+      {e2, com2} = event_send(address1(), "asset2")
+      {e3, com3} = event_send(address1(), "asset3")
+      {s1, [fin1, fin2]} = event_sign_off(address2(), [com1, com2])
+      
+      pid = client(fn() ->
+        assert_receive(^com1, @timeout)
+        assert_receive(^com2, @timeout)
+        assert_receive(^com3, @timeout)
+        assert_receive(^fin1, @timeout)
+        assert_receive(^fin2, @timeout)
+        refute_receive(_, @timeout)
+      end)
+      new_send_filter(server, pid, address1())
+      notify(server, e1, [])
+      notify(server, e2, [])
+      notify(server, e3, [])
+      notify(server, s1, ["asset1", "asset2"])
+      join()
+    end
 
     @tag fixtures: [:server]
     test "Sign_off finalizes transactions only to certain height", %{server: server} do
-      {e1, com1} = event_send(address1(), "asset", 0)
-      {e2, com2} = event_send(address1(), "asset", 2)
+      {e1, com1} = event_send(address1(), "asset")
+      {e2, com2} = event_send(address1(), "asset")
       {f1, [fin1, fin2]} = event_sign_off(address1(), [com1, com2], 1)
       pid = client(fn() ->
         assert_receive(^fin1, @timeout)
@@ -122,6 +147,26 @@ defmodule HonteD.API.EventsTest do
       notify(server, %HonteD.Events.NewBlock{height: 2}, [])
       notify(server, e2, [])
       notify(server, f1, ["asset"])
+      join()
+    end
+
+    @tag fixtures: [:server]
+    test "Sign_off can be continued at later height", %{server: server} do
+      {e1, com1} = event_send(address1(), "asset")
+      {e2, com2} = event_send(address1(), "asset")
+      {f1, [fin1]} = event_sign_off(address1(), [com1], 1)
+      {f2, [fin2]} = event_sign_off(address1(), [com2], 2)
+      pid = client(fn() ->
+        assert_receive(^fin1, @timeout)
+        assert_receive(^fin2, @timeout)
+      end)
+      new_send_filter(server, pid, address1())
+      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, e1, [])
+      notify(server, %HonteD.Events.NewBlock{height: 2}, [])
+      notify(server, e2, [])
+      notify(server, f1, ["asset"])
+      notify(server, f2, ["asset"])
       join()
     end
   end

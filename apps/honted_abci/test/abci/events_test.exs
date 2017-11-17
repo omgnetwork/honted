@@ -4,83 +4,129 @@ defmodule HonteD.ABCI.EventsTest do
   @moduledoc """
   Tests if Events are processed correctly, by the registered :honted_events app
 
-  FIXME: think if we shouldn't test using a fixture-provided Eventer GenServer as in
-  HonteD.API-HonteD.Events.Eventer tests. That would allow `async: true`
+  THis tests only the integration between ABCI and the Eventer GenServer, i.e. whether the events are emitted
+  correctly. No HonteD.Events logic tested here
   """
   use ExUnitFixtures
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: false  # modifies the ABCI's registered Eventer process
 
   import HonteD.Transaction
-  import HonteD.Events
 
   import HonteD.API.TestHelpers
   import HonteD.ABCI.TestHelpers
 
   @test_eventer HonteD.Events.Eventer
-
-  deffixture server do
-    {:ok, pid} = GenServer.start(HonteD.Events.Eventer, [], [name: @test_eventer])
-    on_exit fn ->
-      Process.exit(pid, :shutdown)
+  @timeout 100
+  
+  deffixture server_spawner() do
+    # returns a function that spawns a process waiting for a particular expected message (or silence)
+    # this is used to mock the Eventer GenServer
+    # this process is registered in lieu of the Eventer, and should be `join`ed at the end of test
+    # FIXME: this should be done in `on_exit` but it doesn't seem to work (assertions do not fail)
+    fn expected_case ->
+      # the following case determines the expected behavior of the spawned process
+      server_pid = case expected_case do
+        :expected_silence ->
+          spawn_link(fn ->
+            refute_receive(_, @timeout)
+          end)          
+        expected_message ->
+          spawn_link(fn ->
+            assert_receive({:"$gen_cast", ^expected_message}, @timeout)
+            refute_receive(_, @timeout)
+          end)
+      end
+      # plug the proces where the Eventer Genserver is expected
+      Process.register(server_pid, @test_eventer)
+      server_pid
     end
-    pid
   end
-
-  defp receivable({:ok, something}), do: receivable(something)
-  defp receivable(binary) when is_binary(binary) do
-    {:ok, decoded} = HonteD.TxCodec.decode(binary)
-    receivable(decoded)
-  end
-  defp receivable(%HonteD.Transaction.SignedTx{raw_tx: rtx}), do: receivable(rtx)
-  defp receivable(decoded), do: receivable_for(decoded)
 
   describe "ABCI and Eventer work together." do
-    @tag fixtures: [:server, :state_alice_has_tokens, :some_block_hash, :alice, :bob, :asset, :issuer]
-    test "Sign_off delivers :finalized events.", %{state_alice_has_tokens: state, asset: asset,
-                                                   alice: alice, bob: bob,
-                                                   issuer: issuer, some_block_hash: hash} do
-      # prepare send
-      assert Process.alive?(Process.whereis(@test_eventer))
-      {:ok, send_enc} = create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
-      e1 = receivable(sign(send_enc, alice.priv))
-      e2 = receivable_finalized(e1)
-      {:ok, signoff_enc} = create_sign_off(nonce: 2, height: 2, hash: hash, sender: issuer.addr)
-      pid = client(fn() ->
-        assert_receive(^e1)
-        assert_receive(^e2)
-        refute_receive(_)
-      end)
-      new_send_filter(@test_eventer, pid, bob.addr)
-      assert status_send_filter?(@test_eventer, pid, bob.addr)
-      {:ok, send_enc} |> sign(alice.priv) |> deliver_tx(state) |> success?
-      {:ok, signoff_enc} |> sign(issuer.priv) |> deliver_tx(state) |> success?
-      join()
+    @tag fixtures: [:server_spawner, :empty_state, :issuer]
+    test "create token transaction emits events", %{empty_state: state, issuer: issuer, server_spawner: server_spawner} do
+      params = [nonce: 0, issuer: issuer.addr]
+      server_pid = server_spawner.({
+        :event,
+        struct(HonteD.Transaction.CreateToken, params),
+        []
+      })
+      
+      create_create_token(params) |> sign(issuer.priv) |> deliver_tx(state)
+      join(server_pid)
+    end
+    
+    @tag fixtures: [:server_spawner, :state_with_token, :alice, :asset, :issuer]
+    test "issue transaction emits events", %{state_with_token: state, asset: asset, alice: alice, issuer: issuer,
+                                             server_spawner: server_spawner} do
+      params = [nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr]
+      server_pid = server_spawner.({
+        :event,
+        struct(HonteD.Transaction.Issue, params),
+        []
+      })
+      
+      create_issue(params) |> sign(issuer.priv) |> deliver_tx(state)
+      join(server_pid)
+    end
+    
+    @tag fixtures: [:server_spawner, :state_alice_has_tokens, :alice, :bob, :asset]
+    test "send transaction emits events", %{state_alice_has_tokens: state, asset: asset, alice: alice, bob: bob,
+                                            server_spawner: server_spawner} do
+      params = [nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr]
+      server_pid = server_spawner.({
+        :event,
+        struct(HonteD.Transaction.Send, params),
+        []
+      })
+      
+      create_send(params) |> sign(alice.priv) |> deliver_tx(state)
+      join(server_pid)
+    end
+    
+    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    test "signoff transaction emits events", %{empty_state: state, issuer: issuer, some_block_hash: hash,
+                                               server_spawner: server_spawner} do
+      params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
+      server_pid = server_spawner.({
+        :event,
+        struct(HonteD.Transaction.SignOff, params),
+        []
+      })
+      
+      create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+      join(server_pid)
     end
 
-    @tag fixtures: [:server, :state_bob_has_tokens2, :some_block_hash, :alice, :bob,
-                    :asset, :asset2, :issuer2]
-    test "Sign_off delivers tokens of the issuer who did the sign off",
-      %{state_bob_has_tokens2: state, asset: asset, asset2: asset2,
-        alice: alice, bob: bob,
-        issuer2: issuer2, some_block_hash: hash} do
-      {:ok, send1} = create_send(nonce: 0, asset: asset, amount: 2, from: alice.addr, to: bob.addr)
-      {:ok, send2} = create_send(nonce: 0, asset: asset2, amount: 3, from: bob.addr, to: alice.addr)
-      e1 = receivable(sign(send1, alice.priv))
-      e2 = receivable(sign(send2, bob.priv))
-      [_f1, f2] = receivable_finalized([e1, e2])
-      {:ok, signoff_enc} = create_sign_off(nonce: 2, height: 2, hash: hash, sender: issuer2.addr)
-      pid = client(fn() ->
-        assert_receive(^e1)
-        assert_receive(^e2)
-        assert_receive(^f2)
-        refute_receive(_)
-      end)
-      new_send_filter(@test_eventer, pid, alice.addr)
-      new_send_filter(@test_eventer, pid, bob.addr)
-      {:ok, send1} |> sign(alice.priv) |> deliver_tx(state) |> success?
-      {:ok, send2} |> sign(bob.priv) |> deliver_tx(state) |> success?
-      {:ok, signoff_enc} |> sign(issuer2.priv) |> deliver_tx(state) |> success?
-      join()
+    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    test "correct tx doesn't emit on check tx", %{empty_state: state, issuer: issuer, some_block_hash: hash,
+                                                  server_spawner: server_spawner} do
+      params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
+      server_pid = server_spawner.(:expected_silence)
+      
+      create_sign_off(params) |> sign(issuer.priv) |> check_tx(state)
+      join(server_pid)
     end
+
+    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    test "statefully incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
+                                                   server_spawner: server_spawner} do
+      params = [nonce: 1, height: 1, hash: hash, sender: issuer.addr]
+      server_pid = server_spawner.(:expected_silence)
+      
+      create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+      join(server_pid)
+    end
+
+    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    test "statelessly incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
+                                               server_spawner: server_spawner} do
+      params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
+      server_pid = server_spawner.(:expected_silence)
+      
+      create_sign_off(params) |> deliver_tx(state)
+      join(server_pid)
+    end
+    
   end
 end

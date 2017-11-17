@@ -3,15 +3,15 @@ defmodule HonteD.API.TestHelpers do
   def address1(), do: "address1"
   def address2(), do: "address2"
 
-  def event_send(receiver, token \\ "asset", nonce \\ 0) do
+  def event_send(receiver, token \\ "asset") do
     # FIXME: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
-    tx = %HonteD.Transaction.Send{nonce: nonce, asset: token, amount: 1, from: "from_addr", to: receiver}
+    tx = %HonteD.Transaction.Send{nonce: 123, asset: token, amount: 1, from: "from_addr", to: receiver}
     {tx, receivable_for(tx)}
   end
 
   def event_sign_off(sender, send_receivables, height \\ 1) do
-    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: "hash", sender: sender}
+    tx = %HonteD.Transaction.SignOff{nonce: 123, height: height, hash: "hash", sender: sender}
     {tx, receivable_finalized(send_receivables)}
   end
 
