@@ -5,13 +5,16 @@ defmodule HonteD.Umbrella.Mixfile do
     [
       apps_path: "apps",
       start_permanent: Mix.env == :prod,
-      deps: deps()
+      deps: deps(),
+      dialyzer: [ flags: [:error_handling, :race_conditions, :underspecs, :unknown, :unmatched_returns],
+                  plt_add_deps: :transitive,
+                ],
     ]
   end
 
   defp deps do
     [
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+      {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
     ]
   end
 end

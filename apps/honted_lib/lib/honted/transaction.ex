@@ -4,8 +4,6 @@ defmodule HonteD.Transaction do
   """
   alias HonteD.Transaction.Validation
   
-  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t
-  
   defmodule CreateToken do
     defstruct [:nonce, :issuer]
     
@@ -20,7 +18,7 @@ defmodule HonteD.Transaction do
     
     @type t :: %Issue{
       nonce: HonteD.nonce,
-      asset: HonteD.address,
+      asset: HonteD.token,
       amount: pos_integer,
       dest: HonteD.address,
       issuer: HonteD.address,
@@ -32,19 +30,10 @@ defmodule HonteD.Transaction do
     
     @type t :: %Send{
       nonce: HonteD.nonce,
-      asset: HonteD.address,
+      asset: HonteD.token,
       amount: pos_integer,
       from: HonteD.address,
       to: HonteD.address,
-    }
-  end
-  
-  defmodule SignedTx do
-    defstruct [:raw_tx, :signature]
-    
-    @type t :: %SignedTx{
-      raw_tx: HonteD.Transaction.t,
-      signature: HonteD.signature
     }
   end
   
@@ -58,6 +47,17 @@ defmodule HonteD.Transaction do
       sender: HonteD.address,
     }
   end
+  
+  defmodule SignedTx do
+    defstruct [:raw_tx, :signature]
+    
+    @type t :: %SignedTx{
+      raw_tx: HonteD.Transaction.t,
+      signature: HonteD.signature
+    }
+  end
+  
+  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t
   
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
@@ -73,7 +73,7 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a Issue transaction, ensures state-less validity and encodes
   """
-  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.address, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) :: 
+  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) :: 
     {:ok, Issue.t} | {:error, atom}
   def create_issue([nonce: nonce, asset: asset, amount: amount, dest: dest, issuer: issuer] = args)
   when is_integer(nonce) and
@@ -88,7 +88,7 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a Send transaction, ensures state-less validity and encodes
   """
-  @spec create_send([nonce: HonteD.nonce, asset: HonteD.address, amount: pos_integer, from: HonteD.address, to: HonteD.address]) :: 
+  @spec create_send([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, from: HonteD.address, to: HonteD.address]) :: 
     {:ok, Send.t} | {:error, atom}
   def create_send([nonce: nonce, asset: asset, amount: amount, from: from, to: to] = args)
   when is_integer(nonce) and
@@ -103,7 +103,7 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a SignOff transaction, ensures state-less validity and encodes
   """
-  @spec create_sign_off([nonce: HonteD.nonce, height: pos_integer, hash: HonteD.block_hash, sender: HonteD.address]) ::
+  @spec create_sign_off([nonce: HonteD.nonce, height: HonteD.block_height, hash: HonteD.block_hash, sender: HonteD.address]) ::
     {:ok, SignOff.t} | {:error, atom}
   def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender] = args)
   when is_integer(nonce) and

@@ -21,11 +21,14 @@ defmodule HonteD.ABCI.Mixfile do
       env: [
         abci_port: 46658, # our own abci port tendermint connects to
       ],
-      extra_applications: [:logger, :honted_events],
+      extra_applications: extras(Mix.env),
       applications: [:cowboy],
       mod: {HonteD.ABCI.Application, []}
     ]
   end
+
+  defp extras(:dev), do: extras(:all)
+  defp extras(_all), do: [:logger, :honted_events]
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
@@ -35,6 +38,7 @@ defmodule HonteD.ABCI.Mixfile do
       {:ranch, "~> 1.3.2"},
       {:ojson, "~> 1.0.0"},
       {:bimap, "~> 0.1.1"},
+      {:poison, "~> 3.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_lib, in_umbrella: true},

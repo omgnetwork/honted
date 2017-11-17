@@ -1,53 +1,14 @@
-defmodule HonteD.ABCITest do
+defmodule HonteD.ABCI.StateTest do
   @moduledoc """
   **NOTE** this test will pretend to be Tendermint core
   """
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
+  import HonteD.ABCI.TestHelpers
+
   import HonteD.ABCI
   import HonteD.Transaction
-
-  deffixture empty_state do
-    {:ok, state} = HonteD.ABCI.init(:ok)
-    state
-  end
-
-  deffixture entities do
-    %{
-      alice: generate_entity(),
-      bob: generate_entity(),
-      issuer: generate_entity(),
-      carol: generate_entity(),
-    }
-  end
-
-  deffixture alice(entities), do: entities.alice
-  deffixture bob(entities), do: entities.bob
-  deffixture carol(entities), do: entities.carol
-  deffixture issuer(entities), do: entities.issuer
-
-  deffixture asset(issuer) do
-    # FIXME: as soon as that functionality lands, we should use HonteD.API to discover newly created token addresses
-    # (multiple occurrences!)
-    HonteD.Token.create_address(issuer.addr, 0)
-  end
-
-  deffixture state_with_token(empty_state, issuer) do
-    %{code: 0, state: state} = 
-      create_create_token(nonce: 0, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(empty_state)
-    state
-  end
-
-  deffixture state_alice_has_tokens(state_with_token, alice, issuer, asset) do
-    %{code: 0, state: state} =
-      create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(state_with_token)
-    state
-  end
-  
-  deffixture some_block_hash() do
-    "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
-  end
 
   describe "info requests from tendermint" do
     @tag fixtures: [:empty_state]
@@ -153,7 +114,7 @@ defmodule HonteD.ABCITest do
 
     @tag fixtures: [:state_with_token, :asset]
     test "zero total supply on creation", %{state_with_token: state, asset: asset} do
-      query(state, '/tokens/#{asset}/total_supply') |> found?('0')
+      query(state, '/tokens/#{asset}/total_supply') |> found?(0)
     end
 
     @tag fixtures: [:alice, :state_with_token, :asset]
@@ -232,16 +193,16 @@ defmodule HonteD.ABCITest do
         create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
         |> sign(issuer.priv) |> deliver_tx(state) |> success?
         
-      query(state, '/tokens/#{asset}/total_supply') |> found?('5')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('5')
+      query(state, '/tokens/#{asset}/total_supply') |> found?(5)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(5)
       
       %{state: state} = 
         create_issue(nonce: 2, asset: asset, amount: 7, dest: issuer.addr, issuer: issuer.addr)
         |> sign(issuer.priv) |> deliver_tx(state) |> success?
         
-      query(state, '/tokens/#{asset}/total_supply') |> found?('12')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('5')
-      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?('7')
+      query(state, '/tokens/#{asset}/total_supply') |> found?(12)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(5)
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(7)
     end
   end
 
@@ -270,14 +231,14 @@ defmodule HonteD.ABCITest do
   describe "generic nonce tests" do
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
     test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      query(state, '/nonces/#{alice.addr}') |> found?('0')
+      query(state, '/nonces/#{alice.addr}') |> found?(0)
 
       %{state: state} =
         create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
 
-      query(state, '/nonces/#{bob.addr}') |> found?('0')
-      query(state, '/nonces/#{alice.addr}') |> found?('1')
+      query(state, '/nonces/#{bob.addr}') |> found?(0)
+      query(state, '/nonces/#{alice.addr}') |> found?(1)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -324,8 +285,8 @@ defmodule HonteD.ABCITest do
       %{state: state} = 
         create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
-      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?('1')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('4')
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?(1)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(4)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -361,8 +322,8 @@ defmodule HonteD.ABCITest do
         create_send(nonce: 1, asset: asset, amount: 4, from: alice.addr, to: bob.addr)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
 
-      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?('5')
-      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?('0')
+      query(state, '/accounts/#{asset}/#{bob.addr}') |> found?(5)
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(0)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -411,6 +372,7 @@ defmodule HonteD.ABCITest do
 
       tx1 |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
+
   end
 
   describe "sign off transactions logic" do
@@ -423,11 +385,11 @@ defmodule HonteD.ABCITest do
     test "correct sign_offs", %{empty_state: state, bob: bob, some_block_hash: hash} do
       some_height = 100
       some_next_height = 200
-      %{state: state} = 
+      %{state: state} =
         create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
       # FIXME: test querrying in T95
-      %{state: _} = 
+      %{state: _} =
         create_sign_off(nonce: 1, height: some_next_height, hash: String.reverse(hash), sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
       # FIXME: as above
@@ -437,7 +399,7 @@ defmodule HonteD.ABCITest do
     test "can't sign_off into the past", %{empty_state: state, bob: bob, some_block_hash: hash} do
       some_height = 100
       some_previous_height = 50
-      %{state: state} = 
+      %{state: state} =
         create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
       
@@ -458,60 +420,6 @@ defmodule HonteD.ABCITest do
       sign("0 SIGN_OFF 0 #{hash} #{bob.addr}", bob.priv)
       |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
-  end
-  
-  ## HELPER functions
-  defp generate_entity() do
-    {:ok, priv} = HonteD.Crypto.generate_private_key
-    {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
-    {:ok, addr} = HonteD.Crypto.generate_address(pub)
-    %{priv: priv, addr: addr}
-  end
-
-  defp sign({:ok, raw_tx}, priv_key), do: sign(raw_tx, priv_key)
-  defp sign(raw_tx, priv_key) do
-    {:ok, signature} = HonteD.Crypto.sign(raw_tx, priv_key)
-    "#{raw_tx} #{signature}"
-  end
-
-  defp deliver_tx(signed_tx, state), do: do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
-  defp check_tx(signed_tx, state), do: do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
-  defp do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
-    do_tx(request_atom, response_atom, signed_tx, state)
-  end
-  defp do_tx(request_atom, response_atom, signed_tx, state) do
-    assert {:reply, {^response_atom, code, data, log}, state} = handle_call({request_atom, signed_tx}, nil, state)
-    %{code: code, data: data, log: log, state: state}
-  end
-
-  defp success?(response) do
-    assert %{code: 0, data: '', log: ''} = response
-    response
-  end
-
-  defp fail?(response, expected_code, expected_log) do
-    assert %{code: ^expected_code, data: '', log: ^expected_log} = response
-    response
-  end
-
-  defp query(state, key) do
-    assert {:reply, {:ResponseQuery, code, 0, _key, value, 'no proof', 0, log}, ^state} =
-      handle_call({:RequestQuery, "", key, 0, false}, nil, state)
-    %{code: code, value: value, log: log}
-  end
-
-  defp found?(response, expected_value) do
-    assert %{code: 0, value: ^expected_value} = response
-    response
-  end
-
-  defp not_found?(response) do
-    assert %{code: 1, log: 'not_found'} = response
-    response
-  end
-
-  defp same?(response, expected_state) do
-    assert %{state: ^expected_state} = response
   end
 
 end

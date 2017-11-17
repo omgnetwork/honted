@@ -73,11 +73,20 @@ defmodule HonteD.API.ExposeSpec do
   end
   defp parse_term({:%{}, _, list}), do: {:map, parse_term(list)}
   defp parse_term({:|, _, alts}), do: parse_alternative(alts)
+  defp parse_term({{:., _, iex_alias}, _, _}), do: parse_alias(iex_alias)
   defp parse_term({atom, _, :nil}) when is_atom(atom), do: atom
 
   defp parse_alternative(list) do
     alts = for term <- list, do: parse_term(term)
     {:alternative, alts}
+  end
+
+  defp parse_alias([{:__aliases__, _, prefixes} | [last]]) do
+    prefixes = for prefix <- prefixes, do: Atom.to_string(prefix)
+    String.to_atom(Enum.join(prefixes ++ [last], "."))
+  end
+  defp parse_alias([left | [right]]) do
+    String.to_atom(Enum.join([left | [right]], "."))
   end
 
   defp parse_args(args) do
@@ -98,8 +107,7 @@ defmodule HonteD.API.ExposeSpec do
   defp arity_sanity_check(list) do
     names = for {name, _} <- list, do: name
     testresult = length(Enum.uniq(names)) != length(names)
-    tag = :problem_with_arity
-    {^tag, false} = {tag, testresult}
+    if testresult, do: :problem_with_arity, else: :ok
   end
 
   defmacro __using__(_opts) do
@@ -116,7 +124,7 @@ defmodule HonteD.API.ExposeSpec do
       |> Enum.map(&function_spec/1)
       |> Enum.filter(fn(x) -> x != :incomplete_spec end)
       |> Enum.map(fn(map) -> {map[:name], map} end)
-    arity_sanity_check(nice_spec)
+    :ok = arity_sanity_check(nice_spec)
     escaped = Macro.escape(Map.new(nice_spec))
     quote do
       def get_specs, do: unquote(escaped)

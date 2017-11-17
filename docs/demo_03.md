@@ -18,6 +18,8 @@ import HonteD.Crypto
 {:ok, signature} = sign(raw_tx, alice_priv)
 {:ok, hash} = submit_transaction raw_tx <> " " <> signature
 
+# wait
+
 {:ok, [asset]} = tokens_issued_by(alice)
 
 # v START DEMO HERE v
@@ -32,12 +34,32 @@ raw_tx <> " " <> signature
 # paste transaction - fire twice to see handling of duplicates and waiting for commit, and return data
 # http --json localhost:4000 method=submit_transaction params:='{"transaction": ""}' jsonrpc=2.0 id=1
 
-# sign off transaction
-
-{:ok, raw_tx} = create_sign_off_transaction(5, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
-{:ok, raw_tx} = create_sign_off_transaction(4, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+
+# a send transaction, that will be signed off
+{:ok, raw_tx} = create_send_transaction(asset, 5, alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
+{:ok, %{tx_hash: tx_hash}} = submit_transaction raw_tx <> " " <> signature
+
+# see not signed off yet
+tx(tx_hash)
+
+# get height
+{:ok, %{"height" => height}}  = tx(tx_hash)
+
+# still won't be signed off
+{:ok, raw_tx} = create_sign_off_transaction(height - 1, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
+tx(tx_hash)
+
+# invalid sign-off
+{:ok, raw_tx} = create_sign_off_transaction(height - 2, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+submit_transaction raw_tx <> " " <> signature
+
+# this should successfully finalize the above send
+{:ok, raw_tx} = create_sign_off_transaction(height, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+submit_transaction raw_tx <> " " <> signature
+
+tx(tx_hash)
 ```

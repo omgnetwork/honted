@@ -40,6 +40,11 @@ defmodule HonteD.API.ExposeSpecTest do
       x + 1
     end
 
+    @spec exported(x :: integer) :: {:ok, Map.t, :queue.queue()}
+    def exported(x) do
+      {:ok, Map.new([x]), :queue.new([x])}
+    end
+
     @spec triple(x :: {integer, integer, integer}) :: :ok
     def triple(_x) do
       :ok
@@ -48,8 +53,12 @@ defmodule HonteD.API.ExposeSpecTest do
   end
 
   test "expected list of parsed specs" do
-    assert [:alts, :basic, :complex_return, :lazy, :lists, :triple] ==
+    assert [:alts, :basic, :complex_return, :exported, :lazy, :lists, :triple] ==
       Enum.sort(Map.keys(SomeModule.get_specs()))
+  end
+
+  test "parses aliased types" do
+    assert {:ok, :"Map.t", :"queue.queue"} == SomeModule.get_specs()[:exported][:returns]
   end
 
   test "test one spec" do

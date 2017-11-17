@@ -8,6 +8,23 @@ defmodule HonteD.ABCI.State do
 
   def empty(), do: %{}
 
+  def get(state, key) do
+    case state[key] do
+      nil -> nil
+      value -> {:ok, value}
+    end
+  end
+
+  def issued_tokens(state, address) do
+    key = "issuers/" <> to_string(address)
+    case get(state, key) do
+      {:ok, value} ->
+        {:ok, value |> scan_potential_issued(state, to_string(address))}
+      nil ->
+        nil
+    end
+  end
+
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.CreateToken{} = tx}) do
 
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
@@ -114,4 +131,10 @@ defmodule HonteD.ABCI.State do
     |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
     |> HonteD.Crypto.hash
   end
+
+  defp scan_potential_issued(unfiltered_tokens, state, issuer) do
+    unfiltered_tokens
+    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+  end
+
 end

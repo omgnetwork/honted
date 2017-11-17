@@ -8,6 +8,8 @@ defmodule HonteD.ABCI do
   require Logger
   use GenServer
 
+  alias HonteD.ABCI.State, as: State
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, :ok, opts)
   end
@@ -17,7 +19,7 @@ defmodule HonteD.ABCI do
   end
 
   def init(:ok) do
-    {:ok, HonteD.ABCI.State.empty()}
+    {:ok, State.empty()}
   end
 
   def handle_call({:RequestInfo}, _from, state) do
@@ -35,13 +37,8 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, height, _timestamp, _some_zero_value,
- _block_id, _something1, _something2, _something3, app_hash}}, _from, state) do
-
-    # consistency check after genesis block is required
-    if height > 1 do
-      ^app_hash = HonteD.ABCI.State.hash(state)
-    end
-
+ _block_id, _something1, _something2, _something3, _app_hash}}, _from, state) do
+    HonteD.ABCI.Events.notify(state, %HonteD.Events.NewBlock{height: height})
     {:reply, {:ResponseBeginBlock}, state}
   end
 
@@ -49,7 +46,7 @@ defmodule HonteD.ABCI do
     {:reply, {
       :ResponseCommit,
       0,
-      (state |> HonteD.ABCI.State.hash |> to_charlist),
+      (state |> State.hash |> to_charlist),
       'commit log: yo!'
     }, state}
   end
@@ -69,7 +66,7 @@ defmodule HonteD.ABCI do
     with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
          {:ok, state} <- generic_handle_tx(state, decoded)
     do
-      HonteD.Events.notify_committed(decoded.raw_tx)
+      HonteD.ABCI.Events.notify(state, decoded.raw_tx)
       {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
     else
       {:error, error} -> {:reply, {:ResponseDeliverTx, 1, '', to_charlist(error)}, state}
@@ -89,23 +86,18 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, state) do
     key = "nonces" <> to_string(address)
     value = Map.get(state, key, 0)
-    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), to_charlist(value), 'no proof', 0, ''}, state}
+    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, ''}, state}
   end
   
   @doc """
   Specialized query for issued tokens for an issuer
   """
-  def handle_call({:RequestQuery, "", '/issuers' ++ address, 0, :false}, _from, state) do
-    key = "issuers" <> to_string(address)
-    "/" <> str_address = to_string(address)
-    case lookup(state, key) do
-      {0, value, log} ->
-        {:reply, {:ResponseQuery, 0, 0, to_charlist(key), value |> scan_potential_issued(state, str_address) |> to_charlist,
-                  'no proof', 0, log}, state}
-      {code, value, log} ->
-        # problems - forward raw
-        {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
-    end
+  def handle_call({:RequestQuery, "", '/issuers/' ++ address, 0, :false}, _from, state) do
+    key = "issuers/" <> to_string(address)
+    {code, value, log} = handle_get(State.issued_tokens(state, address))
+    return = {:ResponseQuery, code, 0, to_charlist(key),
+              encode_query_response(value), 'no proof', 0, log}
+    {:reply, return, state}
   end
 
   @doc """
@@ -116,7 +108,7 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
     "/" <> key = to_string(path)
     {code, value, log} = lookup(state, key)
-    {:reply, {:ResponseQuery, code, 0, to_charlist(key), to_charlist(value), 'no proof', 0, log}, state}
+    {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
   end
 
   @doc """
@@ -128,27 +120,28 @@ defmodule HonteD.ABCI do
 
   # FIXME: all-matching clause to keep tendermint from complaining, remove!
   def handle_call(request, from, state) do
-    Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
+    _ = Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
     {:reply, {}, state}
   end
   
   ### END GenServer
-  
+
+  defp encode_query_response(object) do
+    object
+    |> Poison.encode!
+    |> to_charlist
+  end
+
   defp generic_handle_tx(state, tx) do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
-         do: HonteD.ABCI.State.exec(state, tx)
-  end
-  
-  defp scan_potential_issued(unfiltered_tokens, state, issuer) do
-    unfiltered_tokens
-    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+         do: State.exec(state, tx)
   end
   
   defp lookup(state, key) do
-    # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-    case state[key] do
-      nil -> {1, "", 'not_found'}
-      value -> {0, value, ''}
-    end
+    state |> State.get(key) |> handle_get
   end
+
+  defp handle_get({:ok, value}), do: {0, value, ''}
+  # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
+  defp handle_get(nil), do: {1, "", 'not_found'}
 end

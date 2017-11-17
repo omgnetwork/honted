@@ -40,7 +40,8 @@ defmodule HonteD.Transaction.Validation do
     |> case do  # <3 this :)
       {:ok, true} -> :ok
       {:ok, false} -> {:error, :invalid_signature}
-      _ -> {:error, :malformed_signature} # dialyzer complains here, because Crypto.verify has degenerate returns, disregard
+      # NOTE: commented b/c dialyzer complains here, because Crypto.verify has degenerate returns for now
+      # _ -> {:error, :malformed_signature}
     end
   end
   

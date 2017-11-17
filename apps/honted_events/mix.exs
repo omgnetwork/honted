@@ -30,6 +30,7 @@ defmodule HonteD.Events.Mixfile do
   defp deps do
     [
       {:bimap, "~> 0.1.1"},
+      {:qex, git: "https://github.com/paulperegud/elixir-queue.git", branch: "parametrize_qex_t_type"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
     ]
   end

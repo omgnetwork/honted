@@ -10,77 +10,68 @@ defmodule HonteD.Events.Eventer do
   use GenServer
   require Logger
 
-  @typep topic :: binary
-  @typep subs :: BiMultiMap.t([topic], pid)
-  @typep state :: %{:subs => subs,
-                    :monitors => %{pid => reference}}
+  defmodule State do
+    defstruct [:subs, :monitors, :committed, :height]
 
-  ## API
+    @typep event :: HonteD.Transaction.t
+    @typep topic :: HonteD.address
+    @typep queue :: Qex.t({HonteD.block_height, event})
+    @typep token :: HonteD.token
 
-  @doc """
-  Makes eventer send a :committed event to subscrubers.
-  
-  See `defp message` for reference of messages sent to subscribing pids
-  """
-  def notify_committed(server \\ __MODULE__, event_content) do
-    GenServer.cast(server, {:event, :committed, event_content})
+    @type t :: %State{
+      subs: BiMultiMap.t([topic], pid),
+      monitors: %{pid => reference},
+      # Events that are waiting to be finalized.
+      # Assumes one source of finality for each of the tokens.
+      # Works ONLY for Send transactions
+      # TODO: pull those events from Tendermint
+      committed: %{optional(token) => queue},
+      height: HonteD.block_height,
+    }
   end
 
-  def subscribe_send(server \\ __MODULE__, pid, receiver) do
-    with true <- is_valid_subscriber(pid),
-         true <- is_valid_topic(receiver),
-    do: GenServer.call(server, {:subscribe, pid, [receiver]})
-  end
+  @typep state :: State.t
 
-  def unsubscribe_send(server \\ __MODULE__, pid, receiver) do
-    with true <- is_valid_subscriber(pid),
-         true <- is_valid_topic(receiver),
-      do: GenServer.call(server, {:unsubscribe, pid, [receiver]})
-  end
-
-  def subscribed?(server \\ __MODULE__, pid, receiver) do
-    with true <- is_valid_subscriber(pid),
-         true <- is_valid_topic(receiver),
-      do: GenServer.call(server, {:is_subscribed, pid, [receiver]})
-  end
-
-  def start_link(args, opts \\ [name: __MODULE__]) do
+  def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
-  ## guards
-
-  # Note that subscriber defined via registered atom is useless
-  # as it will lead to loss of messages in case of its downtime.
-  defp is_valid_subscriber(pid) when is_pid(pid), do: true
-  defp is_valid_subscriber(_), do: {:error, :subscriber_must_be_pid}
-
-  defp is_valid_topic(topic) when is_binary(topic), do: true
-  defp is_valid_topic(_), do: {:error, :topic_must_be_a_string}
-
-  ## callbacks
-
   def child_spec(_) do
     %{id: __MODULE__,
-      start: {__MODULE__, :start_link, [[]]},
+      start: {__MODULE__, :start_link, [[], [name: __MODULE__]]},
       type: :worker,
       restart: :permanent,
     }
   end
 
+  ## callbacks
+
   @spec init([]) :: {:ok, state}
   def init([]) do
-    {:ok, %{subs: BiMultiMap.new(),
-            monitors: Map.new()}}
+    {:ok, %State{subs: BiMultiMap.new(),
+                 committed: Map.new(),
+                 monitors: Map.new(),
+                 height: 1
+                }}
   end
 
-  def handle_cast({:event, :committed = event_type, %HonteD.Transaction.Send{} = event_content}, state) do
-    do_notify(event_type, event_content, state[:subs])
+  def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
+    state = insert_committed(event, state)
+    do_notify(:committed, event, state.subs)
     {:noreply, state}
   end
 
-  def handle_cast({:event, event_type, event}, state) do
-    Logger.warn("Warning: unhandled event #{inspect event_type}: #{inspect event}")
+  def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
+    state = finalize_events(tokens, event.height, state)
+    {:noreply, state}
+  end
+
+  def handle_cast({:event, %HonteD.Events.NewBlock{} = event, _}, state) do
+    {:noreply, %{state | height: event.height}}
+  end
+
+  def handle_cast({:event, event, context}, state) do
+    _ = Logger.warn("Warning: unhandled event #{inspect event} with context #{inspect context}")
     {:noreply, state}
   end
 
@@ -90,28 +81,25 @@ defmodule HonteD.Events.Eventer do
 
 
   def handle_call({:subscribe, pid, topics}, _from, state) do
-    mons = state[:monitors]
-    subs = state[:subs]
-    mons = Map.put_new_lazy(mons, pid, fn -> Process.monitor(pid) end)
-    subs = BiMultiMap.put(subs, topics, pid)
+    mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
+    subs = BiMultiMap.put(state.subs, topics, pid)
     {:reply, :ok, %{state | subs: subs, monitors: mons}}
   end
 
   def handle_call({:unsubscribe, pid, topics}, _from, state) do
-    subs = state[:subs]
-    subs = BiMultiMap.delete(subs, topics, pid)
+    subs = BiMultiMap.delete(state.subs, topics, pid)
     mons = case BiMultiMap.has_value?(subs, pid) do
              false ->
-               state[:monitors]
+               state.monitors
              true ->
-               Process.demonitor(state[:monitors][pid], [:flush]);
-               Map.delete(state[:monitors], pid)
+               Process.demonitor(state.monitors[pid], [:flush]);
+               Map.delete(state.monitors, pid)
            end
     {:reply, :ok, %{state | subs: subs, monitors: mons}}
   end
 
   def handle_call({:is_subscribed, pid, topics}, _from, state) do
-    {:reply, {:ok, BiMultiMap.member?(state[:subs], topics, pid)}, state}
+    {:reply, {:ok, BiMultiMap.member?(state.subs, topics, pid)}, state}
   end
 
   def handle_call(msg, from, state) do
@@ -132,17 +120,57 @@ defmodule HonteD.Events.Eventer do
 
   ## internals
 
-  defp do_notify(event_type, event_content, all_subs) do
-    pids = subscribed(event_topics_for(event_content), all_subs)
-    prepared_message = message(event_type, event_content)
-    for pid <- pids, do: send(pid, {:event, prepared_message})
+  defp finalize_events(tokens, height, state) do
+    notify_token = fn(token, acc_committed) ->
+      # for a given token will process the queue with events and emit :finalized events to subscribers
+      {events, acc_committed} = pop_finalized(token, height, acc_committed)
+      for event <- events, do: do_notify(:finalized, event, state.subs)
+      acc_committed
+    end
+    %{state | committed: Enum.reduce(tokens, state.committed, notify_token)}
   end
 
-  defp message(:committed = event_type, %HonteD.Transaction.Send{} = event_content) do
+  defp insert_committed(event, state) do
+    token = get_token(event)
+    enqueue = fn(queue) -> Qex.push(queue, {state.height, event}) end
+    committed = Map.update(state.committed, token, Qex.new([{state.height, event}]), enqueue)
+    %{state | committed: committed}
+  end
+
+  defp pop_finalized(token, signed_off_height, committed) do
+    # for a given token will pop the events committed earlier, that are before the signed_off_height
+    split_queue_by_block_height = fn
+      # should take a queue and split it into a list of finalized events and a queue with the rest of {height, event}'s
+      (nil) -> {[], nil}
+      (queue) ->
+        is_older = fn({h, _event}) -> h <= signed_off_height end
+        {finalized_tuples, rest} = Enum.split_while(queue, is_older)
+        # unzip to discard the heights and keep only the events
+        {_, finalized} = Enum.unzip(finalized_tuples)
+        {finalized, Qex.new(rest)}
+    end
+    Map.get_and_update(committed, token, split_queue_by_block_height)
+  end
+
+  defp get_token(%HonteD.Transaction.Send{} = event) do
+    event.asset
+  end
+
+  defp do_notify(event_type, event_content, all_subs) do
+    pids = subscribed(event_topics_for(event_content), all_subs)
+    _ = Logger.info("do_notify: #{inspect event_type}, #{inspect event_content}, pid: #{inspect pids}")
+    prepared_message = message(event_type, event_content)
+    for pid <- pids, do: send(pid, {:event, prepared_message})
+    :ok
+  end
+
+  defp message(event_type, %HonteD.Transaction.Send{} = event_content)
+  when event_type in [:committed, :finalized]
+    do
     # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
     %{source: :filter, type: event_type, transaction: event_content}
   end
-  
+
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
 
   # FIXME: this maps get should be done for set of all subsets
