@@ -10,7 +10,7 @@ defmodule HonteD.API do
   alias HonteD.API.{TendermintRPC, Tools}
   alias HonteD.{Transaction}
 
-  @type tx_status :: :failed | :pending | :committed | :finalized
+  @type tx_status :: :failed | :pending | :committed | :finalized | :committed_unknown
 
   @doc """
   Creates a signable, encoded transaction that creates a new token for an issuer

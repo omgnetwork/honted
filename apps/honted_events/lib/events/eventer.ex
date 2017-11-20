@@ -61,11 +61,11 @@ defmodule HonteD.Events.Eventer do
   end
 
   def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
-    case valid_signoff?(event, state) do
+    case HonteD.Transaction.Finality.valid_signoff?(event, state.tendermint) do
       true ->
         {:noreply, finalize_events(tokens, event.height, state)}
       false ->
-        Logger.debug("Dropped sign-off: #{inspect event}, #{inspect tokens}")
+        _ = Logger.debug("Dropped sign-off: #{inspect event}, #{inspect tokens}")
         {:noreply, state}
     end
   end
@@ -181,23 +181,6 @@ defmodule HonteD.Events.Eventer do
   # FIXME: this maps get should be done for set of all subsets
   defp subscribed(topics, subs) do
     BiMultiMap.get(subs, topics)
-  end
-
-  defp valid_signoff?(event, state) do
-    with {:ok, blockhash} <- get_block_hash(event.height, state.tendermint),
-    do: event.hash == blockhash
-  end
-
-  defp get_block_hash(height, tm_module) do
-    client = tm_module.client()
-    case tm_module.block(client, height) do
-      {:ok, block} -> {:ok, block_hash(block)}
-      nil -> false
-    end
-  end
-
-  defp block_hash(block) do
-    block["block_meta"]["block_id"]["hash"]
   end
 
 end
