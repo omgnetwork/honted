@@ -46,10 +46,12 @@ defmodule HonteD.Integration.APITest do
   end
   
   deffixture honted() do
+    # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
+    our_apps_to_start = [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc, :honted_events]
     started_apps = 
-      [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc, :honted_events]
+      our_apps_to_start
       |> Enum.map(&Application.ensure_all_started/1)
-      |> Enum.flat_map(fn {:ok, app_list} -> app_list end)
+      |> Enum.flat_map(fn {:ok, app_list} -> app_list end) # check if successfully started here!
     on_exit fn -> 
       started_apps
       |> Enum.map(&Application.stop/1)
@@ -66,6 +68,9 @@ defmodule HonteD.Integration.APITest do
   end
   
   defmodule TestWebsocket do
+    @moduledoc """
+    A Websocket client used to test the honted_ws server
+    """
     def connect!() do
       ws_port = Application.get_env(:honted_ws, :honted_api_ws_port)
       Socket.Web.connect!("localhost", ws_port)
@@ -134,7 +139,7 @@ defmodule HonteD.Integration.APITest do
   end
   
   @tag :integration
-  @tag fixtures: [:tendermint, :websocket, :jsonrpc, :apis_caller]
+  @tag fixtures: [:tendermint, :websocket, :apis_caller]
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
     # FIXME: dry this setup?
     {:ok, issuer_priv} = Crypto.generate_private_key()
@@ -150,12 +155,12 @@ defmodule HonteD.Integration.APITest do
     {:ok, bob} = Crypto.generate_address(bob_pub)
     
     # CREATING TOKENS
-    
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
     
     # check consistency of api exposers
     assert {:ok, raw_tx} == apis_caller.(:create_create_token_transaction, %{issuer: issuer})
     
+    # TRANSACTION SUBMISSIONS
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
     full_transaction = raw_tx <> " " <> signature
     
@@ -191,11 +196,13 @@ defmodule HonteD.Integration.APITest do
       }
     } = API.submit_transaction(raw_tx)
     
+    # LISTING TOKENS
     assert {:ok, [asset]} = API.tokens_issued_by(issuer)
+    
+    # check consistency of api exposers
     assert {:ok, [asset]} == apis_caller.(:tokens_issued_by, %{issuer: issuer})
     
     # ISSUEING
-    
     {:ok, raw_tx} = API.create_issue_transaction(asset, @supply, alice, issuer)
     
     # check consistency of api exposers
@@ -209,10 +216,10 @@ defmodule HonteD.Integration.APITest do
 
     assert {:ok, @supply} = API.query_balance(asset, alice)
     
+    # check consistency of api exposers
     assert {:ok, @supply} == apis_caller.(:query_balance, %{token: asset, address: alice})
     
     # EVENTS & Send TRANSACTION
-    
     # subscribe to filter
     assert {:ok, "ok"} == TestWebsocket.sendrecv!(websocket, :new_send_filter, %{watched: bob})
     
@@ -251,12 +258,13 @@ defmodule HonteD.Integration.APITest do
       } = tx_query_result
     } = API.tx(hash)
     
+    # check consistency of api exposers
     assert {:ok, TestWebsocket.codec(tx_query_result)} == apis_caller.(:tx, %{hash: hash})
     
+    # readable form of transactions in response
     assert String.starts_with?(decoded_tx, "0 SEND #{asset} 5 #{alice} #{bob}")
     
     # TOKEN INFO
-    
     assert {
       :ok,
       %{
@@ -266,9 +274,10 @@ defmodule HonteD.Integration.APITest do
       } = token_info_query_result
     } = API.token_info(asset)
     
+    # check consistency of api exposers
     assert {:ok, TestWebsocket.codec(token_info_query_result)} == apis_caller.(:token_info, %{token: asset})
     
-    # don't test finalized, doesn't seem to cover anything new
+    # NOTE: don't test finalized, doesn't seem to cover anything new
   end
   
   @tag :integration
