@@ -26,7 +26,7 @@ defmodule HonteD.API.Mixfile do
   end
   
   defp do_test_applications do
-    if Mix.env == :test, do: [:porcelain], else: []
+    if Mix.env == :test, do: [:porcelain, :hackney], else: []
   end
 
   defp deps do
@@ -37,6 +37,7 @@ defmodule HonteD.API.Mixfile do
       {:porcelain, "~> 2.0", only: :test},
       {:temp, "~> 0.4", only: :test},
       {:socket, "~> 0.3", only: :test},
+      {:hackney, "~> 1.7", only: :test},
       #
       {:honted_lib, in_umbrella: true},
       {:honted_events, in_umbrella: true},

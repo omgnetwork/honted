@@ -1,4 +1,10 @@
 defmodule HonteD.Integration.APITest do
+  @moduledoc """
+  Smoke tests the integration of abci/ws/jsonrpc/elixir_api/eventer applications in the wild
+  
+  FIXME: Main test is just one blob off tests taken from demos - consider engineering here
+  FIXME: In case API unit test come to existence, consider removing some of these tests here and becoming more targetted
+  """
   
   use ExUnitFixtures
   use ExUnit.Case, async: false
@@ -61,7 +67,8 @@ defmodule HonteD.Integration.APITest do
   
   defmodule TestWebsocket do
     def connect!() do
-      Socket.Web.connect!("localhost", 4004)
+      ws_port = Application.get_env(:honted_ws, :honted_api_ws_port)
+      Socket.Web.connect!("localhost", ws_port)
     end
     
     def send!(websocket, method, params) when is_atom(method) and is_map(params) do
@@ -76,10 +83,18 @@ defmodule HonteD.Integration.APITest do
     def recv!(websocket) do
       {:text, response} = Socket.Web.recv!(websocket)
       case Poison.decode!(response) do
-        %{"result" => decoded_result, "type" => "rs", "wsrpc" => "1.0"} -> decoded_result
+        %{"result" => decoded_result, "type" => "rs", "wsrpc" => "1.0"} -> {:ok, decoded_result}
         %{"source" => source} = event when source in ["filter"] -> event
         %{"error" => decoded_error, "type" => "rs", "wsrpc" => "1.0"} -> {:error, decoded_error}
       end
+    end
+    
+    @doc """
+    Merges both above functions to send query and immediately fetch the response that comes in in next
+    """
+    def sendrecv!(websocket, method, params) when is_atom(method) and is_map(params) do
+      :ok = TestWebsocket.send!(websocket, method, params)
+      TestWebsocket.recv!(websocket)
     end
     
     @doc """
@@ -96,9 +111,31 @@ defmodule HonteD.Integration.APITest do
     TestWebsocket.connect!()
   end
   
+  deffixture jsonrpc do
+    jsonrpc_port = Application.get_env(:honted_jsonrpc, :honted_api_rpc_port)
+    fn (method, params) ->
+      JSONRPC2.Clients.HTTP.call("http://localhost:#{jsonrpc_port}", to_string(method), params)
+      |> case do
+        # JSONRPC Client returns the result in a specific format. We need to bring to common format with WS client
+        {:error, {code, message, data}} -> {:error, %{"code" => code, "message" => message, "data" => data}}
+        other_result -> other_result
+      end
+    end
+  end
+  
+  deffixture apis_caller(websocket, jsonrpc) do
+    # convenience function to check if calls to both apis are at least the same
+    fn (method, params) ->
+      resp1 = TestWebsocket.sendrecv!(websocket, method, params)
+      resp2 = jsonrpc.(method, params)
+      assert resp1 == resp2
+      resp1
+    end
+  end
+  
   @tag :integration
-  @tag fixtures: [:tendermint, :websocket]
-  test "demo smoke test", %{websocket: websocket} do
+  @tag fixtures: [:tendermint, :websocket, :jsonrpc, :apis_caller]
+  test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
     # FIXME: dry this setup?
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
@@ -111,12 +148,13 @@ defmodule HonteD.Integration.APITest do
     {:ok, bob_priv} = Crypto.generate_private_key()
     {:ok, bob_pub} = Crypto.generate_public_key(bob_priv)
     {:ok, bob} = Crypto.generate_address(bob_pub)
-
+    
+    # CREATING TOKENS
+    
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
     
     # check consistency of api exposers
-    TestWebsocket.send!(websocket, :create_create_token_transaction, %{issuer: issuer})
-    assert raw_tx == TestWebsocket.recv!(websocket)
+    assert {:ok, raw_tx} == apis_caller.(:create_create_token_transaction, %{issuer: issuer})
     
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
     full_transaction = raw_tx <> " " <> signature
@@ -139,8 +177,8 @@ defmodule HonteD.Integration.APITest do
     } = API.submit_transaction(full_transaction)
      
     # check consistency of api exposers
-    TestWebsocket.send!(websocket, :submit_transaction, %{transaction: full_transaction})
-    assert TestWebsocket.codec(submit_result) == TestWebsocket.recv!(websocket)
+    assert {:ok, TestWebsocket.codec(submit_result)} == 
+      apis_caller.(:submit_transaction, %{transaction: full_transaction})
      
     # sane invalid transaction response
     assert {:error,
@@ -154,50 +192,37 @@ defmodule HonteD.Integration.APITest do
     } = API.submit_transaction(raw_tx)
     
     assert {:ok, [asset]} = API.tokens_issued_by(issuer)
+    assert {:ok, [asset]} == apis_caller.(:tokens_issued_by, %{issuer: issuer})
     
-    TestWebsocket.send!(websocket, :tokens_issued_by, %{issuer: issuer})
-    assert [asset] == TestWebsocket.recv!(websocket)
+    # ISSUEING
     
     {:ok, raw_tx} = API.create_issue_transaction(asset, @supply, alice, issuer)
     
     # check consistency of api exposers
-    TestWebsocket.send!(websocket, 
-                        :create_issue_transaction,
-                        %{asset: asset, amount: @supply, to: alice, issuer: issuer})
-    assert raw_tx == TestWebsocket.recv!(websocket)
+    assert {:ok, raw_tx} == apis_caller.(
+      :create_issue_transaction,
+      %{asset: asset, amount: @supply, to: alice, issuer: issuer}
+    )
     
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
     {:ok, _ } = API.submit_transaction(raw_tx <> " " <> signature)
-    
-    # wait
 
     assert {:ok, @supply} = API.query_balance(asset, alice)
-    assert {:ok,
-      %{
-        issuer: ^issuer,
-        token: ^asset,
-        total_supply: @supply
-      }
-    } = API.token_info(asset)
     
-    TestWebsocket.send!(websocket, :query_balance, %{token: asset, address: alice})
-    assert @supply == TestWebsocket.recv!(websocket)
+    assert {:ok, @supply} == apis_caller.(:query_balance, %{token: asset, address: alice})
     
-    # FIXME: execute and check using this test
-    # query token info using json rpc
-    # http --json localhost:4000 method=token_info params:='{"token": ""}' jsonrpc=2.0 id=1
+    # EVENTS & Send TRANSACTION
     
     # subscribe to filter
-    TestWebsocket.send!(websocket, :new_send_filter, %{watched: bob})
-    assert "ok" == TestWebsocket.recv!(websocket)
+    assert {:ok, "ok"} == TestWebsocket.sendrecv!(websocket, :new_send_filter, %{watched: bob})
     
     {:ok, raw_tx} = API.create_send_transaction(asset, 5, alice, bob)
     
     # check consistency of api exposers
-    TestWebsocket.send!(websocket, 
-                        :create_send_transaction,
-                        %{asset: asset, amount: 5, from: alice, to: bob})
-    assert raw_tx == TestWebsocket.recv!(websocket)
+    assert {:ok, raw_tx} == apis_caller.(
+      :create_send_transaction,
+      %{asset: asset, amount: 5, from: alice, to: bob}
+    )
     
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
     {:ok, %{tx_hash: hash}} = API.submit_transaction(raw_tx <> " " <> signature)
@@ -226,10 +251,11 @@ defmodule HonteD.Integration.APITest do
       } = tx_query_result
     } = API.tx(hash)
     
-    TestWebsocket.send!(websocket, :tx, %{hash: hash})
-    assert TestWebsocket.codec(tx_query_result) == TestWebsocket.recv!(websocket)
+    assert {:ok, TestWebsocket.codec(tx_query_result)} == apis_caller.(:tx, %{hash: hash})
     
     assert String.starts_with?(decoded_tx, "0 SEND #{asset} 5 #{alice} #{bob}")
+    
+    # TOKEN INFO
     
     assert {
       :ok,
@@ -240,26 +266,23 @@ defmodule HonteD.Integration.APITest do
       } = token_info_query_result
     } = API.token_info(asset)
     
-    TestWebsocket.send!(websocket, :token_info, %{token: asset})
-    assert TestWebsocket.codec(token_info_query_result) == TestWebsocket.recv!(websocket)
+    assert {:ok, TestWebsocket.codec(token_info_query_result)} == apis_caller.(:token_info, %{token: asset})
     
-    # FIXME: demo_03.md contents
+    # don't test finalized, doesn't seem to cover anything new
   end
   
   @tag :integration
-  @tag fixtures: [:tendermint, :websocket]
-  test "incorrect calls to websockets should return sensible response not crash", %{websocket: websocket} do
+  @tag fixtures: [:tendermint, :apis_caller]
+  test "incorrect calls to websockets should return sensible response not crash", %{apis_caller: apis_caller} do
     # bad method
-    TestWebsocket.send!(websocket, :token_inf, %{token: ""})
-    {:error, %{"data" => %{"method" => "token_inf"}, "message" => "Method not found"}} = TestWebsocket.recv!(websocket)
+    {:error, %{"data" => %{"method" => "token_inf"}, "message" => "Method not found"}} = apis_caller.(:token_inf, %{token: ""})
     
     # bad params
-    TestWebsocket.send!(websocket, :token_info, %{toke: ""})
     {:error, %{"data" => %{"msg" => "Please provide parameter `token` of type `:binary`",
                            "name" => "token",
                            "type" => "binary"
                          },
                "message" => "Invalid params"}
-     } = TestWebsocket.recv!(websocket)
+     } = apis_caller.(:token_info, %{toke: ""})
   end
 end
