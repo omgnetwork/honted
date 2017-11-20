@@ -46,14 +46,19 @@ defmodule HonteD.ABCI.State do
     with :ok <- nonce_valid?(state, tx.from, tx.nonce),
          :ok <- account_has_at_least?(state, key_src, tx.amount),
          do: {:ok, state |> apply_send(tx.amount, tx.from, key_src, key_dest)}
-
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.SignOff{} = tx}) do
-
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
-         :ok <- sign_off_incremental?(state, tx.height, tx.sender),
-         do: {:ok, state |> apply_sign_off(tx.height, tx.hash, tx.sender)}
+         :ok <- allows_for?(state, tx.signoffer, tx.sender, :signoff),
+         :ok <- sign_off_incremental?(state, tx.height, tx.signoffer),
+         do: {:ok, state |> apply_sign_off(tx.height, tx.hash, tx.signoffer)}
+  end
+  
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Allow{} = tx}) do
+    
+    with :ok <- nonce_valid?(state, tx.allower, tx.nonce),
+         do: {:ok, state |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)}
   end
   
   defp account_has_at_least?(state, key_src, amount) do
@@ -88,6 +93,15 @@ defmodule HonteD.ABCI.State do
       %{height: old_height} when is_integer(old_height) -> {:error, :sign_off_not_incremental}
     end
   end
+  
+  defp allows_for?(state, allower, allowee, privilege) when is_atom(privilege) do
+    # always self-allow and in case allower != allowee - check delegations in state
+    if allower == allowee, do: :ok, else: {:error, :invalid_delegation}
+      # case Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do
+      #   answer when answer == nil or answer == false -> {:error, :invalid_delegation}
+      #   true -> :ok
+      # end
+  end
 
   defp apply_create_token(state, issuer, nonce) do
     token_addr = HonteD.Token.create_address(issuer, nonce)
@@ -118,6 +132,12 @@ defmodule HonteD.ABCI.State do
     state
     |> bump_nonce(sender)
     |> Map.put("sign_offs/#{sender}", %{height: height, hash: hash})
+  end
+  
+  defp apply_allow(state, allower, allowee, privilege, allow) do
+    state
+    |> bump_nonce(allower)
+    |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
   
   defp bump_nonce(state, address) do

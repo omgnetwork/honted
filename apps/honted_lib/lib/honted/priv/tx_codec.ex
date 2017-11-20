@@ -35,12 +35,23 @@ defmodule HonteD.TxCodec do
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "SIGN_OFF", height, hash, sender, signature] when byte_size(signature) == 64 ->
+      [nonce, "SIGN_OFF", height, hash, sender, signoffer, signature] when byte_size(signature) == 64 ->
         case {Integer.parse(height), Integer.parse(nonce)} do
           {{int_height, ""}, {int_nonce, ""}} -> {:ok, %Transaction.SignOff{nonce: int_nonce,
                                                                             height: int_height,
                                                                             hash: hash,
-                                                                            sender: sender}
+                                                                            sender: sender,
+                                                                            signoffer: signoffer}
+                                                       |> with_signature(signature)}
+          _ -> {:error, :malformed_numbers}
+        end
+      [nonce, "ALLOW", allower, allowee, privilege, allow, signature] when byte_size(signature) == 64 ->
+        case Integer.parse(nonce) do
+          {int_nonce, ""} -> {:ok, %Transaction.Allow{nonce: int_nonce,
+                                                      allower: allower,
+                                                      allowee: allowee,
+                                                      privilege: privilege,
+                                                      allow: allow}
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
@@ -69,8 +80,12 @@ defmodule HonteD.TxCodec do
     {nonce, :send, asset, amount, from, to}
     |> _encode
   end
-  def encode(%Transaction.SignOff{nonce: nonce, height: height, hash: hash, sender: sender}) do
-    {nonce, :sign_off, height, hash, sender}
+  def encode(%Transaction.SignOff{nonce: nonce, height: height, hash: hash, sender: sender, signoffer: signoffer}) do
+    {nonce, :sign_off, height, hash, sender, signoffer}
+    |> _encode
+  end
+  def encode(%Transaction.Allow{nonce: nonce, allower: allower, allowee: allowee, privilege: privilege, allow: allow}) do
+    {nonce, :allow, allower, allowee, privilege, allow}
     |> _encode
   end
   

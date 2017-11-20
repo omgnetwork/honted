@@ -346,14 +346,14 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
 
       # malformed
-      sign("0 SIGN_OF 1 #{hash} #{issuer.addr}", issuer.priv)
+      sign("0 SIGN_OF 1 #{hash} #{issuer.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      sign("0 SIGN_OFF 1 2 #{hash} #{issuer.addr}", issuer.priv)
+      sign("0 SIGN_OFF 1 2 #{hash} #{issuer.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      sign("0 SIGN_OFF #{hash} #{issuer.addr}", issuer.priv)
+      sign("0 SIGN_OFF #{hash} #{issuer.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
       
-      sign("0 SIGN_OFF 1.0 #{hash} #{issuer.addr}", issuer.priv)
+      sign("0 SIGN_OFF 1.0 #{hash} #{issuer.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
       
       # no signature
@@ -408,16 +408,37 @@ defmodule HonteD.ABCI.StateTest do
       create_sign_off(nonce: 1, height: some_previous_height, hash: hash, sender: bob.addr)
       |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'sign_off_not_incremental') |> same?(state)
     end
+    
+    @tag fixtures: [:alice, :bob, :empty_state, :some_block_hash]
+    test "can't delegated-signoff if not allowed or dissalowed",
+    %{empty_state: state, alice: alice, bob: bob, some_block_hash: hash} do
+      create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
+      |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_delegation')
+      
+      %{state: state} =
+        create_allow(nonce: 0, allower: alice.addr, allowee: bob.addr, privilege: :signoff, allow: true)
+        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        
+      create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
+      |> sign(bob.priv) |> check_tx(state) |> success?
+      
+      %{state: state} =
+        create_allow(nonce: 0, allower: alice.addr, allowee: bob.addr, privilege: :signoff, allow: false)
+        |> sign(alice.priv) |> deliver_tx(state) |> success?
+      
+      create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
+        |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_delegation')
+    end
 
     @tag fixtures: [:bob, :empty_state, :some_block_hash]
     test "negative height", %{empty_state: state, bob: bob, some_block_hash: hash} do
-      sign("0 SIGN_OFF -1 #{hash} #{bob.addr}", bob.priv)
+      sign("0 SIGN_OFF -1 #{hash} #{bob.addr} #{bob.addr}", bob.priv)
       |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
 
     @tag fixtures: [:bob, :empty_state, :some_block_hash]
     test "zero height", %{empty_state: state, bob: bob, some_block_hash: hash} do
-      sign("0 SIGN_OFF 0 #{hash} #{bob.addr}", bob.priv)
+      sign("0 SIGN_OFF 0 #{hash} #{bob.addr} #{bob.addr}", bob.priv)
       |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
   end
