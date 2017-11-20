@@ -44,6 +44,10 @@ defmodule HonteD.API.Tools do
              |> get_sign_off_status_for_committed(client, tx_info["height"])
   end
 
+  def get_block_hash(height) do
+    get_block_hash(height, TendermintRPC, TendermintRPC.client())
+  end
+
   def get_block_hash(height, tendermint_module, client) do
     case tendermint_module.block(client, height) do
       {:ok, block} -> {:ok, block_hash(block)}
@@ -65,7 +69,7 @@ defmodule HonteD.API.Tools do
                                          client,
                                          tx_height) do
     {:ok, issuer} = get_issuer(client, tx.asset)
-    {:ok, blockhash} = get_block_hash(tx_height, HonteD.TendermintRPC, client)
+    {:ok, blockhash} = get_block_hash(tx_height, TendermintRPC, client)
 
     case get_and_decode(client, "/sign_offs/#{issuer}") do
       {:ok, %{"response" => %{"code" => 1}}} ->

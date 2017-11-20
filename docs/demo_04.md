@@ -44,17 +44,16 @@ tx(tx_hash)
 
 # get height and block hash
 {:ok, %{"height" => height}}  = tx(tx_hash)
-{:ok, block} = HonteD.API.TendermintRPC.block(HonteD.API.TendermintRPC.client(), height)
-block_hash = block["block_meta"]["block_id"]["hash"]
+{:ok, block_hash} = HonteD.API.Tools.get_block_hash(height)
 
-# valid sign-off, but with wrong block_hash (silently ignored, since not a part of consensus)
+# valid sign-off, but with wrong block_hash (puts all transactions of token into :committed_unknown state)
 {:ok, raw_tx} = create_sign_off_transaction(height, "not_really_a_block_hash", alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
 tx(tx_hash)
 
 # this should successfully finalize the above send
-{:ok, raw_tx} = create_sign_off_transaction(height, block_hash, alice); {:ok, signature} = sign(raw_tx, alice_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height+1, block_hash, alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
 tx(tx_hash)
