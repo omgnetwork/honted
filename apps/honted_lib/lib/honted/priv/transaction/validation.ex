@@ -19,7 +19,9 @@ defmodule HonteD.Transaction.Validation do
     positive?(height)
   end
   
-  def valid?(%Allow{}), do: :ok
+  def valid?(%Allow{privilege: privilege}) do
+    known?(privilege)
+  end
   
   def valid_signed?(%SignedTx{raw_tx: raw_tx, signature: signature}) do
     with :ok <- valid?(raw_tx),
@@ -35,6 +37,9 @@ defmodule HonteD.Transaction.Validation do
   
   defp positive?(amount) when amount > 0, do: :ok
   defp positive?(_), do: {:error, :positive_amount_required}
+  
+  defp known?(privilege) when privilege in ["signoff"], do: :ok
+  defp known?(_), do: {:error, :unknown_privilege}
 
   defp signed?(raw_tx, signature) do  
     raw_tx

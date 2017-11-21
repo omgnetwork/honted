@@ -96,11 +96,11 @@ defmodule HonteD.ABCI.State do
   
   defp allows_for?(state, allower, allowee, privilege) when is_atom(privilege) do
     # always self-allow and in case allower != allowee - check delegations in state
-    if allower == allowee, do: :ok, else: {:error, :invalid_delegation}
-      # case Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do
-      #   answer when answer == nil or answer == false -> {:error, :invalid_delegation}
-      #   true -> :ok
-      # end
+    if allower == allowee or Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do 
+      :ok
+    else
+      {:error, :invalid_delegation}
+    end
   end
 
   defp apply_create_token(state, issuer, nonce) do

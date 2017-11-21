@@ -45,14 +45,15 @@ defmodule HonteD.TxCodec do
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "ALLOW", allower, allowee, privilege, allow, signature] when byte_size(signature) == 64 ->
+      [nonce, "ALLOW", allower, allowee, privilege, allow, signature] when byte_size(signature) == 64 and
+                                                                           allow in ["true", "false"] ->
         case Integer.parse(nonce) do
           {int_nonce, ""} -> {:ok, %Transaction.Allow{nonce: int_nonce,
                                                       allower: allower,
                                                       allowee: allowee,
                                                       privilege: privilege,
-                                                      allow: allow}
-                                                       |> with_signature(signature)}
+                                                      allow: allow == "true"}
+                                                      |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
       _ -> {:error, :malformed_transaction}
@@ -96,6 +97,7 @@ defmodule HonteD.TxCodec do
   end
 
   defp _encode(term) when is_binary(term), do: term
+  defp _encode(term) when is_boolean(term), do: to_string(term)
   defp _encode(term) when is_atom(term), do: String.upcase(to_string(term))
   defp _encode(term) when is_number(term), do: "#{term}"
   

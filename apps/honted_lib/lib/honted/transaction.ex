@@ -127,7 +127,7 @@ defmodule HonteD.Transaction do
        is_binary(signoffer) do
     create_encoded(SignOff, args)
   end
-  def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender] = args) do
+  def create_sign_off([nonce: _, height: _, hash: _, sender: sender] = args) do
     Keyword.merge(args, [signoffer: sender])
     |> create_sign_off
   end

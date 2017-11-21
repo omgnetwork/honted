@@ -415,7 +415,7 @@ defmodule HonteD.ABCI.StateTest do
     end
     
     @tag fixtures: [:alice, :bob, :empty_state, :some_block_hash]
-    test "can't delegated-signoff if not allowed or dissalowed",
+    test "can't delegated-signoff unless allowed",
     %{empty_state: state, alice: alice, bob: bob, some_block_hash: hash} do
       create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
       |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_delegation') |> same?(state)
@@ -428,7 +428,7 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(bob.priv) |> check_tx(state) |> success? |> same?(state)
       
       %{state: state} =
-        create_allow(nonce: 0, allower: alice.addr, allowee: bob.addr, privilege: "signoff", allow: false)
+        create_allow(nonce: 1, allower: alice.addr, allowee: bob.addr, privilege: "signoff", allow: false)
         |> sign(alice.priv) |> deliver_tx(state) |> success?
       
       create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
