@@ -60,7 +60,7 @@ defmodule HonteD.Integration.APITest do
   end
   
   defp wait_for_tendermint_start(outstream) do
-    # monitors the stdout coming out of Tendermint for singal of successful startup
+    # monitors the stdout coming out of Tendermint for signal of successful startup
     outstream
     |> Stream.take_while(fn line -> not String.contains?(line, "Started node") end)
     |> Enum.to_list
