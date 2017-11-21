@@ -61,7 +61,7 @@ defmodule HonteD.Events.Eventer do
   end
 
   def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
-    case HonteD.Transaction.Finality.valid_signoff?(event, state.tendermint) do
+    case check_valid_signoff?(event, state.tendermint) do
       true ->
         {:noreply, finalize_events(tokens, event.height, state)}
       false ->
@@ -142,19 +142,24 @@ defmodule HonteD.Events.Eventer do
   end
 
   defp pop_finalized(token, signed_off_height, committed) do
-    # for a given token will pop the events committed earlier, that are before the signed_off_height
-    split_queue_by_block_height = fn
+    split_queue_by_finalized_status = fn
       # should take a queue and split it into a list of finalized events and
       # a queue with the rest of {height, event}'s
       (nil) -> {[], nil}
       (queue) ->
-        is_older = fn({h, _event}) -> h <= signed_off_height end
-        {finalized_tuples, rest} = Enum.split_while(queue, is_older)
+        {finalized_tuples, rest} =
+          HonteD.Transaction.Finality.split_finalized_events(queue, signed_off_height)
         # unzip to discard the heights and keep only the events
         {_, finalized} = Enum.unzip(finalized_tuples)
         {finalized, Qex.new(rest)}
     end
-    Map.get_and_update(committed, token, split_queue_by_block_height)
+    Map.get_and_update(committed, token, split_queue_by_finalized_status)
+  end
+
+  def check_valid_signoff?(%HonteD.Transaction.SignOff{} = event, tendermint_module) do
+    client = tendermint_module.client()
+    with {:ok, blockhash} <- HonteD.API.Tools.get_block_hash(event.height, tendermint_module, client),
+      do: HonteD.Transaction.Finality.valid_signoff?(event.hash, blockhash)
   end
 
   defp get_token(%HonteD.Transaction.Send{} = event) do
