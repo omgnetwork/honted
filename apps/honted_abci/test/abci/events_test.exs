@@ -84,8 +84,8 @@ defmodule HonteD.ABCI.EventsTest do
       join(server_pid)
     end
     
-    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer, :bob]
-    test "signoff transaction emits events", %{empty_state: state, issuer: issuer, bob: bob, some_block_hash: hash,
+    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    test "signoff transaction emits events", %{empty_state: state, issuer: issuer, some_block_hash: hash,
                                                server_spawner: server_spawner} do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr, signoffer: issuer.addr]
       server_pid = server_spawner.({
@@ -95,6 +95,20 @@ defmodule HonteD.ABCI.EventsTest do
       })
       
       create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+      join(server_pid)
+    end
+    
+    @tag fixtures: [:server_spawner, :empty_state, :issuer, :alice]
+    test "allow transaction emits events", %{empty_state: state, issuer: issuer, alice: alice,
+                                             server_spawner: server_spawner} do
+      params = [nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true]
+      server_pid = server_spawner.({
+        :event,
+        struct(HonteD.Transaction.Allow, params),
+        []
+      })
+      
+      create_allow(params) |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
 

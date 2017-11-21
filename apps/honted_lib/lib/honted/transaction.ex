@@ -141,7 +141,7 @@ defmodule HonteD.Transaction do
   when is_integer(nonce) and
        is_binary(allower) and
        is_binary(allowee) and
-       is_atom(privilege) and
+       is_binary(privilege) and
        is_boolean(allow) do
     create_encoded(Allow, args)
   end
