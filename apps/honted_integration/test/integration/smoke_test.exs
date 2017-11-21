@@ -1,4 +1,4 @@
-defmodule HonteD.Integration.APITest do
+defmodule HonteD.Integration.SmokeTest do
   @moduledoc """
   Smoke tests the integration of abci/ws/jsonrpc/elixir_api/eventer applications in the wild
   
@@ -13,6 +13,8 @@ defmodule HonteD.Integration.APITest do
 
   @startup_timeout 20000
   @supply 5
+  
+  @moduletag :integration
   
   deffixture homedir() do
     {:ok, dir_path} = Temp.mkdir("tendermint")
@@ -138,7 +140,6 @@ defmodule HonteD.Integration.APITest do
     end
   end
   
-  @tag :integration
   @tag fixtures: [:tendermint, :websocket, :apis_caller]
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
     # FIXME: dry this setup?
@@ -280,7 +281,6 @@ defmodule HonteD.Integration.APITest do
     # NOTE: don't test finalized, doesn't seem to cover anything new
   end
   
-  @tag :integration
   @tag fixtures: [:tendermint, :apis_caller]
   test "incorrect calls to websockets should return sensible response not crash", %{apis_caller: apis_caller} do
     # bad method
