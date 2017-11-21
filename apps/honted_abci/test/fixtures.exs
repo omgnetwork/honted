@@ -1,4 +1,4 @@
-Code.load_file("test/testlib/abci/abci_helpers.ex")
+Code.load_file("test/testlib/abci/test_helpers.ex")
 
 defmodule HonteD.ABCI.Fixtures do
   use ExUnitFixtures.FixtureModule
