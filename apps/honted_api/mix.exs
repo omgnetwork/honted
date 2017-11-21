@@ -30,6 +30,7 @@ defmodule HonteD.API.Mixfile do
       {:tesla, "~>0.8.0"},
       {:plug, "~> 1.3"},
       {:poison, "~> 3.1"},
+      #
       {:honted_lib, in_umbrella: true},
       {:honted_events, in_umbrella: true},
     ]
