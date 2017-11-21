@@ -1,6 +1,9 @@
 defmodule HonteD.Transaction do
   @moduledoc """
   Used to manipulate the transaction structures
+  
+  # FIXME: sometime let's reduce this boilerplate code that now is spread accross here, tx_codec, api
+  #        it's pretty consistent but drying this would be nice, hopefully without complicating too much
   """
   alias HonteD.Transaction.Validation
   

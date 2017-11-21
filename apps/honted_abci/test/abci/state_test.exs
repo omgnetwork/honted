@@ -390,14 +390,16 @@ defmodule HonteD.ABCI.StateTest do
     test "correct sign_offs", %{empty_state: state, bob: bob, some_block_hash: hash} do
       some_height = 100
       some_next_height = 200
+      
       %{state: state} =
         create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
-      # FIXME: test querrying in T95
-      %{state: _} =
+      query(state, '/sign_offs/#{bob.addr}') |> found?(%{"height" => some_height, "hash" => hash})
+      
+      %{state: state} =
         create_sign_off(nonce: 1, height: some_next_height, hash: String.reverse(hash), sender: bob.addr)
         |> sign(bob.priv) |> deliver_tx(state) |> success?
-      # FIXME: as above
+      query(state, '/sign_offs/#{bob.addr}') |> found?(%{"height" => some_next_height, "hash" => String.reverse(hash)})
     end
 
     @tag fixtures: [:bob, :empty_state, :some_block_hash]
