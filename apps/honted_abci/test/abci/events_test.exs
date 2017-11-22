@@ -32,7 +32,6 @@ defmodule HonteD.ABCI.EventsTest do
         expected_message ->
           spawn_link(fn ->
             assert_receive({:"$gen_cast", ^expected_message}, @timeout)
-            refute_receive(_, @timeout)
           end)
       end
       # plug the proces where the Eventer Genserver is expected
@@ -83,17 +82,22 @@ defmodule HonteD.ABCI.EventsTest do
       join(server_pid)
     end
     
-    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
-    test "signoff transaction emits events", %{empty_state: state, issuer: issuer, some_block_hash: hash,
-                                               server_spawner: server_spawner} do
-      params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr, signoffer: issuer.addr]
+    @tag fixtures: [:server_spawner, :state_with_token, :some_block_hash, :issuer, :alice, :asset]
+    test "signoff transaction emits events with tokens", %{state_with_token: state, issuer: issuer, alice: alice,
+                                                           some_block_hash: hash, server_spawner: server_spawner,
+                                                           asset: asset} do
+      %{state: state} = 
+        create_allow(nonce: 1, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true)
+        |> sign(issuer.priv) |> deliver_tx(state)
+      
+      params = [nonce: 0, height: 1, hash: hash, sender: alice.addr, signoffer: issuer.addr]
       server_pid = server_spawner.({
         :event,
         struct(HonteD.Transaction.SignOff, params),
-        []
+        [asset]
       })
       
-      create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+      create_sign_off(params) |> sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
     end
     
