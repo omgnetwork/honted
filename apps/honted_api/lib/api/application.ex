@@ -1,4 +1,4 @@
-defmodule HonteD.API.Events.Application do
+defmodule HonteD.API.Application do
   @moduledoc false
 
   use Application
@@ -8,7 +8,7 @@ defmodule HonteD.API.Events.Application do
       {HonteD.API.Events.Eventer, name: HonteD.API.Events.Eventer},
     ]
 
-    opts = [strategy: :one_for_one, name: HonteD.API.Events.Supervisor]
+    opts = [strategy: :one_for_one, name: HonteD.API.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end

@@ -1,5 +1,3 @@
-Code.load_file("../honted_api/test/testlib/api/test_helpers.ex")
-
 defmodule HonteD.ABCI.EventsTest do
   @moduledoc """
   Tests if Events are processed correctly, by the registered :honted_events app

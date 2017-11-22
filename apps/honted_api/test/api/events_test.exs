@@ -1,5 +1,3 @@
-Code.load_file("test/testlib/api/test_helpers.ex")
-
 defmodule HonteD.API.EventsTest do
   @moduledoc """
   Tests how one can use the API to subscribe to topics and receive event notifications
