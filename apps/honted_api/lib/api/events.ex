@@ -3,7 +3,8 @@ defmodule HonteD.API.Events do
   Public API for the HonteD.API.Events.Eventer GenServer
   """
 
-  @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string
+  @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string | :bad_block_height
+                | :filter_id_must_be_a_reference
   @type event :: HonteD.Transaction.t | HonteD.API.Events.NewBlock.t
 
   @server HonteD.API.Events.Eventer
@@ -26,27 +27,26 @@ defmodule HonteD.API.Events do
     GenServer.cast(server, {:event, event, context})
   end
 
-  @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address) :: :ok | {:error, badarg}
+  @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address)
+    :: {:ok, HonteD.filter_id} | {:error, badarg}
   def new_send_filter(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
          true <- is_valid_topic(receiver),
-    do: GenServer.call(server, {:subscribe, pid, [receiver]})
+    do: GenServer.call(server, {:new_filter, pid, [receiver]})
   end
 
-  @spec drop_send_filter(server :: atom | pid, subscriber :: pid, watched :: HonteD.address)
-  :: :ok | {:error, HonteD.API.Events.badarg}
-  def drop_send_filter(server \\ @server, pid, receiver) do
-    with true <- is_valid_subscriber(pid),
-         true <- is_valid_topic(receiver),
-      do: GenServer.call(server, {:unsubscribe, pid, [receiver]})
+  @spec drop_filter(server :: atom | pid, filter_id :: HonteD.filter_id)
+    :: :ok | {:error, :notfound | HonteD.API.Events.badarg}
+  def drop_filter(server \\ @server, filter_id) do
+    with true <- is_valid_reference(filter_id),
+      do: GenServer.call(server, {:drop_filter, filter_id})
   end
 
-  @spec status_send_filter?(server :: atom | pid, subscriber :: pid, watched :: HonteD.address)
-  :: {:ok, boolean} | {:error, HonteD.API.Events.badarg}
-  def status_send_filter?(server \\ @server, pid, receiver) do
-    with true <- is_valid_subscriber(pid),
-         true <- is_valid_topic(receiver),
-      do: GenServer.call(server, {:is_subscribed, pid, [receiver]})
+  @spec status_filter(server :: atom | pid, filter_id :: HonteD.filter_id)
+    :: {:ok, [binary]} | {:error, :noutfound | HonteD.API.Events.badarg}
+  def status_filter(server \\ @server, filter_id) do
+    with true <- is_valid_reference(filter_id),
+      do: GenServer.call(server, {:status, filter_id})
   end
 
   ## guards
@@ -58,5 +58,12 @@ defmodule HonteD.API.Events do
 
   defp is_valid_topic(topic) when is_binary(topic), do: true
   defp is_valid_topic(_), do: {:error, :topic_must_be_a_string}
+
+  defp is_valid_height(:current), do: true
+  defp is_valid_height(height) when is_integer(height) and height > 0, do: true
+  defp is_valid_height(_), do: {:error, :bad_block_height}
+
+  defp is_valid_reference(ref) when is_reference(ref), do: true
+  defp is_valid_reference(_), do: {:error, :filter_id_must_be_a_reference}
 
 end

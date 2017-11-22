@@ -66,7 +66,7 @@ defmodule HonteD.API.EventsTest do
     test "Subscribe, send event, receive event.", %{server: server}  do
       {e1, receivable1} = event_send(address1())
       pid = client(fn() -> assert_receive(^receivable1, @timeout) end)
-      :ok = new_send_filter(server, pid, address1())
+      {:ok, _, 2} = new_send_filter(server, pid, address1())
       notify(server, e1, [])
       join()
     end
@@ -217,7 +217,8 @@ defmodule HonteD.API.EventsTest do
       pid = client(fn() -> refute_receive(_, @timeout) end)
       assert {:error, :notfound} = status_filter(server, make_ref())
       {:ok, filter_id, _} = new_send_filter(server, pid, address1())
-      assert {:ok, [address1()]} = status_filter(server, filter_id)
+      addr1 = address1()
+      assert {:ok, [^addr1]} = status_filter(server, filter_id)
       :ok = drop_filter(server, filter_id)
       assert {:error, :notfound} = status_filter(server, filter_id)
 
@@ -235,13 +236,14 @@ defmodule HonteD.API.EventsTest do
         assert_receive(^receivable1, @timeout)
         assert_receive(^receivable1, @timeout)
       end)
-      {ok, filter_id1, _} = new_send_filter(server, pid1, address1())
-      {ok, filter_id2, _} = new_send_filter(server, pid2, address1())
-      assert {:ok, [address1()]} = status_filter(server, filter_id1)
+      addr1 = address1()
+      {:ok, filter_id1, _} = new_send_filter(server, pid1, addr1)
+      {:ok, filter_id2, _} = new_send_filter(server, pid2, addr1)
+      assert {:ok, [^addr1]} = status_filter(server, filter_id1)
       notify(server, e1, [])
       join(pid1)
       assert {:error, :notfound} = status_filter(server, filter_id1)
-      assert {:ok, [address1()]} = status_filter(server, filter_id2)
+      assert {:ok, [^addr1]} = status_filter(server, filter_id2)
       notify(server, e1, [])
       join()
     end
@@ -285,18 +287,24 @@ defmodule HonteD.API.EventsTest do
   describe "API does sanity checks on arguments." do
     @tag fixtures: [:server]
     test "Good topic.", %{server: server} do
-      assert :ok = new_send_filter(server, self(), address1())
+      assert {:ok, _, _} = new_send_filter(server, self(), address1())
     end
     test "Bad topic." do
       assert {:error, _} = new_send_filter(self(), 'this is not a binary')
     end
     @tag fixtures: [:server]
     test "Good sub.", %{server: server} do
-      assert :ok = new_send_filter(server, self(), address1())
+      assert {:ok, _, _} = new_send_filter(server, self(), address1())
     end
     test "Bad sub." do
       assert {:error, _} = new_send_filter(:registered_processes_will_not_be_handled,
                                            address1())
+    end
+    test "Filter_id is not a reference - status" do
+      assert {:error, _} = status_filter("not a ref")
+    end
+    test "Filter_id is not a reference - drop" do
+      assert {:error, _} = drop_filter("not a ref")
     end
   end
 

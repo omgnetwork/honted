@@ -12,6 +12,7 @@ defmodule HonteD.API.Events.Eventer do
 
   defmodule State do
     defstruct [subs: BiMultiMap.new(),
+               filters: BiMultiMap.new(),
                monitors: Map.new(),
                committed: Map.new(),
                height: 1,
@@ -25,6 +26,7 @@ defmodule HonteD.API.Events.Eventer do
 
     @type t :: %State{
       subs: BiMultiMap.t([topic], pid),
+      filters: BiMultiMap.t(HonteD.filter_id, {[topic], pid}),
       monitors: %{pid => reference},
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
@@ -32,7 +34,7 @@ defmodule HonteD.API.Events.Eventer do
       # TODO: pull those events from Tendermint
       committed: %{optional(token) => queue},
       height: HonteD.block_height,
-      tendermint: module()
+      tendermint: module(),
     }
   end
 
@@ -84,26 +86,31 @@ defmodule HonteD.API.Events.Eventer do
   end
 
 
-  def handle_call({:subscribe, pid, topics}, _from, state) do
+  def handle_call({:new_filter, pid, topics}, _from, state) do
     mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
+    filter_id = make_ref()
+    filters = BiMultiMap.put(state.filters, filter_id, {topics, pid})
     subs = BiMultiMap.put(state.subs, topics, pid)
-    {:reply, :ok, %{state | subs: subs, monitors: mons}}
+    {:reply, {:ok, filter_id, state.height + 1}, %{state | subs: subs, monitors: mons, filters: filters}}
   end
 
-  def handle_call({:unsubscribe, pid, topics}, _from, state) do
-    subs = BiMultiMap.delete(state.subs, topics, pid)
-    mons = case BiMultiMap.has_value?(subs, pid) do
-             false ->
-               state.monitors
-             true ->
-               Process.demonitor(state.monitors[pid], [:flush]);
-               Map.delete(state.monitors, pid)
-           end
-    {:reply, :ok, %{state | subs: subs, monitors: mons}}
+  def handle_call({:drop_filter, filter_id}, _from, state) do
+    case BiMultiMap.get(state.filters, filter_id, nil) do
+      [{topics, pid}] ->
+        state = drop_filter(filter_id, topics, pid, state)
+        {:reply, :ok, state}
+      nil ->
+        {:reply, {:error, :notfound}, state}
+    end
   end
 
-  def handle_call({:is_subscribed, pid, topics}, _from, state) do
-    {:reply, {:ok, BiMultiMap.member?(state.subs, topics, pid)}, state}
+  def handle_call({:status, filter_id}, _from, state) do
+    case BiMultiMap.get(state.filters, filter_id) do
+      [{topics, _}] ->
+        {:reply, {:ok, topics}, state}
+      _ ->
+        {:reply, {:error, :notfound}, state}
+    end
   end
 
   def handle_call(msg, from, state) do
@@ -114,8 +121,13 @@ defmodule HonteD.API.Events.Eventer do
   def handle_info({:DOWN, _monref, :process, pid, _reason},
                   state = %{subs: subs, monitors: mons}) do
     mons = Map.delete(mons, pid)
+    topics = BiMultiMap.get_keys(subs, pid)
     subs = BiMultiMap.delete_value(subs, pid)
-    {:noreply, %{state | subs: subs, monitors: mons}}
+    drop_filter_ids = fn(topics_group, acc) ->
+      BiMultiMap.delete_value(acc, {topics_group, pid})
+    end
+    filters = Enum.reduce(topics, state.filters, drop_filter_ids)
+    {:noreply, %{state | subs: subs, monitors: mons, filters: filters}}
   end
 
   def handle_info(msg, state) do
@@ -123,6 +135,19 @@ defmodule HonteD.API.Events.Eventer do
   end
 
   ## internals
+
+  defp drop_filter(filter_id, topics, pid, state) do
+    filters = BiMultiMap.delete(state.filters, filter_id, {topics, pid})
+    subs = BiMultiMap.delete(state.subs, topics, pid)
+    mons = case BiMultiMap.has_value?(subs, pid) do
+             false ->
+               state.monitors
+             true ->
+               Process.demonitor(state.monitors[pid], [:flush]);
+               Map.delete(state.monitors, pid)
+           end
+    %{state | subs: subs, monitors: mons, filters: filters}
+  end
 
   defp finalize_events(tokens, height, state) do
     notify_token = fn(token, acc_committed) ->

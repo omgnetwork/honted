@@ -184,7 +184,7 @@ defmodule HonteD.API do
   Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
   """
   @spec new_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: {:ok, reference, HonteD.block_height} | {:error, HonteD.Events.badarg}
+    :: {:ok, reference, HonteD.block_height} | {:error, HonteD.API.Events.badarg}
   def new_send_filter(subscriber, watched) do
     HonteD.API.Events.new_send_filter(subscriber, watched)
   end
@@ -193,18 +193,18 @@ defmodule HonteD.API do
   Remove particular filter.
   """
   @spec drop_filter(filter_id :: reference)
-    :: :ok | {:error, :notfound | HonteD.Events.badarg}
+    :: :ok | {:error, :notfound | HonteD.API.Events.badarg}
   def drop_filter(filter_id) do
-    HonteD.Events.drop_filter(filter_id)
+    HonteD.API.Events.drop_filter(filter_id)
   end
 
   @doc """
   Get information about particular filter.
   """
   @spec status_filter(filter_id :: reference)
-    :: {:ok, [binary]} | {:error, :notfound | HonteD.Events.badarg}
+    :: {:ok, [binary]} | {:error, :notfound | HonteD.API.Events.badarg}
   def status_filter(filter_id) do
-    HonteD.Events.status_filter(filter_id)
+    HonteD.API.Events.status_filter(filter_id)
   end
 
 end
