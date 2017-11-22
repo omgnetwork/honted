@@ -233,7 +233,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
     
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
-    {:ok, %{tx_hash: hash, committed_in: send_height}} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_transaction(raw_tx <> " " <> signature)
     
     # check event
     assert %{
@@ -257,10 +257,10 @@ defmodule HonteD.Integration.SmokeTest do
         "tx" => decoded_tx,
         "tx_result" => %{"code" => 0, "data" => "", "log" => ""}
       } = tx_query_result
-    } = API.tx(hash)
+    } = API.tx(tx_hash)
     
     # check consistency of api exposers
-    assert {:ok, TestWebsocket.codec(tx_query_result)} == apis_caller.(:tx, %{hash: hash})
+    assert {:ok, TestWebsocket.codec(tx_query_result)} == apis_caller.(:tx, %{hash: tx_hash})
     
     # readable form of transactions in response
     assert String.starts_with?(decoded_tx, "0 SEND #{asset} 5 #{alice} #{bob}")
@@ -308,6 +308,14 @@ defmodule HonteD.Integration.SmokeTest do
       },
       "type" => "finalized"
     } = TestWebsocket.recv!(websocket)
+    
+    assert {
+      :ok,
+      %{
+        :status => :finalized,
+      }
+    } = API.tx(tx_hash)
+    
   end
   
   @tag fixtures: [:tendermint, :apis_caller]
