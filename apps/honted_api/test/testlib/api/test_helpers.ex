@@ -20,7 +20,7 @@ defmodule HonteD.API.TestHelpers do
     {tx, receivable_finalized(send_receivables)}
   end
 
-  def height2hash(n) when is_integer(n) and n > 0 and n < 100, do: "OK_HASH_" <> Integer.to_string(n)
+  def height2hash(n) when is_integer(n) and n > 0, do: "OK_HASH_" <> Integer.to_string(n)
   def height2hash(_), do: nil
 
   @doc """

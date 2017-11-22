@@ -95,6 +95,8 @@ defmodule HonteD.ABCI.State do
   end
   
   defp allows_for?(state, allower, allowee, privilege) when is_atom(privilege) do
+    # checks whether allower allows allowee for privilege
+    
     # always self-allow and in case allower != allowee - check delegations in state
     if allower == allowee or Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do 
       :ok
