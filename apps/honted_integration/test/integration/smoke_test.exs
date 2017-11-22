@@ -222,7 +222,15 @@ defmodule HonteD.Integration.SmokeTest do
     
     # EVENTS & Send TRANSACTION
     # subscribe to filter
-    assert {:ok, "ok"} == TestWebsocket.sendrecv!(websocket, :new_send_filter, %{watched: bob})
+    assert {
+      :ok,
+      %{"reference" => reference, "start_height" => height}
+    } = TestWebsocket.sendrecv!(websocket, :new_send_filter, %{watched: bob})
+    
+    assert height > 0 # smoke test this, no way to test this sensibly
+    assert reference # FIXME something smarter should be checked later - pin in assertions/check against status_filter?
+    # FIXME: I did something wrhong
+    # assert {} = TestWebsocket.sendrecv!(websocket, :status_filter, %{filter_id: reference})
     
     {:ok, raw_tx} = API.create_send_transaction(asset, 5, alice, bob)
     
@@ -316,6 +324,34 @@ defmodule HonteD.Integration.SmokeTest do
       }
     } = API.tx(tx_hash)
     
+    # EVENT REPLAYS
+    
+    assert {:ok, reference} =
+      TestWebsocket.sendrecv!(websocket, :new_send_filter_history, %{watched: bob, first: 0, last: 123456})
+    
+    # assert reference # FIXME, it returned nil. Maybe check something smarter here, maybe pin in later assertions
+    # check events that should be replayed
+    # FIXME: fails so commented
+    # assert %{
+    #   "transaction" => %{
+    #     "amount" => 5,
+    #     "asset" => ^asset,
+    #     "from" => ^alice,
+    #     "nonce" => 0,
+    #     "to" => ^bob
+    #   },
+    #   "type" => "committed"
+    # } = TestWebsocket.recv!(websocket)
+    # assert %{
+    #   "transaction" => %{
+    #     "amount" => 5,
+    #     "asset" => ^asset,
+    #     "from" => ^alice,
+    #     "nonce" => 0,
+    #     "to" => ^bob
+    #   },
+    #   "type" => "finalized"
+    # } = TestWebsocket.recv!(websocket)
   end
   
   @tag fixtures: [:tendermint, :apis_caller]

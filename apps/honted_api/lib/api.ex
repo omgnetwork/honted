@@ -168,23 +168,23 @@ defmodule HonteD.API do
     end
   end
 
-  # @doc """
-  # Create a filter that will replay notifications about historical Send transaction for particular address.
-  # Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
-  # """
-  # @spec new_send_filter_history(subscriber :: pid, watched :: HonteD.address,
-  #                               first :: HonteD.block_height, last :: HonteD.block_height)
-  #   :: {:ok, reference} | {:error, HonteD.Events.badarg}
-  # def new_send_filter_history(subscriber, watched, first, last) do
-  #   HonteD.Events.new_send_filter_history(subscriber, watched, first, last)
-  # end
+  @doc """
+  Create a filter that will replay notifications about historical Send transaction for particular address.
+  Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
+  """
+  @spec new_send_filter_history(subscriber :: pid, watched :: HonteD.address,
+                                first :: HonteD.block_height, last :: HonteD.block_height)
+    :: {:ok, reference} | {:error, HonteD.API.Events.badarg}
+  def new_send_filter_history(subscriber, watched, first, last) do
+    HonteD.API.Events.new_send_filter_history(subscriber, watched, first, last)
+  end
 
   @doc """
   Create a filter that will deliver notification about new Send transaction mined for particular address.
   Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
   """
   @spec new_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: {:ok, reference, HonteD.block_height} | {:error, HonteD.API.Events.badarg}
+    :: {:ok, %{reference: reference, start_height: HonteD.block_height}} | {:error, HonteD.API.Events.badarg}
   def new_send_filter(subscriber, watched) do
     HonteD.API.Events.new_send_filter(subscriber, watched)
   end

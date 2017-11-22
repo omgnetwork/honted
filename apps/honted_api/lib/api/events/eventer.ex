@@ -88,10 +88,17 @@ defmodule HonteD.API.Events.Eventer do
 
   def handle_call({:new_filter, pid, topics}, _from, state) do
     mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
-    filter_id = make_ref()
+    filter_id =
+      make_ref()
+      |> inspect
+      |> HonteD.Crypto.hash
     filters = BiMultiMap.put(state.filters, filter_id, {topics, pid})
     subs = BiMultiMap.put(state.subs, topics, pid)
-    {:reply, {:ok, filter_id, state.height + 1}, %{state | subs: subs, monitors: mons, filters: filters}}
+    {
+      :reply,
+      {:ok, %{reference: filter_id, start_height: state.height + 1}},
+      %{state | subs: subs, monitors: mons, filters: filters}
+    }
   end
 
   def handle_call({:drop_filter, filter_id}, _from, state) do

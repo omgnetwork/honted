@@ -26,9 +26,17 @@ defmodule HonteD.API.Events do
   def notify(server \\ @server, event, context) do
     GenServer.cast(server, {:event, event, context})
   end
-
-  @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address)
+  
+  @spec new_send_filter_history(server :: atom | pid, pid :: pid, receiver :: HonteD.address,
+                                first :: HonteD.block_height, last :: HonteD.block_height)
     :: {:ok, HonteD.filter_id} | {:error, badarg}
+  def new_send_filter_history(_server \\ @server, _pid, _receiver, _first, _last) do
+    #FIXME does nothing
+    {:ok, nil}
+  end
+  
+  @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address)
+    :: {:ok, %{reference: HonteD.filter_id, start_height: HonteD.block_height}} | {:error, badarg}
   def new_send_filter(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
          true <- is_valid_topic(receiver),
