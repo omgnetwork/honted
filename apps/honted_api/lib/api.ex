@@ -193,7 +193,7 @@ defmodule HonteD.API do
   Remove particular filter.
   """
   @spec drop_filter(filter_id :: reference)
-    :: :ok | {:error, :notfound}
+    :: :ok | {:error, :notfound | HonteD.Events.badarg}
   def drop_filter(filter_id) do
     HonteD.Events.drop_filter(filter_id)
   end
@@ -202,7 +202,7 @@ defmodule HonteD.API do
   Get information about particular filter.
   """
   @spec status_filter(filter_id :: reference)
-    :: {:ok, [binary]} | {:error, :notfound}
+    :: {:ok, [binary]} | {:error, :notfound | HonteD.Events.badarg}
   def status_filter(filter_id) do
     HonteD.Events.status_filter(filter_id)
   end
