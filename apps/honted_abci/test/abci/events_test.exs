@@ -125,25 +125,25 @@ defmodule HonteD.ABCI.EventsTest do
       join(server_pid)
     end
 
-    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
-    test "statefully incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
-                                                   server_spawner: server_spawner} do
-      params = [nonce: 1, height: 1, hash: hash, sender: issuer.addr]
-      server_pid = server_spawner.(:expected_silence)
+    # @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    # test "statefully incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
+    #                                                server_spawner: server_spawner} do
+    #   params = [nonce: 1, height: 1, hash: hash, sender: issuer.addr]
+    #   server_pid = server_spawner.(:expected_silence)
       
-      create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
-      join(server_pid)
-    end
+    #   create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+    #   join(server_pid)
+    # end
 
-    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
-    test "statelessly incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
-                                               server_spawner: server_spawner} do
-      params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
-      server_pid = server_spawner.(:expected_silence)
+    # @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
+    # test "statelessly incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
+    #                                            server_spawner: server_spawner} do
+    #   params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
+    #   server_pid = server_spawner.(:expected_silence)
       
-      create_sign_off(params) |> deliver_tx(state)
-      join(server_pid)
-    end
+    #   create_sign_off(params) |> deliver_tx(state)
+    #   join(server_pid)
+    # end
     
   end
 end

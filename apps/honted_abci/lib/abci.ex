@@ -63,14 +63,11 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
-    with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
-         {:ok, state} <- generic_handle_tx(state, decoded)
-    do
-      HonteD.ABCI.Events.notify(state, decoded.raw_tx)
-      {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
-    else
-      {:error, error} -> {:reply, {:ResponseDeliverTx, 1, '', to_charlist(error)}, state}
-    end
+    # FIXME: yes, we want to crash on invalid transactions, lol
+    {:ok, decoded} = HonteD.TxCodec.decode(tx)
+    {:ok, state} = generic_handle_tx(state, decoded)
+    HonteD.ABCI.Events.notify(state, decoded.raw_tx)
+    {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
   end
 
   @doc """
