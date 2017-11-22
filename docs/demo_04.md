@@ -13,13 +13,13 @@ import HonteD.Crypto
 {:ok, alice_priv} = generate_private_key; {:ok, alice_pub} = generate_public_key alice_priv; {:ok, alice} = generate_address alice_pub
 {:ok, bob_priv} = generate_private_key; {:ok, bob_pub} = generate_public_key bob_priv; {:ok, bob} = generate_address bob_pub
 {:ok, ivan_priv} = generate_private_key; {:ok, ivan_pub} = generate_public_key ivan_priv; {:ok, ivan} = generate_address ivan_pub
-{:ok, diane_priv} = generate_private_key; {:ok, diane_pub} = generate_public_key diane_priv; {:ok, ivan} = generate_address diane_pub
+{:ok, diane_priv} = generate_private_key; {:ok, diane_pub} = generate_public_key diane_priv; {:ok, diane} = generate_address diane_pub
 
 {:ok, raw_tx} = create_create_token_transaction(ivan); {:ok, signature} = sign(raw_tx, ivan_priv)
 {:ok, hash} = submit_transaction raw_tx <> " " <> signature
 {:ok, [asset]} = tokens_issued_by(ivan)
 
-{:ok, raw_tx} = create_issue_transaction(asset, 500, ivan, alice); {:ok, signature} = sign(raw_tx, ivan_priv)
+{:ok, raw_tx} = create_issue_transaction(asset, 500, alice, ivan); {:ok, signature} = sign(raw_tx, ivan_priv)
 submit_transaction raw_tx <> " " <> signature
 
 # v START DEMO HERE v
@@ -52,11 +52,11 @@ submit_transaction raw_tx <> " " <> signature
 # From now on, Diane can sign off on behalf of Ivan
 
 # this should successfully finalize 2 of 3 above sends
-{:ok, raw_tx} = create_sign_off_transaction(height - 1, block_hash, diane); {:ok, signature} = sign(raw_tx, diane_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height - 1, block_hash, diane, ivan); {:ok, signature} = sign(raw_tx, diane_priv)
 submit_transaction raw_tx <> " " <> signature
 
 # valid sign-off, but with wrong block_hash (puts all transactions of token into :committed_unknown state)
-{:ok, raw_tx} = create_sign_off_transaction(height, "garbage", diane); {:ok, signature} = sign(raw_tx, diane_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height, "garbage", diane, ivan); {:ok, signature} = sign(raw_tx, diane_priv)
 submit_transaction raw_tx <> " " <> signature
 
 # check no more finalized had been received
@@ -66,7 +66,7 @@ tx(tx_hash)
 
 # fix the broken sign-off
 {:ok, new_block_hash} = HonteD.API.Tools.get_block_hash(height + 1)
-{:ok, raw_tx} = create_sign_off_transaction(height + 1, new_block_hash, diane); {:ok, signature} = sign(raw_tx, diane_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height + 1, new_block_hash, diane, ivan); {:ok, signature} = sign(raw_tx, diane_priv)
 submit_transaction raw_tx <> " " <> signature
 
 # check the fixed state
@@ -82,8 +82,21 @@ tx(tx_hash)
 # see the logs pass for the previous transactions while Tendermint replays
 # NOTE: no events are subscribed to yet! This replay is *not our replay*, this is Tendermint stuff, forget it
 
-# two events that could be "missed", because after reboot we haven't subscribed yet!!!
+bob = # bobs pub key from previous session
+
+# re-do preparations (we've lost private keys :( )
 {:ok, audrey_priv} = generate_private_key; {:ok, audrey_pub} = generate_public_key audrey_priv; {:ok, audrey} = generate_address audrey_pub
+{:ok, imogen_priv} = generate_private_key; {:ok, imogen_pub} = generate_public_key imogen_priv; {:ok, imogen} = generate_address imogen_pub
+{:ok, raw_tx} = create_create_token_transaction(imogen); {:ok, signature} = sign(raw_tx, imogen_priv)
+{:ok, hash} = submit_transaction raw_tx <> " " <> signature
+{:ok, [asset]} = tokens_issued_by(imogen)
+
+{:ok, raw_tx} = create_issue_transaction(asset, 500, audrey, imogen); {:ok, signature} = sign(raw_tx, imogen_priv)
+submit_transaction raw_tx <> " " <> signature
+
+# PREPARATIONS DONE
+
+# two events that could be "missed", because after reboot we haven't subscribed yet!!!
 {:ok, raw_tx} = create_send_transaction(asset, 5, audrey, bob); {:ok, signature} = sign(raw_tx, audrey_priv)
 submit_transaction raw_tx <> " " <> signature
 {:ok, raw_tx} = create_send_transaction(asset, 5, audrey, bob); {:ok, signature} = sign(raw_tx, audrey_priv)

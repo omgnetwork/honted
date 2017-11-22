@@ -69,13 +69,13 @@ defmodule HonteD.API.Tools do
                                          client,
                                          tx_height) do
     {:ok, issuer} = get_issuer(client, tx.asset)
-    {:ok, blockhash} = get_block_hash(tx_height, TendermintRPC, client)
 
     case get_and_decode(client, "/sign_offs/#{issuer}") do
       {:ok, %{"response" => %{"code" => 1}}} ->
         :committed # FIXME: handle this case in a more appropriate manner
       {:ok, %{"height" => sign_off_height, "hash" => sign_off_hash}} ->
-        HonteD.Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, blockhash)
+        {:ok, real_blockhash} = get_block_hash(sign_off_height, TendermintRPC, client)
+        HonteD.Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, real_blockhash)
     end
   end
   defp get_sign_off_status_for_committed(_, _, _), do: :committed
