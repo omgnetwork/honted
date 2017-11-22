@@ -215,11 +215,11 @@ defmodule HonteD.API.EventsTest do
     @tag fixtures: [:server]
     test "Manual unsubscribe.", %{server: server} do
       pid = client(fn() -> refute_receive(_, @timeout) end)
-      assert {:ok, false} = status_send_filter?(server, pid, address1())
-      new_send_filter(server, pid, address1())
-      assert {:ok, true} = status_send_filter?(server, pid, address1())
-      :ok = drop_send_filter(server, pid, address1())
-      assert {:ok, false} = status_send_filter?(server, pid, address1())
+      assert {:error, :notfound} = status_filter(server, make_ref())
+      {:ok, filter_id, _} = new_send_filter(server, pid, address1())
+      assert {:ok, [address1()]} = status_filter(server, filter_id)
+      :ok = drop_filter(server, filter_id)
+      assert {:error, :notfound} = status_filter(server, filter_id)
 
       # won't be notified
       {e1, _} = event_send(address1())
@@ -235,13 +235,13 @@ defmodule HonteD.API.EventsTest do
         assert_receive(^receivable1, @timeout)
         assert_receive(^receivable1, @timeout)
       end)
-      new_send_filter(server, pid1, address1())
-      new_send_filter(server, pid2, address1())
-      assert {:ok, true} = status_send_filter?(server, pid1, address1())
+      {ok, filter_id1, _} = new_send_filter(server, pid1, address1())
+      {ok, filter_id2, _} = new_send_filter(server, pid2, address1())
+      assert {:ok, [address1()]} = status_filter(server, filter_id1)
       notify(server, e1, [])
       join(pid1)
-      assert {:ok, false} = status_send_filter?(server, pid1, address1())
-      assert {:ok, true} = status_send_filter?(server, pid2, address1())
+      assert {:error, :notfound} = status_filter(server, filter_id1)
+      assert {:ok, [address1()]} = status_filter(server, filter_id2)
       notify(server, e1, [])
       join()
     end
