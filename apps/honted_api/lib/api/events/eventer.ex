@@ -1,4 +1,4 @@
-defmodule HonteD.Events.Eventer do
+defmodule HonteD.API.Events.Eventer do
   @moduledoc """
   Handles stream of send events from HonteD.ABCI and forwards them to subscribers.
 
@@ -11,7 +11,12 @@ defmodule HonteD.Events.Eventer do
   require Logger
 
   defmodule State do
-    defstruct [:subs, :monitors, :committed, :height]
+    defstruct [subs: BiMultiMap.new(),
+               monitors: Map.new(),
+               committed: Map.new(),
+               height: 1,
+               tendermint: HonteD.API.TendermintRPC,
+              ]
 
     @typep event :: HonteD.Transaction.t
     @typep topic :: HonteD.address
@@ -27,10 +32,9 @@ defmodule HonteD.Events.Eventer do
       # TODO: pull those events from Tendermint
       committed: %{optional(token) => queue},
       height: HonteD.block_height,
+      tendermint: module()
     }
   end
-
-  @typep state :: State.t
 
   def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -46,14 +50,9 @@ defmodule HonteD.Events.Eventer do
 
   ## callbacks
 
-  @spec init([]) :: {:ok, state}
-  def init([]) do
-    {:ok, %State{subs: BiMultiMap.new(),
-                 committed: Map.new(),
-                 monitors: Map.new(),
-                 height: 1
-                }}
-  end
+  @spec init([map]) :: {:ok, State.t}
+  def init([]), do: {:ok, %State{}}
+  def init([%{tendermint: module}]), do: {:ok, %State{tendermint: module}}
 
   def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
     state = insert_committed(event, state)
@@ -62,11 +61,16 @@ defmodule HonteD.Events.Eventer do
   end
 
   def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
-    state = finalize_events(tokens, event.height, state)
-    {:noreply, state}
+    case check_valid_signoff?(event, state.tendermint) do
+      true ->
+        {:noreply, finalize_events(tokens, event.height, state)}
+      false ->
+        _ = Logger.debug("Dropped sign-off: #{inspect event}, #{inspect tokens}")
+        {:noreply, state}
+    end
   end
 
-  def handle_cast({:event, %HonteD.Events.NewBlock{} = event, _}, state) do
+  def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event, _}, state) do
     {:noreply, %{state | height: event.height}}
   end
 
@@ -138,18 +142,24 @@ defmodule HonteD.Events.Eventer do
   end
 
   defp pop_finalized(token, signed_off_height, committed) do
-    # for a given token will pop the events committed earlier, that are before the signed_off_height
-    split_queue_by_block_height = fn
-      # should take a queue and split it into a list of finalized events and a queue with the rest of {height, event}'s
+    split_queue_by_finalized_status = fn
+      # should take a queue and split it into a list of finalized events and
+      # a queue with the rest of {height, event}'s
       (nil) -> {[], nil}
       (queue) ->
-        is_older = fn({h, _event}) -> h <= signed_off_height end
-        {finalized_tuples, rest} = Enum.split_while(queue, is_older)
+        {finalized_tuples, rest} =
+          HonteD.Transaction.Finality.split_finalized_events(queue, signed_off_height)
         # unzip to discard the heights and keep only the events
         {_, finalized} = Enum.unzip(finalized_tuples)
         {finalized, Qex.new(rest)}
     end
-    Map.get_and_update(committed, token, split_queue_by_block_height)
+    Map.get_and_update(committed, token, split_queue_by_finalized_status)
+  end
+
+  def check_valid_signoff?(%HonteD.Transaction.SignOff{} = event, tendermint_module) do
+    client = tendermint_module.client()
+    with {:ok, blockhash} <- HonteD.API.Tools.get_block_hash(event.height, tendermint_module, client),
+      do: HonteD.Transaction.Finality.valid_signoff?(event.hash, blockhash)
   end
 
   defp get_token(%HonteD.Transaction.Send{} = event) do

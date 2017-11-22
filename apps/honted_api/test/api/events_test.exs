@@ -2,27 +2,47 @@ defmodule HonteD.API.EventsTest do
   @moduledoc """
   Tests how one can use the API to subscribe to topics and receive event notifications
 
-  Uses the application's instance of HonteD.Events.Eventer
+  Uses the application's instance of HonteD.API.Events.Eventer
 
-  Uses the public HonteD.API for subscription/unsubscription and the public HonteD.Events api to emit events
+  Uses the public HonteD.API for subscription/unsubscription and the public HonteD.API.Events api to emit events
   
   We test the logic of the events here
   """
 
   import HonteD.API.TestHelpers
 
-  import HonteD.Events
+  import HonteD.API.Events
 
   use ExUnitFixtures
   use ExUnit.Case, async: true
+  import Mox
 
   @timeout 100
 
   ## helpers
 
   deffixture server do
-    {:ok, pid} = GenServer.start(HonteD.Events.Eventer, [], [])
+    {:ok, pid} = GenServer.start(HonteD.API.Events.Eventer, [%{tendermint: HonteD.API.TestTendermint}], [])
     pid
+  end
+
+  defp mock_for_signoff(pid, n) do
+    HonteD.API.TestTendermint
+    |> expect(:block, n, &block_mock/2)
+    |> expect(:client, n, fn() -> nil end)
+    |> allow(self(), pid)
+  end
+
+  setup_all do
+    start_supervised Mox.Server
+    %{}
+  end
+
+  defp block_mock(_, height) do
+    case height2hash(height) do
+      nil -> nil
+      hash -> {:ok, %{"block_meta" => %{"block_id" => %{"hash" => hash}}}}
+    end
   end
 
   ## tests
@@ -89,6 +109,7 @@ defmodule HonteD.API.EventsTest do
 
     @tag fixtures: [:server]
     test "Both are delivered if sign_off is issued.", %{server: server} do
+      mock_for_signoff(server, 1)
       {e1, com1} = event_send(address1(), "asset1")
       {e2, com2} = event_send(address1(), "asset2")
       {e3, com3} = event_send(address1(), "asset1")
@@ -111,6 +132,7 @@ defmodule HonteD.API.EventsTest do
     
     @tag fixtures: [:server]
     test "Sign_off delivers tokens of the issuer who did the sign off", %{server: server} do
+      mock_for_signoff(server, 1)
       {e1, com1} = event_send(address1(), "asset1")
       {e2, com2} = event_send(address1(), "asset2")
       {e3, com3} = event_send(address1(), "asset3")
@@ -134,6 +156,7 @@ defmodule HonteD.API.EventsTest do
 
     @tag fixtures: [:server]
     test "Sign_off finalizes transactions only to certain height", %{server: server} do
+      mock_for_signoff(server, 1)
       {e1, com1} = event_send(address1(), "asset")
       {e2, com2} = event_send(address1(), "asset")
       {f1, [fin1, fin2]} = event_sign_off(address1(), [com1, com2], 1)
@@ -142,9 +165,9 @@ defmodule HonteD.API.EventsTest do
         refute_receive(^fin2, @timeout)
       end)
       new_send_filter(server, pid, address1())
-      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 1}, [])
       notify(server, e1, [])
-      notify(server, %HonteD.Events.NewBlock{height: 2}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 2}, [])
       notify(server, e2, [])
       notify(server, f1, ["asset"])
       join()
@@ -152,6 +175,7 @@ defmodule HonteD.API.EventsTest do
 
     @tag fixtures: [:server]
     test "Sign_off can be continued at later height", %{server: server} do
+      mock_for_signoff(server, 2)
       {e1, com1} = event_send(address1(), "asset")
       {e2, com2} = event_send(address1(), "asset")
       {f1, [fin1]} = event_sign_off(address1(), [com1], 1)
@@ -161,12 +185,28 @@ defmodule HonteD.API.EventsTest do
         assert_receive(^fin2, @timeout)
       end)
       new_send_filter(server, pid, address1())
-      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 1}, [])
       notify(server, e1, [])
-      notify(server, %HonteD.Events.NewBlock{height: 2}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 2}, [])
       notify(server, e2, [])
       notify(server, f1, ["asset"])
       notify(server, f2, ["asset"])
+      join()
+    end
+
+    @tag fixtures: [:server]
+    test "Sign-off with bad hash is ignored", %{server: server} do
+      mock_for_signoff(server, 1)
+      {e1, com1} = event_send(address1(), "asset")
+      {f1, fin1} = event_sign_off_bad_hash(address1(), com1, 1)
+      pid = client(fn() ->
+        assert_receive(^com1, @timeout)
+        refute_receive(^fin1, @timeout)
+      end)
+      new_send_filter(server, pid, address1())
+      notify(server, e1, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 1}, [])
+      notify(server, f1, ["asset"])
       join()
     end
   end

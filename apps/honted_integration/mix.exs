@@ -16,7 +16,6 @@ defmodule HonteD.Integration.Mixfile do
   end
 
   def application do
-    :test = Mix.env # assertion
     [
       extra_applications: [:logger],
     ]

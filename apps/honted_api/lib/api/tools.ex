@@ -31,7 +31,7 @@ defmodule HonteD.API.Tools do
 
   @doc """
   Enriches the standards Tendermint tx information with a HonteD-specific status flag
-    :failed, :pending, :committed, :finalized
+    :failed, :pending, :committed, :finalized, :committed_unknown
   """
   def append_status(tx_info, client) do
     tx_info
@@ -42,6 +42,17 @@ defmodule HonteD.API.Tools do
     with :committed <- get_tx_tendermint_status(tx_info),
          do: HonteD.TxCodec.decode!(tx_info["tx"])
              |> get_sign_off_status_for_committed(client, tx_info["height"])
+  end
+
+  def get_block_hash(height) do
+    get_block_hash(height, TendermintRPC, TendermintRPC.client())
+  end
+
+  def get_block_hash(height, tendermint_module, client) do
+    case tendermint_module.block(client, height) do
+      {:ok, block} -> {:ok, block_hash(block)}
+      nil -> false
+    end
   end
 
   defp get_tx_tendermint_status(tx_info) do
@@ -58,12 +69,23 @@ defmodule HonteD.API.Tools do
                                          client,
                                          tx_height) do
     {:ok, issuer} = get_issuer(client, tx.asset)
-      
+    {:ok, blockhash} = get_block_hash(tx_height, TendermintRPC, client)
+
     case get_and_decode(client, "/sign_offs/#{issuer}") do
-      {:ok, %{"response" => %{"code" => 1}}} -> :committed # FIXME: handle this case in a more appropriate manner
-      {:ok, %{"height" => sign_off_height}} -> if sign_off_height >= tx_height, do: :finalized, else: :committed
+      {:ok, %{"response" => %{"code" => 1}}} ->
+        :committed # FIXME: handle this case in a more appropriate manner
+      {:ok, %{"height" => sign_off_height, "hash" => sign_off_hash}} ->
+        HonteD.Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, blockhash)
     end
   end
   defp get_sign_off_status_for_committed(_, _, _), do: :committed
-  
+
+  # private
+
+  defp block_hash(block) do
+    block["block_meta"]["block_id"]["hash"]
+  end
+
+
+
 end

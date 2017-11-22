@@ -1,11 +1,9 @@
-Code.load_file("../honted_api/test/testlib/api/test_helpers.ex")
-
 defmodule HonteD.ABCI.EventsTest do
   @moduledoc """
   Tests if Events are processed correctly, by the registered :honted_events app
 
   THis tests only the integration between ABCI and the Eventer GenServer, i.e. whether the events are emitted
-  correctly. No HonteD.Events logic tested here
+  correctly. No HonteD.API.Events logic tested here
   """
   use ExUnitFixtures
   use ExUnit.Case, async: false  # modifies the ABCI's registered Eventer process
@@ -15,14 +13,15 @@ defmodule HonteD.ABCI.EventsTest do
   import HonteD.API.TestHelpers
   import HonteD.ABCI.TestHelpers
 
-  @test_eventer HonteD.Events.Eventer
+  @test_eventer HonteD.API.Events.Eventer
   @timeout 100
-  
+
   deffixture server_spawner() do
     # returns a function that spawns a process waiting for a particular expected message (or silence)
     # this is used to mock the Eventer GenServer
     # this process is registered in lieu of the Eventer, and should be `join`ed at the end of test
     # FIXME: this should be done in `on_exit` but it doesn't seem to work (assertions do not fail)
+    # FIXME: consider using `Mox` to simulate receiving server. Reason: consistency
     fn expected_case ->
       # the following case determines the expected behavior of the spawned process
       server_pid = case expected_case do

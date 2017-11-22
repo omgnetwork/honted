@@ -12,6 +12,9 @@ defmodule HonteD.API.TendermintRPC do
     - decode jsonrpc response via `decode_jsonrpc`
     - additional decoding depending on the particular request/response (the `case do`)
   """
+
+  @behaviour HonteD.API.TendermintBehavior
+
   require Tesla
 
   def client() do
@@ -53,7 +56,14 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_jsonrpc
     |> decode_tx
   end
-  
+
+  def block(client, height) do
+    Tesla.get(client, "block", query: encode(
+      height: height,
+    ))
+    |> decode_jsonrpc
+  end
+
   ### private - tendermint rpc's specific encoding/decoding
 
   defp decode_jsonrpc(response) do
@@ -82,5 +92,6 @@ defmodule HonteD.API.TendermintRPC do
   defp encode({:hash, raw}) when is_binary(raw), do: "0x#{raw}"
   defp encode(raw) when is_binary(raw), do: "\"#{raw}\""
   defp encode(raw) when is_boolean(raw), do: to_string(raw)
+  defp encode(raw) when is_integer(raw), do: Integer.to_string(raw)
   
 end
