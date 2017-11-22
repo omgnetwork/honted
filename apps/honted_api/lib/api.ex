@@ -167,34 +167,44 @@ defmodule HonteD.API do
         {:error, %{reason: :unknown_error, raw_result: inspect result}} # NOTE not able to handle "not found"!
     end
   end
-  
+
+  # @doc """
+  # Create a filter that will replay notifications about historical Send transaction for particular address.
+  # Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
+  # """
+  # @spec new_send_filter_history(subscriber :: pid, watched :: HonteD.address,
+  #                               first :: HonteD.block_height, last :: HonteD.block_height)
+  #   :: {:ok, reference} | {:error, HonteD.Events.badarg}
+  # def new_send_filter_history(subscriber, watched, first, last) do
+  #   HonteD.Events.new_send_filter_history(subscriber, watched, first, last)
+  # end
+
   @doc """
-  Subscribe to notification about Send transaction mined for particular address.
+  Create a filter that will deliver notification about new Send transaction mined for particular address.
   Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
   """
   @spec new_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: :ok | {:error, HonteD.API.Events.badarg}
+    :: {:ok, reference, HonteD.block_height} | {:error, HonteD.Events.badarg}
   def new_send_filter(subscriber, watched) do
     HonteD.API.Events.new_send_filter(subscriber, watched)
   end
 
   @doc """
-  Stop subscribing to notifications about Send transactions mined for particular address.
+  Remove particular filter.
   """
-  @spec drop_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: :ok | {:error, HonteD.API.Events.badarg}
-  def drop_send_filter(subscriber, watched) do
-    HonteD.API.Events.drop_send_filter(subscriber, watched)
+  @spec drop_filter(filter_id :: reference)
+    :: :ok | {:error, :notfound}
+  def drop_filter(filter_id) do
+    HonteD.Events.drop_filter(filter_id)
   end
 
   @doc """
-  Check if one is subscribed to notifications about Send transactions mined for particular
-  address.
+  Get information about particular filter.
   """
-  @spec status_send_filter?(subscriber :: pid, watched :: HonteD.address)
-    :: {:ok, boolean} | {:error, HonteD.API.Events.badarg}
-  def status_send_filter?(subscriber, watched) do
-    HonteD.API.Events.status_send_filter?(subscriber, watched)
+  @spec status_filter(filter_id :: reference)
+    :: {:ok, [binary]} | {:error, :notfound}
+  def status_filter(filter_id) do
+    HonteD.Events.status_filter(filter_id)
   end
 
 end
