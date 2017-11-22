@@ -1,6 +1,9 @@
 defmodule HonteD.Transaction do
   @moduledoc """
   Used to manipulate the transaction structures
+  
+  # FIXME: sometime let's reduce this boilerplate code that now is spread accross here, tx_codec, api
+  #        it's pretty consistent but drying this would be nice, hopefully without complicating too much
   """
   alias HonteD.Transaction.Validation
   
@@ -38,13 +41,26 @@ defmodule HonteD.Transaction do
   end
   
   defmodule SignOff do
-    defstruct [:nonce, :height, :hash, :sender]
+    defstruct [:nonce, :height, :hash, :sender, :signoffer]
     
     @type t :: %SignOff{
       nonce: HonteD.nonce,
       height: pos_integer,
       hash: HonteD.block_hash,
       sender: HonteD.address,
+      signoffer: HonteD.address,
+    }
+  end
+  
+  defmodule Allow do
+    defstruct [:nonce, :allower, :allowee, :privilege, :allow]
+    
+    @type t :: %Allow{
+      nonce: HonteD.nonce,
+      allower: HonteD.address,
+      allowee: HonteD.address,
+      privilege: HonteD.privilege,
+      allow: boolean,
     }
   end
   
@@ -57,7 +73,7 @@ defmodule HonteD.Transaction do
     }
   end
   
-  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t
+  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t
   
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
@@ -103,15 +119,34 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a SignOff transaction, ensures state-less validity and encodes
   """
-  @spec create_sign_off([nonce: HonteD.nonce, height: HonteD.block_height, hash: HonteD.block_hash, sender: HonteD.address]) ::
+  @spec create_sign_off([nonce: HonteD.nonce, height: HonteD.block_height, hash: HonteD.block_hash, sender: HonteD.address, signoffer: HonteD.address]) ::
     {:ok, SignOff.t} | {:error, atom}
-  def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender] = args)
+  def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender, signoffer: signoffer] = args)
   when is_integer(nonce) and
        is_integer(height) and
        height > 0 and
        is_binary(hash) and
-       is_binary(sender) do
+       is_binary(sender) and
+       is_binary(signoffer) do
     create_encoded(SignOff, args)
+  end
+  def create_sign_off([nonce: _, height: _, hash: _, sender: sender] = args) do
+    Keyword.merge(args, [signoffer: sender])
+    |> create_sign_off
+  end
+  
+  @doc """
+  Creates an Allow transaction, ensures state-less validity and encodes
+  """
+  @spec create_allow([nonce: HonteD.nonce, allower: HonteD.address, allowee: HonteD.address, privilege: HonteD.privilege, allow: boolean]) ::
+    {:ok, Allow.t} | {:error, atom}
+  def create_allow([nonce: nonce, allower: allower, allowee: allowee, privilege: privilege, allow: allow] = args)
+  when is_integer(nonce) and
+       is_binary(allower) and
+       is_binary(allowee) and
+       is_binary(privilege) and
+       is_boolean(allow) do
+    create_encoded(Allow, args)
   end
   
   defp create_encoded(type, args) do

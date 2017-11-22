@@ -3,7 +3,7 @@ defmodule HonteD.Transaction.Validation do
   Private plumbing of the Transaction module wrt. transaction validation
   """
   
-  alias HonteD.Transaction.{CreateToken, Issue, Send, SignOff, SignedTx}
+  alias HonteD.Transaction.{CreateToken, Issue, Send, SignOff, Allow, SignedTx}
   
   def valid?(%CreateToken{}), do: :ok
   
@@ -19,6 +19,10 @@ defmodule HonteD.Transaction.Validation do
     positive?(height)
   end
   
+  def valid?(%Allow{privilege: privilege}) do
+    known?(privilege)
+  end
+  
   def valid_signed?(%SignedTx{raw_tx: raw_tx, signature: signature}) do
     with :ok <- valid?(raw_tx),
          :ok <- signed?(raw_tx, signature),
@@ -29,9 +33,13 @@ defmodule HonteD.Transaction.Validation do
   defp sender(%Issue{issuer: sender}), do: sender
   defp sender(%Send{from: sender}), do: sender
   defp sender(%SignOff{sender: sender}), do: sender
+  defp sender(%Allow{allower: sender}), do: sender
   
   defp positive?(amount) when amount > 0, do: :ok
   defp positive?(_), do: {:error, :positive_amount_required}
+  
+  defp known?(privilege) when privilege in ["signoff"], do: :ok
+  defp known?(_), do: {:error, :unknown_privilege}
 
   defp signed?(raw_tx, signature) do  
     raw_tx

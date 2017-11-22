@@ -280,22 +280,22 @@ defmodule HonteD.Integration.SmokeTest do
 
     # ALLOWS
     
-    # {:ok, raw_tx} = API.create_allow_transaction(issuer, bob, "signoff", true)
-    # 
-    # # check consistency of api exposers
-    # assert {:ok, raw_tx} == apis_caller.(
-    #   :create_allow_transaction,
-    #   %{allower: issuer, allowee: bob, privilege: "signoff", allow: true}
-    # )
-    # 
-    # {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
-    # {:ok, _ } = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, raw_tx} = API.create_allow_transaction(issuer, bob, "signoff", true)
+    
+    # check consistency of api exposers
+    assert {:ok, raw_tx} == apis_caller.(
+      :create_allow_transaction,
+      %{allower: issuer, allowee: bob, privilege: "signoff", allow: true}
+    )
+    
+    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
+    {:ok, _ } = API.submit_transaction(raw_tx <> " " <> signature)
     
     # SIGNOFF
     
     {:ok, hash} = API.Tools.get_block_hash(send_height)
-    {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, issuer)
-    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
+    {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, bob, issuer)
+    {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
     {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
     
     assert %{

@@ -8,7 +8,7 @@ defmodule HonteD.ABCI.Events do
   be able to emit finalized events.
   """
   def notify(state, %HonteD.Transaction.SignOff{} = tx) do
-    case HonteD.ABCI.State.issued_tokens(state, tx.sender) do
+    case HonteD.ABCI.State.issued_tokens(state, tx.signoffer) do
       {:ok, tokens} ->
         HonteD.API.Events.notify(tx, tokens)
       nil ->
