@@ -1,12 +1,12 @@
-defmodule HonteD.Events do
+defmodule HonteD.API.Events do
   @moduledoc """
-  Public API for the HonteD.Events.Eventer GenServer
+  Public API for the HonteD.API.Events.Eventer GenServer
   """
 
   @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string
-  @type event :: HonteD.Transaction.t | HonteD.Events.NewBlock.t
+  @type event :: HonteD.Transaction.t | HonteD.API.Events.NewBlock.t
 
-  @server HonteD.Events.Eventer
+  @server HonteD.API.Events.Eventer
 
   defmodule NewBlock do
     defstruct [:height]
@@ -34,7 +34,7 @@ defmodule HonteD.Events do
   end
 
   @spec drop_send_filter(server :: atom | pid, subscriber :: pid, watched :: HonteD.address)
-  :: :ok | {:error, HonteD.Events.badarg}
+  :: :ok | {:error, HonteD.API.Events.badarg}
   def drop_send_filter(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
          true <- is_valid_topic(receiver),
@@ -42,7 +42,7 @@ defmodule HonteD.Events do
   end
 
   @spec status_send_filter?(server :: atom | pid, subscriber :: pid, watched :: HonteD.address)
-  :: {:ok, boolean} | {:error, HonteD.Events.badarg}
+  :: {:ok, boolean} | {:error, HonteD.API.Events.badarg}
   def status_send_filter?(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
          true <- is_valid_topic(receiver),

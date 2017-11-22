@@ -10,7 +10,7 @@ defmodule HonteD.API do
   alias HonteD.API.{TendermintRPC, Tools}
   alias HonteD.{Transaction}
 
-  @type tx_status :: :failed | :pending | :committed | :finalized
+  @type tx_status :: :failed | :pending | :committed | :finalized | :committed_unknown
 
   @doc """
   Creates a signable, encoded transaction that creates a new token for an issuer
@@ -173,18 +173,18 @@ defmodule HonteD.API do
   Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
   """
   @spec new_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: :ok | {:error, HonteD.Events.badarg}
+    :: :ok | {:error, HonteD.API.Events.badarg}
   def new_send_filter(subscriber, watched) do
-    HonteD.Events.new_send_filter(subscriber, watched)
+    HonteD.API.Events.new_send_filter(subscriber, watched)
   end
 
   @doc """
   Stop subscribing to notifications about Send transactions mined for particular address.
   """
   @spec drop_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: :ok | {:error, HonteD.Events.badarg}
+    :: :ok | {:error, HonteD.API.Events.badarg}
   def drop_send_filter(subscriber, watched) do
-    HonteD.Events.drop_send_filter(subscriber, watched)
+    HonteD.API.Events.drop_send_filter(subscriber, watched)
   end
 
   @doc """
@@ -192,9 +192,9 @@ defmodule HonteD.API do
   address.
   """
   @spec status_send_filter?(subscriber :: pid, watched :: HonteD.address)
-    :: {:ok, boolean} | {:error, HonteD.Events.badarg}
+    :: {:ok, boolean} | {:error, HonteD.API.Events.badarg}
   def status_send_filter?(subscriber, watched) do
-    HonteD.Events.status_send_filter?(subscriber, watched)
+    HonteD.API.Events.status_send_filter?(subscriber, watched)
   end
 
 end
