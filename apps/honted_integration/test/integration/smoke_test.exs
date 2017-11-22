@@ -233,16 +233,16 @@ defmodule HonteD.Integration.SmokeTest do
     )
     
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
-    {:ok, %{tx_hash: hash}} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{tx_hash: hash, committed_in: send_height}} = API.submit_transaction(raw_tx <> " " <> signature)
     
     # check event
     assert %{
       "transaction" => %{
         "amount" => 5,
-        "asset" => asset,
-        "from" => alice,
+        "asset" => ^asset,
+        "from" => ^alice,
         "nonce" => 0,
-        "to" => bob
+        "to" => ^bob
       },
       "type" => "committed"
     } = TestWebsocket.recv!(websocket)
@@ -277,8 +277,37 @@ defmodule HonteD.Integration.SmokeTest do
     
     # check consistency of api exposers
     assert {:ok, TestWebsocket.codec(token_info_query_result)} == apis_caller.(:token_info, %{token: asset})
+
+    # ALLOWS
     
-    # NOTE: don't test finalized, doesn't seem to cover anything new
+    # {:ok, raw_tx} = API.create_allow_transaction(issuer, bob, "signoff", true)
+    # 
+    # # check consistency of api exposers
+    # assert {:ok, raw_tx} == apis_caller.(
+    #   :create_allow_transaction,
+    #   %{allower: issuer, allowee: bob, privilege: "signoff", allow: true}
+    # )
+    # 
+    # {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
+    # {:ok, _ } = API.submit_transaction(raw_tx <> " " <> signature)
+    
+    # SIGNOFF
+    
+    {:ok, hash} = API.Tools.get_block_hash(send_height)
+    {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, issuer)
+    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
+    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
+    
+    assert %{
+      "transaction" => %{
+        "amount" => 5,
+        "asset" => ^asset,
+        "from" => ^alice,
+        "nonce" => 0,
+        "to" => ^bob
+      },
+      "type" => "finalized"
+    } = TestWebsocket.recv!(websocket)
   end
   
   @tag fixtures: [:tendermint, :apis_caller]
