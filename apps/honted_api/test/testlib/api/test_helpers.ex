@@ -10,13 +10,13 @@ defmodule HonteD.API.TestHelpers do
     {tx, receivable_for(tx)}
   end
 
-  def event_sign_off(sender, send_receivables, height \\ 1) do
-    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height), sender: sender}
+  def event_sign_off(send_receivables, height \\ 1) do
+    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height)}
     {tx, receivable_finalized(send_receivables)}
   end
 
-  def event_sign_off_bad_hash(sender, send_receivables, height \\ 1) do
-    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: "BADHASH", sender: sender}
+  def event_sign_off_bad_hash(send_receivables, height \\ 1) do
+    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: "BADHASH"}
     {tx, receivable_finalized(send_receivables)}
   end
 

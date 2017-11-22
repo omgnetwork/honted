@@ -113,7 +113,7 @@ defmodule HonteD.API.EventsTest do
       {e1, com1} = event_send(address1(), "asset1")
       {e2, com2} = event_send(address1(), "asset2")
       {e3, com3} = event_send(address1(), "asset1")
-      {s1, [fin1, fin2, fin3]} = event_sign_off(address1(), [com1, com2, com3])
+      {s1, [fin1, fin2, fin3]} = event_sign_off([com1, com2, com3])
       pid = client(fn() ->
         assert_receive(^com1, @timeout)
         assert_receive(^com2, @timeout)
@@ -136,7 +136,7 @@ defmodule HonteD.API.EventsTest do
       {e1, com1} = event_send(address1(), "asset1")
       {e2, com2} = event_send(address1(), "asset2")
       {e3, com3} = event_send(address1(), "asset3")
-      {s1, [fin1, fin2]} = event_sign_off(address2(), [com1, com2])
+      {s1, [fin1, fin2]} = event_sign_off([com1, com2])
       
       pid = client(fn() ->
         assert_receive(^com1, @timeout)
@@ -159,7 +159,7 @@ defmodule HonteD.API.EventsTest do
       mock_for_signoff(server, 1)
       {e1, com1} = event_send(address1(), "asset")
       {e2, com2} = event_send(address1(), "asset")
-      {f1, [fin1, fin2]} = event_sign_off(address1(), [com1, com2], 1)
+      {f1, [fin1, fin2]} = event_sign_off([com1, com2], 1)
       pid = client(fn() ->
         assert_receive(^fin1, @timeout)
         refute_receive(^fin2, @timeout)
@@ -178,8 +178,8 @@ defmodule HonteD.API.EventsTest do
       mock_for_signoff(server, 2)
       {e1, com1} = event_send(address1(), "asset")
       {e2, com2} = event_send(address1(), "asset")
-      {f1, [fin1]} = event_sign_off(address1(), [com1], 1)
-      {f2, [fin2]} = event_sign_off(address1(), [com2], 2)
+      {f1, [fin1]} = event_sign_off([com1], 1)
+      {f2, [fin2]} = event_sign_off([com2], 2)
       pid = client(fn() ->
         assert_receive(^fin1, @timeout)
         assert_receive(^fin2, @timeout)
@@ -198,7 +198,7 @@ defmodule HonteD.API.EventsTest do
     test "Sign-off with bad hash is ignored", %{server: server} do
       mock_for_signoff(server, 1)
       {e1, com1} = event_send(address1(), "asset")
-      {f1, fin1} = event_sign_off_bad_hash(address1(), com1, 1)
+      {f1, fin1} = event_sign_off_bad_hash(com1, 1)
       pid = client(fn() ->
         assert_receive(^com1, @timeout)
         refute_receive(^fin1, @timeout)
