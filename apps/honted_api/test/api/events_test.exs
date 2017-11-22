@@ -1,17 +1,19 @@
+Code.load_file("test/testlib/api/test_helpers.ex")
+
 defmodule HonteD.API.EventsTest do
   @moduledoc """
   Tests how one can use the API to subscribe to topics and receive event notifications
 
-  Uses the application's instance of HonteD.Events.Eventer
+  Uses the application's instance of HonteD.API.Events.Eventer
 
-  Uses the public HonteD.API for subscription/unsubscription and the public HonteD.Events api to emit events
+  Uses the public HonteD.API for subscription/unsubscription and the public HonteD.API.Events api to emit events
   
   We test the logic of the events here
   """
 
   import HonteD.API.TestHelpers
 
-  import HonteD.Events
+  import HonteD.API.Events
 
   use ExUnitFixtures
   use ExUnit.Case, async: true
@@ -22,7 +24,7 @@ defmodule HonteD.API.EventsTest do
   ## helpers
 
   deffixture server do
-    {:ok, pid} = GenServer.start(HonteD.Events.Eventer, [%{tendermint: HonteD.API.TestTendermint}], [])
+    {:ok, pid} = GenServer.start(HonteD.API.Events.Eventer, [%{tendermint: HonteD.API.TestTendermint}], [])
     pid
   end
 
@@ -165,9 +167,9 @@ defmodule HonteD.API.EventsTest do
         refute_receive(^fin2, @timeout)
       end)
       new_send_filter(server, pid, address1())
-      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 1}, [])
       notify(server, e1, [])
-      notify(server, %HonteD.Events.NewBlock{height: 2}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 2}, [])
       notify(server, e2, [])
       notify(server, f1, ["asset"])
       join()
@@ -185,9 +187,9 @@ defmodule HonteD.API.EventsTest do
         assert_receive(^fin2, @timeout)
       end)
       new_send_filter(server, pid, address1())
-      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 1}, [])
       notify(server, e1, [])
-      notify(server, %HonteD.Events.NewBlock{height: 2}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 2}, [])
       notify(server, e2, [])
       notify(server, f1, ["asset"])
       notify(server, f2, ["asset"])
@@ -205,7 +207,7 @@ defmodule HonteD.API.EventsTest do
       end)
       new_send_filter(server, pid, address1())
       notify(server, e1, [])
-      notify(server, %HonteD.Events.NewBlock{height: 1}, [])
+      notify(server, %HonteD.API.Events.NewBlock{height: 1}, [])
       notify(server, f1, ["asset"])
       join()
     end

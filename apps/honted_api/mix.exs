@@ -22,6 +22,7 @@ defmodule HonteD.API.Mixfile do
       ],
       extra_applications: [:logger],
       applications: [:honted_events],
+      mod: {HonteD.API.Events.Application, []}
     ]
   end
 
@@ -30,8 +31,11 @@ defmodule HonteD.API.Mixfile do
       {:tesla, "~>0.8.0"},
       {:plug, "~> 1.3"},
       {:poison, "~> 3.1"},
+      {:bimap, "~> 0.1.1"},
+      {:qex, "~> 0.3.4"},
+      {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
+      #
       {:honted_lib, in_umbrella: true},
-      {:honted_events, in_umbrella: true},
     ]
   end
 end

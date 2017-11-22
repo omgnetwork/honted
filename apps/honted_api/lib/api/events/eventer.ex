@@ -1,4 +1,4 @@
-defmodule HonteD.Events.Eventer do
+defmodule HonteD.API.Events.Eventer do
   @moduledoc """
   Handles stream of send events from HonteD.ABCI and forwards them to subscribers.
 
@@ -70,7 +70,7 @@ defmodule HonteD.Events.Eventer do
     end
   end
 
-  def handle_cast({:event, %HonteD.Events.NewBlock{} = event, _}, state) do
+  def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event, _}, state) do
     {:noreply, %{state | height: event.height}}
   end
 

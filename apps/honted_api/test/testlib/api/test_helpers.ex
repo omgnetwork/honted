@@ -24,7 +24,7 @@ defmodule HonteD.API.TestHelpers do
   def height2hash(_), do: nil
 
   @doc """
-  Prepared based on documentation of HonteD.Events.notify
+  Prepared based on documentation of HonteD.API.Events.notify
   """
   def receivable_for(%HonteD.Transaction.Send{} = tx) do
     {:event, %{source: :filter, type: :committed, transaction: tx}}

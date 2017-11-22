@@ -42,7 +42,7 @@ defmodule HonteD.ABCI.Mixfile do
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_lib, in_umbrella: true},
-      {:honted_events, in_umbrella: true},
+      {:honted_api, in_umbrella: true},
     ]
   end
 end

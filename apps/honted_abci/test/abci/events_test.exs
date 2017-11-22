@@ -5,7 +5,7 @@ defmodule HonteD.ABCI.EventsTest do
   Tests if Events are processed correctly, by the registered :honted_events app
 
   THis tests only the integration between ABCI and the Eventer GenServer, i.e. whether the events are emitted
-  correctly. No HonteD.Events logic tested here
+  correctly. No HonteD.API.Events logic tested here
   """
   use ExUnitFixtures
   use ExUnit.Case, async: false  # modifies the ABCI's registered Eventer process
@@ -15,7 +15,7 @@ defmodule HonteD.ABCI.EventsTest do
   import HonteD.API.TestHelpers
   import HonteD.ABCI.TestHelpers
 
-  @test_eventer HonteD.Events.Eventer
+  @test_eventer HonteD.API.Events.Eventer
   @timeout 100
 
   deffixture server_spawner() do
