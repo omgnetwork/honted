@@ -1,3 +1,5 @@
+Code.load_file("test/testlib/abci/abci_helpers.ex")
+
 defmodule HonteD.ABCI.StateTest do
   @moduledoc """
   **NOTE** this test will pretend to be Tendermint core

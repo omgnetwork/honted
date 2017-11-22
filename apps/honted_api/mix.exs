@@ -21,7 +21,6 @@ defmodule HonteD.API.Mixfile do
         rpc_port: 46657, # tendermint node's rpc port
       ],
       extra_applications: [:logger],
-      applications: [:honted_events],
       mod: {HonteD.API.Events.Application, []}
     ]
   end
