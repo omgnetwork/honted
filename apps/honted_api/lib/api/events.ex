@@ -27,12 +27,17 @@ defmodule HonteD.API.Events do
     GenServer.cast(server, {:event, event, context})
   end
   
+  @spec notify(server :: atom | pid, event :: event) :: :ok
+  def notify_without_context(server \\ @server, event) do
+    GenServer.cast(server, {:event, event})
+  end
+  
   @spec new_send_filter_history(server :: atom | pid, pid :: pid, receiver :: HonteD.address,
                                 first :: HonteD.block_height, last :: HonteD.block_height)
     :: {:ok, HonteD.filter_id} | {:error, badarg}
-  def new_send_filter_history(_server \\ @server, _pid, _receiver, _first, _last) do
-    #FIXME does nothing
-    {:ok, nil}
+  def new_send_filter_history(server \\ @server, pid, receiver, first, last) do
+    # FIXME checks
+    GenServer.call(server, {:new_filter_history, pid, [receiver], first, last})
   end
   
   @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address)

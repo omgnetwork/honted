@@ -304,7 +304,7 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, hash} = API.Tools.get_block_hash(send_height)
     {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, bob, issuer)
     {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
-    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{committed_in: last_height}} = API.submit_transaction(raw_tx <> " " <> signature)
     
     assert %{
       "transaction" => %{
@@ -327,31 +327,20 @@ defmodule HonteD.Integration.SmokeTest do
     # EVENT REPLAYS
     
     assert {:ok, reference} =
-      TestWebsocket.sendrecv!(websocket, :new_send_filter_history, %{watched: bob, first: 0, last: 123456})
+      TestWebsocket.sendrecv!(websocket, :new_send_filter_history, %{watched: bob, first: 1, last: last_height})
     
     # assert reference # FIXME, it returned nil. Maybe check something smarter here, maybe pin in later assertions
-    # check events that should be replayed
-    # FIXME: fails so commented
-    # assert %{
-    #   "transaction" => %{
-    #     "amount" => 5,
-    #     "asset" => ^asset,
-    #     "from" => ^alice,
-    #     "nonce" => 0,
-    #     "to" => ^bob
-    #   },
-    #   "type" => "committed"
-    # } = TestWebsocket.recv!(websocket)
-    # assert %{
-    #   "transaction" => %{
-    #     "amount" => 5,
-    #     "asset" => ^asset,
-    #     "from" => ^alice,
-    #     "nonce" => 0,
-    #     "to" => ^bob
-    #   },
-    #   "type" => "finalized"
-    # } = TestWebsocket.recv!(websocket)
+    # check events that should be replayed - only commit events
+    assert %{
+      "transaction" => %{
+        "amount" => 5,
+        "asset" => ^asset,
+        "from" => ^alice,
+        "nonce" => 0,
+        "to" => ^bob
+      },
+      "type" => "committed"
+    } = TestWebsocket.recv!(websocket)
   end
   
   @tag fixtures: [:tendermint, :apis_caller]

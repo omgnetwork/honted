@@ -15,7 +15,7 @@ defmodule HonteD.API.Events.Eventer do
                filters: BiMultiMap.new(),
                monitors: Map.new(),
                committed: Map.new(),
-               height: 1,
+               height: 0,
                tendermint: HonteD.API.TendermintRPC,
               ]
 
@@ -56,7 +56,7 @@ defmodule HonteD.API.Events.Eventer do
   def init([]), do: {:ok, %State{}}
   def init([%{tendermint: module}]), do: {:ok, %State{tendermint: module}}
 
-  def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
+  def handle_cast({:event, %HonteD.Transaction.Send{} = event}, state) do
     state = insert_committed(event, state)
     do_notify(:committed, event, state.subs)
     {:noreply, state}
@@ -72,12 +72,17 @@ defmodule HonteD.API.Events.Eventer do
     end
   end
 
-  def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event, _}, state) do
+  def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event}, state) do
     {:noreply, %{state | height: event.height}}
   end
 
   def handle_cast({:event, event, context}, state) do
     _ = Logger.warn("Warning: unhandled event #{inspect event} with context #{inspect context}")
+    {:noreply, state}
+  end
+
+  def handle_cast({:event, event}, state) do
+    _ = Logger.warn("Warning: unhandled event #{inspect event} without context")
     {:noreply, state}
   end
 
@@ -100,7 +105,31 @@ defmodule HonteD.API.Events.Eventer do
       %{state | subs: subs, monitors: mons, filters: filters}
     }
   end
-
+  
+  def handle_call({:new_filter_history, pid, topics, first, last}, _from, state) do
+    client = HonteD.API.TendermintRPC.client()
+    ad_hoc_subscription = BiMultiMap.new([{topics, pid}])
+      
+    task_pid = Task.start_link(fn ->
+      for height <- first..last do
+        {:ok, block} = HonteD.API.TendermintRPC.block(client, height)
+        
+        block
+        |> get_in(["block", "data", "txs"])
+        |> Enum.map(&Base.decode64!/1)
+        |> Enum.map(&HonteD.TxCodec.decode!/1)
+        |> Enum.map(&(Map.get(&1, :raw_tx)))
+        |> Enum.map(&(do_notify(:committed, &1, ad_hoc_subscription)))
+        |> Enum.all?(fn :ok -> false end)
+      end
+    end)
+    {
+      :reply,
+      {:ok, %{history_task: "some_pid_here?"}},  # FIXME
+      state,
+    }
+  end
+  
   def handle_call({:drop_filter, filter_id}, _from, state) do
     case BiMultiMap.get(state.filters, filter_id, nil) do
       [{topics, pid}] ->
@@ -206,7 +235,7 @@ defmodule HonteD.API.Events.Eventer do
     :ok
   end
 
-  defp message(event_type, %HonteD.Transaction.Send{} = event_content)
+  defp message(event_type, event_content)
   when event_type in [:committed, :finalized]
     do
     # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
@@ -214,6 +243,7 @@ defmodule HonteD.API.Events.Eventer do
   end
 
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
+  defp event_topics_for(_), do: []
 
   # FIXME: this maps get should be done for set of all subsets
   defp subscribed(topics, subs) do
