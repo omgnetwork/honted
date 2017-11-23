@@ -91,7 +91,7 @@ defmodule HonteD.Integration.SmokeTest do
       {:text, response} = Socket.Web.recv!(websocket)
       case Poison.decode!(response) do
         %{"result" => decoded_result, "type" => "rs", "wsrpc" => "1.0"} -> {:ok, decoded_result}
-        %{"source" => source} = event when source in ["filter"] -> event
+        %{"source" => source} = event when is_binary(source) -> event
         %{"error" => decoded_error, "type" => "rs", "wsrpc" => "1.0"} -> {:error, decoded_error}
       end
     end
@@ -224,13 +224,12 @@ defmodule HonteD.Integration.SmokeTest do
     # subscribe to filter
     assert {
       :ok,
-      %{"reference" => reference, "start_height" => height}
+      %{"new_filter" => filter_id, "start_height" => height}
     } = TestWebsocket.sendrecv!(websocket, :new_send_filter, %{watched: bob})
-    
-    assert height > 0 # smoke test this, no way to test this sensibly
-    assert reference # FIXME something smarter should be checked later - pin in assertions/check against status_filter?
-    # FIXME: I did something wrhong
-    # assert {} = TestWebsocket.sendrecv!(websocket, :status_filter, %{filter_id: reference})
+
+    assert height > 0 and is_integer(height) # smoke test this, no way to test this sensibly
+    assert is_binary(filter_id) # <- this check is enough because value used later
+    assert {:ok, [^bob]} = TestWebsocket.sendrecv!(websocket, :status_filter, %{filter_id: filter_id})
     
     {:ok, raw_tx} = API.create_send_transaction(asset, 5, alice, bob)
     
@@ -242,7 +241,7 @@ defmodule HonteD.Integration.SmokeTest do
     
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
     {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_transaction(raw_tx <> " " <> signature)
-    
+
     # check event
     assert %{
       "transaction" => %{
@@ -252,14 +251,15 @@ defmodule HonteD.Integration.SmokeTest do
         "nonce" => 0,
         "to" => ^bob
       },
-      "type" => "committed"
+      "finality" => "committed",
+      "height" => _,
+      "source" => ^filter_id,
     } = TestWebsocket.recv!(websocket)
-
     assert {
       :ok,
       %{
-        :status => :committed, 
-        "height" => _, 
+        :status => :committed,
+        "height" => _,
         "index" => _,
         "proof" => _,
         "tx" => decoded_tx,
@@ -314,7 +314,9 @@ defmodule HonteD.Integration.SmokeTest do
         "nonce" => 0,
         "to" => ^bob
       },
-      "type" => "finalized"
+      "finality" => "finalized",
+      "height" => _,
+      "source" => _,
     } = TestWebsocket.recv!(websocket)
     
     assert {
@@ -326,7 +328,7 @@ defmodule HonteD.Integration.SmokeTest do
     
     # EVENT REPLAYS
     
-    assert {:ok, reference} =
+    assert {:ok, %{"history_filter" => filter_id}} =
       TestWebsocket.sendrecv!(websocket, :new_send_filter_history, %{watched: bob, first: 1, last: last_height})
     
     # assert reference # FIXME, it returned nil. Maybe check something smarter here, maybe pin in later assertions
@@ -339,7 +341,9 @@ defmodule HonteD.Integration.SmokeTest do
         "nonce" => 0,
         "to" => ^bob
       },
-      "type" => "committed"
+      "finality" => "committed",
+      "source" => ^filter_id,
+      "height" => 4
     } = TestWebsocket.recv!(websocket)
   end
   

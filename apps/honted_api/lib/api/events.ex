@@ -4,7 +4,7 @@ defmodule HonteD.API.Events do
   """
 
   @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string | :bad_block_height
-                | :filter_id_must_be_a_reference
+                | :filter_id_must_be_a_binary
   @type event :: HonteD.Transaction.t | HonteD.API.Events.NewBlock.t
 
   @server HonteD.API.Events.Eventer
@@ -24,10 +24,10 @@ defmodule HonteD.API.Events do
   """
   @spec notify(server :: atom | pid, event :: event, list(HonteD.token) | any) :: :ok
   def notify(server \\ @server, event, context) do
-    GenServer.cast(server, {:event, event, context})
+    GenServer.cast(server, {:event_context, event, context})
   end
   
-  @spec notify(server :: atom | pid, event :: event) :: :ok
+  @spec notify_without_context(server :: atom | pid, event :: event) :: :ok
   def notify_without_context(server \\ @server, event) do
     GenServer.cast(server, {:event, event})
   end
@@ -51,14 +51,14 @@ defmodule HonteD.API.Events do
   @spec drop_filter(server :: atom | pid, filter_id :: HonteD.filter_id)
     :: :ok | {:error, :notfound | HonteD.API.Events.badarg}
   def drop_filter(server \\ @server, filter_id) do
-    with true <- is_valid_reference(filter_id),
+    with true <- is_valid_filter_id(filter_id),
       do: GenServer.call(server, {:drop_filter, filter_id})
   end
 
   @spec status_filter(server :: atom | pid, filter_id :: HonteD.filter_id)
-    :: {:ok, [binary]} | {:error, :noutfound | HonteD.API.Events.badarg}
+    :: {:ok, [binary]} | {:error, :notfound | HonteD.API.Events.badarg}
   def status_filter(server \\ @server, filter_id) do
-    with true <- is_valid_reference(filter_id),
+    with true <- is_valid_filter_id(filter_id),
       do: GenServer.call(server, {:status, filter_id})
   end
 
@@ -76,7 +76,7 @@ defmodule HonteD.API.Events do
   defp is_valid_height(height) when is_integer(height) and height > 0, do: true
   defp is_valid_height(_), do: {:error, :bad_block_height}
 
-  defp is_valid_reference(ref) when is_reference(ref), do: true
-  defp is_valid_reference(_), do: {:error, :filter_id_must_be_a_reference}
+  defp is_valid_filter_id(filter_id) when is_binary(filter_id), do: true
+  defp is_valid_filter_id(_), do: {:error, :filter_id_must_be_a_binary}
 
 end

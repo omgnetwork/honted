@@ -64,6 +64,13 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_jsonrpc
   end
 
+  def block_transactions(client, height) do
+    {:ok, block} = block(client, height)
+    block
+    |> get_in(["block", "data", "txs"])
+    |> Enum.map(&Base.decode64!/1)
+  end
+
   ### private - tendermint rpc's specific encoding/decoding
 
   defp decode_jsonrpc(response) do

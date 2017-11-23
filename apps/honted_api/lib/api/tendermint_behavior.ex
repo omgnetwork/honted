@@ -10,5 +10,6 @@ defmodule HonteD.API.TendermintBehavior do
   @callback broadcast_tx_commit(client_ref, tx) :: result
   @callback tx(client_ref, hash) :: result
   @callback block(client_ref, height :: pos_integer) :: result
+  @callback block_transactions(client_ref, height :: pos_integer) :: [any]
 
 end
