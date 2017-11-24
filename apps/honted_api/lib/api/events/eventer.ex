@@ -68,6 +68,17 @@ defmodule HonteD.API.Events.Eventer do
     :ok
   end
 
+  defp message(finality_status, height, filter_id, %HonteD.Transaction.Send{} = event_content)
+  when finality_status in [:committed, :finalized]
+    do
+    # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
+    %{source: filter_id, height: height, finality: finality_status, transaction: event_content}
+  end
+
+  def stream_end_msg(filter_id) do
+    %{source: filter_id, data: "replay finished"}
+  end
+
   ## callbacks
 
   def init([]), do: {:ok, %State{}}
@@ -120,7 +131,7 @@ defmodule HonteD.API.Events.Eventer do
 
   def handle_call({:new_filter_history, topics, pid, first, last}, _from, state) do
     filter_id = make_filter_id()
-    Logger.warn("tendermint module is: #{inspect state.tendermint}")
+    _ = Logger.warn("tendermint module is: #{inspect state.tendermint}")
     _ = Replay.spawn(filter_id, state.tendermint, first, last, topics, pid)
     {:reply, {:ok, %{history_filter: filter_id}}, state}
   end
@@ -242,12 +253,6 @@ defmodule HonteD.API.Events.Eventer do
     event.asset
   end
 
-  defp message(finality_status, height, filter_id, %HonteD.Transaction.Send{} = event_content)
-  when finality_status in [:committed, :finalized]
-    do
-    # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
-    %{source: filter_id, height: height, finality: finality_status, transaction: event_content}
-  end
 
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
   defp event_topics_for(_), do: []
