@@ -57,5 +57,19 @@ defmodule HonteD.API.ReplayTest do
       end)
       join()
     end
+
+    @tag fixtures: [:server]
+    test "Multiple events per block are processed.", %{server: server} do
+      mock_block_transactions(server, 1)
+      client(fn() ->
+        {:ok, %{history_filter: filter_id}} = new_send_filter_history(server, self(), address1(), 3, 3)
+        {_, r1} = event_send(address1(), filter_id, "asset", 3)
+        {_, r2} = event_send(address1(), filter_id, "asset", 3)
+        assert_receive(^r1)
+        assert_receive(^r2)
+        refute_receive(_)
+      end)
+      join()
+    end
   end
 end
