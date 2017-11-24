@@ -12,8 +12,7 @@ defmodule HonteD.API.Events.Replay do
     ad_hoc_filters = BiMultiMap.new([{filter_id, {topics, pid}}])
     {:ok, _} = Task.start(fn() ->
       for height <- first..last do
-        {:ok, txs} = tendermint.block_transactions(client, height)
-        txs
+        tendermint.block_transactions(client, height)
         |> Enum.map(&HonteD.TxCodec.decode!/1)
         |> Enum.map(&(Map.get(&1, :raw_tx)))
         |> Enum.map(&(Eventer.do_notify(:committed, &1, height, ad_hoc_subscription, ad_hoc_filters)))
