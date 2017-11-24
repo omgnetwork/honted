@@ -78,8 +78,9 @@ defmodule HonteD.API.EventsTest do
     @tag fixtures: [:server]
     test "Subscribe, send event, receive event.", %{server: server}  do
       client(fn() ->
-        {:ok, fid, 1} = nsfilter(server, self(), address1())
-        {e1, receivable} = event_send(address1(), fid)
+        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {e1, receivable} = event_send(address1(), fid, "asset", height)
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: height})
         notify_woc(server, e1)
         assert_receive(^receivable, @timeout)
       end)
@@ -99,8 +100,9 @@ defmodule HonteD.API.EventsTest do
     @tag fixtures: [:server]
     test "Only :committed is delivered if sign_off is not issued.", %{server: server} do
       client(fn() ->
-        {:ok, fid, _} = nsfilter(server, self(), address1())
-        {e1, receivable} = event_send(address1(), fid)
+        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {e1, receivable} = event_send(address1(), fid, "asset", height)
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: height})
         notify_woc(server, e1)
         assert_receive(^receivable, @timeout)
         refute_receive(_, @timeout)
@@ -112,11 +114,12 @@ defmodule HonteD.API.EventsTest do
     test "Both are delivered if sign_off is issued.", %{server: server} do
       mock_for_signoff(server, 1)
       client(fn() ->
-        {:ok, fid, _} = nsfilter(server, self(), address1())
-        {e1, com1} = event_send(address1(), fid, "asset1")
-        {e2, com2} = event_send(address1(), fid, "asset2")
-        {e3, com3} = event_send(address1(), fid, "asset1")
+        {:ok, fid, height1} = nsfilter(server, self(), address1())
+        {e1, com1} = event_send(address1(), fid, "asset1", height1)
+        {e2, com2} = event_send(address1(), fid, "asset2", height1)
+        {e3, com3} = event_send(address1(), fid, "asset1", height1)
         {s1, [fin1, fin2, fin3]} = event_sign_off([com1, com2, com3])
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: height1})
         notify_woc(server, e1)
         notify_woc(server, e2)
         notify_woc(server, e3)
@@ -135,11 +138,12 @@ defmodule HonteD.API.EventsTest do
     test "Sign_off delivers tokens of the issuer who did the sign off", %{server: server} do
       mock_for_signoff(server, 1)
       client(fn() ->
-        {:ok, fid, _} = nsfilter(server, self(), address1())
-        {e1, com1} = event_send(address1(), fid, "asset1")
-        {e2, com2} = event_send(address1(), fid, "asset2")
-        {e3, com3} = event_send(address1(), fid, "asset3")
-        {s1, [fin1, fin2]} = event_sign_off([com1, com2])
+        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {e1, com1} = event_send(address1(), fid, "asset1", height)
+        {e2, com2} = event_send(address1(), fid, "asset2", height)
+        {e3, com3} = event_send(address1(), fid, "asset3", height)
+        {s1, [fin1, fin2]} = event_sign_off([com1, com2], height)
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: height})
         notify_woc(server, e1)
         notify_woc(server, e2)
         notify_woc(server, e3)
@@ -200,11 +204,11 @@ defmodule HonteD.API.EventsTest do
     test "Sign-off with bad hash is ignored", %{server: server} do
       mock_for_signoff(server, 1)
       client(fn() ->
-        {:ok, fid, _} = nsfilter(server, self(), address1())
-        {e1, com1} = event_send(address1(), fid)
-        {f1, fin1} = event_sign_off_bad_hash(com1, 1)
+        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {e1, com1} = event_send(address1(), fid, "asset", height)
+        {f1, fin1} = event_sign_off_bad_hash(com1, height)
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: height})
         notify_woc(server, e1)
-        notify_woc(server, %HonteD.API.Events.NewBlock{height: 1})
         notify(server, f1, ["asset"])
         assert_receive(^com1, @timeout)
         refute_receive(^fin1, @timeout)
@@ -220,6 +224,7 @@ defmodule HonteD.API.EventsTest do
       assert {:error, :notfound} = status_filter(server, "not filter_id")
       {:ok, filter_id, _} = nsfilter(server, pid, address1())
       addr1 = address1()
+      notify_woc(server, %HonteD.API.Events.NewBlock{height: 1})
       assert {:ok, [^addr1]} = status_filter(server, filter_id)
       :ok = drop_filter(server, filter_id)
       assert {:error, :notfound} = status_filter(server, filter_id)
@@ -236,15 +241,17 @@ defmodule HonteD.API.EventsTest do
       pid1 = client(fn() ->
         assert_receive(:stop1, @timeout)
       end)
-      {:ok, filter_id1, _} = nsfilter(server, pid1, addr1)
+      {:ok, filter_id1, height1} = nsfilter(server, pid1, addr1)
       pid2 = client(fn() ->
         assert_receive(:stop2, @timeout)
       end)
-      {:ok, filter_id2, _} = nsfilter(server, pid2, addr1)
+      {:ok, filter_id2, height2} = nsfilter(server, pid2, addr1)
+      notify_woc(server, %HonteD.API.Events.NewBlock{height: height1})
       assert {:ok, [^addr1]} = status_filter(server, filter_id1)
       send(pid1, :stop1)
       join(pid1)
       assert {:error, :notfound} = status_filter(server, filter_id1)
+      notify_woc(server, %HonteD.API.Events.NewBlock{height: height2})
       assert {:ok, [^addr1]} = status_filter(server, filter_id2)
       send(pid2, :stop2)
       join()
@@ -255,14 +262,16 @@ defmodule HonteD.API.EventsTest do
     @tag fixtures: [:server]
     test "Topics are distinct.", %{server: server} do
       client(fn() ->
-        {:ok, fid, _} = nsfilter(server, self(), address1())
-        {e1, receivable1} = event_send(address1(), fid)
+        {:ok, fid, next_height} = nsfilter(server, self(), address1())
+        {e1, receivable1} = event_send(address1(), fid, "asset", next_height)
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: next_height})
         notify_woc(server, e1)
         assert_receive(^receivable1, @timeout)
       end)
       client(fn() ->
-        {:ok, fid, _} = nsfilter(server, self(), address2())
-        {e1, receivable1} = event_send(address1(), fid)
+        {:ok, fid, next_height} = nsfilter(server, self(), address2())
+        {e1, receivable1} = event_send(address1(), fid, "asset", next_height)
+        notify_woc(server, %HonteD.API.Events.NewBlock{height: next_height})
         notify_woc(server, e1)
         refute_receive(^receivable1, @timeout)
       end)
@@ -275,7 +284,8 @@ defmodule HonteD.API.EventsTest do
       unhandled_e = %HonteD.Transaction.Issue{nonce: 0, asset: "asset", amount: 1,
                                               dest: address1(), issuer: "issuer_addr"}
       pid1 = client(fn() -> refute_receive(_, @timeout) end)
-      nsfilter(server, pid1, address1())
+      {:ok, _, next_height} = nsfilter(server, pid1, address1())
+      notify_woc(server, %HonteD.API.Events.NewBlock{height: next_height})
       notify_woc(server, unhandled_e)
       join()
     end

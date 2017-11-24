@@ -13,6 +13,7 @@ defmodule HonteD.API.Events.Eventer do
   defmodule State do
     defstruct [subs: BiMultiMap.new(),
                filters: BiMultiMap.new(),
+               pending_filters: [],
                monitors: Map.new(),
                committed: Map.new(),
                height: 0,
@@ -27,6 +28,7 @@ defmodule HonteD.API.Events.Eventer do
     @type t :: %State{
       subs: BiMultiMap.t([topic], pid),
       filters: BiMultiMap.t(HonteD.filter_id, {[topic], pid}),
+      pending_filters: [{HonteD.filter_id, pid, [topic]}],
       monitors: %{pid => reference},
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
@@ -62,6 +64,7 @@ defmodule HonteD.API.Events.Eventer do
   end
 
   def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event}, state) do
+    state = process_pending_filters(state)
     {:noreply, %{state | height: event.height}}
   end
 
@@ -92,30 +95,26 @@ defmodule HonteD.API.Events.Eventer do
 
 
   def handle_call({:new_filter, pid, topics}, _from, state) do
-    mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
     filter_id = make_filter_id()
-    filters = BiMultiMap.put(state.filters, filter_id, {topics, pid})
-    subs = BiMultiMap.put(state.subs, topics, pid)
     {:reply,
      {:ok, %{new_filter: filter_id, start_height: state.height + 1}},
-     %{state | subs: subs, monitors: mons, filters: filters}
+     %{state | pending_filters: [{filter_id, topics, pid} | state.pending_filters]}
     }
   end
 
   def handle_call({:new_filter_history, pid, topics, first, last}, _from, state) do
+    filter_id = make_filter_id()
     tendermint = state.tendermint
     client = tendermint.client()
-    filter_id = make_filter_id()
     ad_hoc_subscription = BiMultiMap.new([{topics, pid}])
     ad_hoc_filters = BiMultiMap.new([{filter_id, {topics, pid}}])
-
     _ = Task.start(fn ->
       for height <- first..last do
         tendermint.block_transactions(client, height)
         |> Enum.map(&HonteD.TxCodec.decode!/1)
         |> Enum.map(&(Map.get(&1, :raw_tx)))
         |> Enum.map(&(do_notify(:committed, &1, height, ad_hoc_subscription, ad_hoc_filters)))
-        # |> Enum.all?(fn :ok -> false end)
+        |> Enum.map(fn :ok -> true end)
       end
     end)
     {:reply, {:ok, %{history_filter: filter_id}}, state}
@@ -127,7 +126,12 @@ defmodule HonteD.API.Events.Eventer do
         state = drop_filter(filter_id, topics, pid, state)
         {:reply, :ok, state}
       nil ->
-        {:reply, {:error, :notfound}, state}
+        case List.keytake(state.pending_filters, filter_id, 0) do
+          nil ->
+            {:reply, {:error, :notfound}, state}
+          {_, new_pending} ->
+            {:reply, :ok, %{state | pending_filters: new_pending}}
+        end
     end
   end
 
@@ -136,7 +140,12 @@ defmodule HonteD.API.Events.Eventer do
       [{topics, _}] ->
         {:reply, {:ok, topics}, state}
       _ ->
-        {:reply, {:error, :notfound}, state}
+        case List.keyfind(state.pending_filters, filter_id, 0) do
+          nil ->
+            {:reply, {:error, :notfound}, state}
+          {_, topics, _} ->
+            {:reply, {:ok, topics}, state}
+        end
     end
   end
 
@@ -162,6 +171,19 @@ defmodule HonteD.API.Events.Eventer do
   end
 
   ## internals
+
+  defp process_pending_filters(state) do
+    state = Enum.reduce(state.pending_filters, state, &apply_filter/2)
+    %{state | pending_filters: []}
+  end
+
+  defp apply_filter({filter_id, topics, pid}, state)
+  when is_pid(pid) and is_list(topics) do
+    mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
+    filters = BiMultiMap.put(state.filters, filter_id, {topics, pid})
+    subs = BiMultiMap.put(state.subs, topics, pid)
+    %{state | subs: subs, monitors: mons, filters: filters}
+  end
 
   defp drop_filter(filter_id, topics, pid, state) do
     filters = BiMultiMap.delete(state.filters, filter_id, {topics, pid})
