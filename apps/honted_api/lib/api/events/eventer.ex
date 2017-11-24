@@ -136,16 +136,14 @@ defmodule HonteD.API.Events.Eventer do
   end
 
   def handle_call({:status, filter_id}, _from, state) do
-    case BiMultiMap.get(state.filters, filter_id) do
-      [{topics, _}] ->
+    case {BiMultiMap.get(state.filters, filter_id),
+          List.keyfind(state.pending_filters, filter_id, 0)} do
+      {[], nil} ->
+        {:reply, {:error, :notfound}, state}
+      {[{topics, _}], _} ->
         {:reply, {:ok, topics}, state}
-      _ ->
-        case List.keyfind(state.pending_filters, filter_id, 0) do
-          nil ->
-            {:reply, {:error, :notfound}, state}
-          {_, topics, _} ->
-            {:reply, {:ok, topics}, state}
-        end
+      {_, {_, topics, _}} ->
+        {:reply, {:ok, topics}, state}
     end
   end
 
