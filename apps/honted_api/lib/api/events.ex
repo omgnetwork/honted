@@ -34,18 +34,22 @@ defmodule HonteD.API.Events do
   
   @spec new_send_filter_history(server :: atom | pid, pid :: pid, receiver :: HonteD.address,
                                 first :: HonteD.block_height, last :: HonteD.block_height)
-    :: {:ok, HonteD.filter_id} | {:error, badarg}
+    :: {:ok, %{history_filter: HonteD.filter_id}} | {:error, badarg}
   def new_send_filter_history(server \\ @server, pid, receiver, first, last) do
+      with true <- is_valid_subscriber(pid),
+           true <- is_valid_topic(receiver),
+           true <- is_valid_height(first),
+           true <- is_valid_height(last),
     # FIXME checks
-    GenServer.call(server, {:new_filter_history, pid, [receiver], first, last})
+        do: GenServer.call(server, {:new_filter_history, [receiver], pid, first, last})
   end
   
   @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address)
-    :: {:ok, %{reference: HonteD.filter_id, start_height: HonteD.block_height}} | {:error, badarg}
+    :: {:ok, %{new_filter: HonteD.filter_id, start_height: HonteD.block_height}} | {:error, badarg}
   def new_send_filter(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
          true <- is_valid_topic(receiver),
-    do: GenServer.call(server, {:new_filter, pid, [receiver]})
+    do: GenServer.call(server, {:new_filter, [receiver], pid})
   end
 
   @spec drop_filter(server :: atom | pid, filter_id :: HonteD.filter_id)

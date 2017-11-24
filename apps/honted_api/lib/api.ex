@@ -174,7 +174,7 @@ defmodule HonteD.API do
   """
   @spec new_send_filter_history(subscriber :: pid, watched :: HonteD.address,
                                 first :: HonteD.block_height, last :: HonteD.block_height)
-    :: {:ok, reference} | {:error, HonteD.API.Events.badarg}
+    :: {:ok, %{history_filter: HonteD.filter_id}} | {:error, HonteD.API.Events.badarg}
   def new_send_filter_history(subscriber, watched, first, last) do
     HonteD.API.Events.new_send_filter_history(subscriber, watched, first, last)
   end
@@ -184,7 +184,7 @@ defmodule HonteD.API do
   Notifications will be delivered as {:committed | :finalized, event} messages to `subscriber`.
   """
   @spec new_send_filter(subscriber :: pid, watched :: HonteD.address)
-    :: {:ok, %{reference: reference, start_height: HonteD.block_height}} | {:error, HonteD.API.Events.badarg}
+    :: {:ok, %{new_filter: reference, start_height: HonteD.block_height}} | {:error, HonteD.API.Events.badarg}
   def new_send_filter(subscriber, watched) do
     HonteD.API.Events.new_send_filter(subscriber, watched)
   end

@@ -10,6 +10,8 @@ defmodule HonteD.API.Events.Eventer do
   use GenServer
   require Logger
 
+  alias HonteD.API.Events.Replay, as: Replay
+
   defmodule State do
     defstruct [subs: BiMultiMap.new(),
                filters: BiMultiMap.new(),
@@ -19,15 +21,16 @@ defmodule HonteD.API.Events.Eventer do
                height: 0,
                tendermint: HonteD.API.TendermintRPC,
               ]
-
+    @type subs :: BiMultiMap.t([topic], pid)
+    @type filters :: BiMultiMap.t(HonteD.filter_id, {[topic], pid})
+    @type topic :: HonteD.address
     @typep event :: HonteD.Transaction.t
-    @typep topic :: HonteD.address
     @typep queue :: Qex.t({HonteD.block_height, event})
     @typep token :: HonteD.token
 
     @type t :: %State{
-      subs: BiMultiMap.t([topic], pid),
-      filters: BiMultiMap.t(HonteD.filter_id, {[topic], pid}),
+      subs: subs,
+      filters: filters,
       pending_filters: [{HonteD.filter_id, pid, [topic]}],
       monitors: %{pid => reference},
       # Events that are waiting to be finalized.
@@ -50,6 +53,19 @@ defmodule HonteD.API.Events.Eventer do
       type: :worker,
       restart: :permanent,
     }
+  end
+
+  @spec do_notify(:finalized | :committed, HonteD.Transaction.t, pos_integer, State.subs, State.filters)
+    :: :ok
+  def do_notify(finality_status, event_content, event_height, subs, filters) do
+    event_topics = event_topics_for(event_content)
+    pids = subscribed(event_topics, subs, filters)
+    _ = Logger.info("do_notify: #{inspect event_topics} #{inspect finality_status}, #{inspect event_content}, pid: #{inspect pids}")
+    for {filter_id, pid} <- pids do
+      msg = message(finality_status, event_height, filter_id, event_content)
+      send(pid, {:event, msg})
+    end
+    :ok
   end
 
   ## callbacks
@@ -94,7 +110,7 @@ defmodule HonteD.API.Events.Eventer do
   end
 
 
-  def handle_call({:new_filter, pid, topics}, _from, state) do
+  def handle_call({:new_filter, topics, pid}, _from, state) do
     filter_id = make_filter_id()
     {:reply,
      {:ok, %{new_filter: filter_id, start_height: state.height + 1}},
@@ -102,21 +118,10 @@ defmodule HonteD.API.Events.Eventer do
     }
   end
 
-  def handle_call({:new_filter_history, pid, topics, first, last}, _from, state) do
+  def handle_call({:new_filter_history, topics, pid, first, last}, _from, state) do
     filter_id = make_filter_id()
-    tendermint = state.tendermint
-    client = tendermint.client()
-    ad_hoc_subscription = BiMultiMap.new([{topics, pid}])
-    ad_hoc_filters = BiMultiMap.new([{filter_id, {topics, pid}}])
-    _ = Task.start(fn ->
-      for height <- first..last do
-        tendermint.block_transactions(client, height)
-        |> Enum.map(&HonteD.TxCodec.decode!/1)
-        |> Enum.map(&(Map.get(&1, :raw_tx)))
-        |> Enum.map(&(do_notify(:committed, &1, height, ad_hoc_subscription, ad_hoc_filters)))
-        |> Enum.map(fn :ok -> true end)
-      end
-    end)
+    Logger.warn("tendermint module is: #{inspect state.tendermint}")
+    _ = Replay.spawn(filter_id, state.tendermint, first, last, topics, pid)
     {:reply, {:ok, %{history_filter: filter_id}}, state}
   end
 
@@ -235,16 +240,6 @@ defmodule HonteD.API.Events.Eventer do
 
   defp get_token(%HonteD.Transaction.Send{} = event) do
     event.asset
-  end
-
-  defp do_notify(finality_status, event_content, event_height, subs, filters) do
-    pids = subscribed(event_topics_for(event_content), subs, filters)
-    _ = Logger.info("do_notify: #{inspect finality_status}, #{inspect event_content}, pid: #{inspect pids}")
-    for {filter_id, pid} <- pids do
-      msg = message(finality_status, event_height, filter_id, event_content)
-      send(pid, {:event, msg})
-    end
-    :ok
   end
 
   defp message(finality_status, height, filter_id, %HonteD.Transaction.Send{} = event_content)
