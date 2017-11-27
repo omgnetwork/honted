@@ -106,7 +106,7 @@ defmodule HonteD.API.Events.Eventer do
     end
   end
 
-  def handle_cast({:event, event, context}, state) do
+  def handle_cast({:event_context, event, context}, state) do
     _ = Logger.warn("Warning: unhandled event #{inspect event} with context #{inspect context}")
     {:noreply, state}
   end
