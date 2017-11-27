@@ -76,7 +76,6 @@ defmodule HonteD.API.Events do
   defp is_valid_topic(topic) when is_binary(topic), do: true
   defp is_valid_topic(_), do: {:error, :topic_must_be_a_string}
 
-  defp is_valid_height(:current), do: true
   defp is_valid_height(height) when is_integer(height) and height > 0, do: true
   defp is_valid_height(_), do: {:error, :bad_block_height}
 
