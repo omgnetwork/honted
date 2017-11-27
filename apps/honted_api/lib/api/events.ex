@@ -18,20 +18,27 @@ defmodule HonteD.API.Events do
   end
 
   @doc """
-  Makes eventer send a :committed event to subscribers.
+  Makes eventer send a :committed `event` to subscribers. `Event` will be stored
+  until it is finalized by SignOff message.
 
-  See `defp message` for reference of messages sent to subscribing pids
+  See `HonteD.API.Eventer.message/4` for reference of messages sent to subscribing pids
+  """
+  @spec notify_without_context(server :: atom | pid, event :: event) :: :ok
+  def notify_without_context(server \\ @server, event) do
+    GenServer.cast(server, {:event, event})
+  end
+
+  @doc """
+  Used for sending SignOff `event` to Eventer where `context` is a list of tokens.
+  Signoff will trigger finalization for tokens in `context`
+
+  See `HonteD.API.Eventer.message/4` for reference of messages sent to subscribing pids
   """
   @spec notify(server :: atom | pid, event :: event, list(HonteD.token) | any) :: :ok
   def notify(server \\ @server, event, context) do
     GenServer.cast(server, {:event_context, event, context})
   end
-  
-  @spec notify_without_context(server :: atom | pid, event :: event) :: :ok
-  def notify_without_context(server \\ @server, event) do
-    GenServer.cast(server, {:event, event})
-  end
-  
+
   @spec new_send_filter_history(server :: atom | pid, pid :: pid, receiver :: HonteD.address,
                                 first :: HonteD.block_height, last :: HonteD.block_height)
     :: {:ok, %{history_filter: HonteD.filter_id}} | {:error, badarg}
@@ -43,7 +50,7 @@ defmodule HonteD.API.Events do
     # FIXME checks
         do: GenServer.call(server, {:new_filter_history, [receiver], pid, first, last})
   end
-  
+
   @spec new_send_filter(server :: atom | pid, pid :: pid, receiver :: HonteD.address)
     :: {:ok, %{new_filter: HonteD.filter_id, start_height: HonteD.block_height}} | {:error, badarg}
   def new_send_filter(server \\ @server, pid, receiver) do
