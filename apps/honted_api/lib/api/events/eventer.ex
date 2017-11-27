@@ -2,8 +2,6 @@ defmodule HonteD.API.Events.Eventer do
   @moduledoc """
   Handles stream of send events from HonteD.ABCI and forwards them to subscribers.
 
-  This implementation is as simple as it can be.
-
   Generic process registries are a bad fit since we want to hyper-optimize for
   particular use case (bloom filters etc).
   """
