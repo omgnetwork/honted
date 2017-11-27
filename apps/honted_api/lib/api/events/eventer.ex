@@ -29,9 +29,15 @@ defmodule HonteD.API.Events.Eventer do
     @typep token :: HonteD.token
 
     @type t :: %State{
+      # Many-to-many relation between lists of topics and subscribers' pids.
       subs: subs,
+      # Stores filters - one for each call to new_send_filter; history filters are not stored here.
+      # BiMultiMap is used instead of pair of maps because of convenience.
       filters: filters,
+      # New filter sends transaction from block boundary. Before the next block is mined, filter is
+      # being kept in this list.
       pending_filters: [{HonteD.filter_id, pid, [topic]}],
+      # We monitor subscribers' pids to GC memory occupied by filters.
       monitors: %{pid => reference},
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
