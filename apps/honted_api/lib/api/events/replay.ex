@@ -1,6 +1,8 @@
 defmodule HonteD.API.Events.Replay do
   @moduledoc """
-  Gets historical transactions from Tendermint and pushes them into Eventer
+  Gets historical transactions from Tendermint, filters them and sends them to subscriber.
+  Only :committed transactions are replayed. To check if transaction was finalized
+  subscriber should use `HonteD.API.tx`.
   """
 
   require Logger
