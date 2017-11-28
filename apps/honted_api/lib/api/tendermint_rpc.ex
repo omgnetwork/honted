@@ -58,17 +58,13 @@ defmodule HonteD.API.TendermintRPC do
   end
 
   def block(client, height) do
-    Tesla.get(client, "block", query: encode(
-      height: height,
-    ))
-    |> decode_jsonrpc
-  end
-
-  def block_transactions(client, height) do
-    {:ok, block} = block(client, height)
-    block
-    |> get_in(["block", "data", "txs"])
-    |> Enum.map(&Base.decode64!/1)
+    {:ok, block} =
+      Tesla.get(client, "block", query: encode(
+            height: height,
+          ))
+      |> decode_jsonrpc
+    {:ok, update_in(block, ["block", "data", "txs"],
+                    fn(txs) -> Enum.map(txs, &Base.decode64!/1) end)}
   end
 
   ### private - tendermint rpc's specific encoding/decoding

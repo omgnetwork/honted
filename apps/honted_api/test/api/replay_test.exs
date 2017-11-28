@@ -25,13 +25,13 @@ defmodule HonteD.API.ReplayTest do
   defp mock_block_transactions(_pid, n) do
     set_mox_global()
     HonteD.API.TestTendermint
-    |> expect(:block_transactions, n, &block_transactions_mock/2)
+    |> expect(:block, n, &block_transactions_mock/2)
     |> expect(:client, 1, fn() -> nil end)
     # using global mode
   end
 
   defp block_transactions_mock(_, height) do
-    native(height)
+    {:ok, %{"block" => %{"data" => %{"txs" => native(height)}}}}
   end
 
   defp native(1), do: [signed_send(1), ]
