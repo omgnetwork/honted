@@ -37,6 +37,7 @@ defmodule HonteD.API.ReplayTest do
   defp native(1), do: [signed_send(1), ]
   defp native(2), do: []
   defp native(3), do: [signed_send(2), signed_send(3), ]
+  defp native(n), do: [signed_send(n), ]
 
   defp signed_send(num) do
     {tx, _} = event_send(address1(), "nil", "asset", num)
