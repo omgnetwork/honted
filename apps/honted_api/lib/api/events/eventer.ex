@@ -195,6 +195,8 @@ defmodule HonteD.API.Events.Eventer do
 
   ## internals
 
+  # New filters are activated on block boundary; before that they are stored in pending_filters.
+  # This is a cleaner approach than starting to emit events in the middle of the block.
   defp process_pending_filters(state) do
     state = Enum.reduce(state.pending_filters, state, &apply_filter/2)
     %{state | pending_filters: []}
