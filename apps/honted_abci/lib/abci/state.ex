@@ -28,7 +28,9 @@ defmodule HonteD.ABCI.State do
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.CreateToken{} = tx}) do
 
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
-         do: {:ok, state |> apply_create_token(tx.issuer, tx.nonce)}
+         do: {:ok, state
+                   |> apply_create_token(tx.issuer, tx.nonce)
+                   |> bump_nonce_after(tx)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Issue{} = tx}) do
@@ -36,7 +38,9 @@ defmodule HonteD.ABCI.State do
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          :ok <- is_issuer?(state, tx.asset, tx.issuer),
          :ok <- not_too_much?(state["tokens/#{tx.asset}/total_supply"] + tx.amount),
-         do: {:ok, state |> apply_issue(tx.asset, tx.amount, tx.dest, tx.issuer)}
+         do: {:ok, state 
+                   |> apply_issue(tx.asset, tx.amount, tx.dest)
+                   |> bump_nonce_after(tx)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx}) do
@@ -45,20 +49,26 @@ defmodule HonteD.ABCI.State do
 
     with :ok <- nonce_valid?(state, tx.from, tx.nonce),
          :ok <- account_has_at_least?(state, key_src, tx.amount),
-         do: {:ok, state |> apply_send(tx.amount, tx.from, key_src, key_dest)}
+         do: {:ok, state 
+                  |> apply_send(tx.amount, key_src, key_dest)
+                  |> bump_nonce_after(tx)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.SignOff{} = tx}) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
          :ok <- allows_for?(state, tx.signoffer, tx.sender, :signoff),
          :ok <- sign_off_incremental?(state, tx.height, tx.signoffer),
-         do: {:ok, state |> apply_sign_off(tx.height, tx.hash, tx.signoffer)}
+         do: {:ok, state 
+                   |> apply_sign_off(tx.height, tx.hash, tx.signoffer)
+                   |> bump_nonce_after(tx)}
   end
   
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Allow{} = tx}) do
     
     with :ok <- nonce_valid?(state, tx.allower, tx.nonce),
-         do: {:ok, state |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)}
+         do: {:ok, state 
+                   |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)
+                   |> bump_nonce_after(tx)}
   end
   
   defp account_has_at_least?(state, key_src, amount) do
@@ -108,43 +118,39 @@ defmodule HonteD.ABCI.State do
   defp apply_create_token(state, issuer, nonce) do
     token_addr = HonteD.Token.create_address(issuer, nonce)
     state
-    |> bump_nonce(issuer)
     |> Map.put("tokens/#{token_addr}/issuer", issuer)
     |> Map.put("tokens/#{token_addr}/total_supply", 0)
     # FIXME: check for duplicate entries or don't care?
     |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
 
-  defp apply_issue(state, asset, amount, dest, issuer) do
+  defp apply_issue(state, asset, amount, dest) do
     key_dest = "accounts/#{asset}/#{dest}"
     state
-    |> bump_nonce(issuer)
     |> Map.update(key_dest, amount, &(&1 + amount))
     |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
   end
 
-  defp apply_send(state, amount, src, key_src, key_dest) do
+  defp apply_send(state, amount, key_src, key_dest) do
     state
-    |> bump_nonce(src)
     |> Map.update!(key_src, &(&1 - amount))
     |> Map.update(key_dest, amount, &(&1 + amount))
   end
 
-  defp apply_sign_off(state, height, hash, sender) do
+  defp apply_sign_off(state, height, hash, signoffer) do
     state
-    |> bump_nonce(sender)
-    |> Map.put("sign_offs/#{sender}", %{height: height, hash: hash})
+    |> Map.put("sign_offs/#{signoffer}", %{height: height, hash: hash})
   end
   
   defp apply_allow(state, allower, allowee, privilege, allow) do
     state
-    |> bump_nonce(allower)
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
   
-  defp bump_nonce(state, address) do
+  defp bump_nonce_after(state, tx) do
+    sender = Transaction.Validation.sender(tx)
     state
-    |> Map.update("nonces/#{address}", 1, &(&1 + 1))
+    |> Map.update("nonces/#{sender}", 1, &(&1 + 1))
   end
 
   def hash(state) do

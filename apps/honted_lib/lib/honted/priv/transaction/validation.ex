@@ -29,11 +29,11 @@ defmodule HonteD.Transaction.Validation do
          do: :ok
   end
   
-  defp sender(%CreateToken{issuer: sender}), do: sender
-  defp sender(%Issue{issuer: sender}), do: sender
-  defp sender(%Send{from: sender}), do: sender
-  defp sender(%SignOff{sender: sender}), do: sender
-  defp sender(%Allow{allower: sender}), do: sender
+  def sender(%CreateToken{issuer: sender}), do: sender
+  def sender(%Issue{issuer: sender}), do: sender
+  def sender(%Send{from: sender}), do: sender
+  def sender(%SignOff{sender: sender}), do: sender
+  def sender(%Allow{allower: sender}), do: sender
   
   defp positive?(amount) when amount > 0, do: :ok
   defp positive?(_), do: {:error, :positive_amount_required}

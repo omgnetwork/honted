@@ -204,6 +204,23 @@ defmodule HonteD.ABCI.StateTest do
       query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(5)
       query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(7)
     end
+    
+    @tag fixtures: [:issuer, :bob, :empty_state, :asset]
+    test "bumping the right nonces in Create/Issue",
+    %{empty_state: state, issuer: issuer, bob: bob, asset: asset} do
+      %{state: state} =
+        create_create_token(nonce: 0, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+
+      query(state, '/nonces/#{issuer.addr}') |> found?(1)
+
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 5, dest: bob.addr, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+
+      query(state, '/nonces/#{bob.addr}') |> found?(0)
+      query(state, '/nonces/#{issuer.addr}') |> found?(2)
+    end    
   end
 
   describe "well formedness of send transactions" do
@@ -229,16 +246,9 @@ defmodule HonteD.ABCI.StateTest do
   end
 
   describe "generic nonce tests" do
-    @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
-    test "querying nonces", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+    @tag fixtures: [:alice, :empty_state]
+    test "querying empty nonces", %{empty_state: state, alice: alice} do
       query(state, '/nonces/#{alice.addr}') |> found?(0)
-
-      %{state: state} =
-        create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
-
-      query(state, '/nonces/#{bob.addr}') |> found?(0)
-      query(state, '/nonces/#{alice.addr}') |> found?(1)
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
@@ -341,6 +351,16 @@ defmodule HonteD.ABCI.StateTest do
         handle_call({:RequestCheckTx, "#{tx2} #{alice_signature}"}, nil, state)
 
       tx1 |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    end
+    
+    @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
+    test "bumping the right nonces in Send", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      %{state: state} =
+        create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
+        |> sign(alice.priv) |> deliver_tx(state) |> success?
+
+      query(state, '/nonces/#{bob.addr}') |> found?(0)
+      query(state, '/nonces/#{alice.addr}') |> found?(1)
     end
   end
 
@@ -488,6 +508,29 @@ defmodule HonteD.ABCI.StateTest do
       sign("0 SIGN_OFF -1 #{hash} #{bob.addr} #{bob.addr}", bob.priv)
       |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
+    
+    @tag fixtures: [:alice, :bob, :empty_state, :some_block_hash]
+    test "bumping the right nonces in Allow/Signoff",
+    %{empty_state: state, alice: alice, bob: bob, some_block_hash: hash} do
+      %{state: state} =
+        create_allow(nonce: 0, allower: alice.addr, allowee: bob.addr, privilege: "signoff", allow: true)
+        |> sign(alice.priv) |> deliver_tx(state) |> success?
+
+      query(state, '/nonces/#{alice.addr}') |> found?(1)
+      
+      %{state: state} =
+        create_sign_off(nonce: 1, height: 100, hash: hash, sender: alice.addr)
+        |> sign(alice.priv) |> deliver_tx(state) |> success?
+
+      query(state, '/nonces/#{alice.addr}') |> found?(2)
+
+      %{state: state} =
+        create_sign_off(nonce: 0, height: 101, hash: hash, sender: bob.addr, signoffer: alice.addr)
+        |> sign(bob.priv) |> deliver_tx(state) |> success?
+
+      query(state, '/nonces/#{bob.addr}') |> found?(1)
+      query(state, '/nonces/#{alice.addr}') |> found?(2)
+    end    
   end
 
   describe "well formedness of allow transactions," do
