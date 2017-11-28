@@ -19,7 +19,14 @@ defmodule HonteD.API.Events.Eventer do
                height: 0,
                tendermint: HonteD.API.TendermintRPC,
               ]
+    @typedoc """
+    Many-to-many relation between lists of topics and subscribers' pids.
+    """
     @type subs :: BiMultiMap.t([topic], pid)
+    @typedoc """
+    Stores filters - one for each call to new_send_filter; history filters are not stored here.
+    BiMultiMap is used instead of pair of maps because of convenience.
+    """
     @type filters :: BiMultiMap.t(HonteD.filter_id, {[topic], pid})
     @typep topic :: HonteD.address
     @typep event :: HonteD.Transaction.t
@@ -27,10 +34,7 @@ defmodule HonteD.API.Events.Eventer do
     @typep token :: HonteD.token
 
     @type t :: %State{
-      # Many-to-many relation between lists of topics and subscribers' pids.
       subs: subs,
-      # Stores filters - one for each call to new_send_filter; history filters are not stored here.
-      # BiMultiMap is used instead of pair of maps because of convenience.
       filters: filters,
       # New filter sends transaction from block boundary. Before the next block is mined, filter is
       # being kept in this list.
@@ -85,6 +89,7 @@ defmodule HonteD.API.Events.Eventer do
 
   ## callbacks
 
+  @spec init([] | [%{tendermint: module}]) :: {:ok, %State{}}
   def init([]), do: {:ok, %State{}}
   def init([%{tendermint: module}]), do: {:ok, %State{tendermint: module}}
 
