@@ -47,7 +47,6 @@ defmodule HonteD.API.Events do
            true <- is_valid_topic(receiver),
            true <- is_valid_height(first),
            true <- is_valid_height(last),
-    # FIXME checks
         do: GenServer.call(server, {:new_filter_history, [receiver], pid, first, last})
   end
 

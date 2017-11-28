@@ -331,8 +331,6 @@ defmodule HonteD.Integration.SmokeTest do
     assert {:ok, %{"history_filter" => filter_id}} =
       TestWebsocket.sendrecv!(websocket, :new_send_filter_history, %{watched: bob, first: 1, last: last_height})
     
-    # assert reference # FIXME, it returned nil. Maybe check something smarter here, maybe pin in later assertions
-    # check events that should be replayed - only commit events
     assert %{
       "transaction" => %{
         "amount" => 5,
