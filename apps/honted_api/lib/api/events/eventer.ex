@@ -21,7 +21,7 @@ defmodule HonteD.API.Events.Eventer do
               ]
     @type subs :: BiMultiMap.t([topic], pid)
     @type filters :: BiMultiMap.t(HonteD.filter_id, {[topic], pid})
-    @type topic :: HonteD.address
+    @typep topic :: HonteD.address
     @typep event :: HonteD.Transaction.t
     @typep queue :: Qex.t({HonteD.block_height, event})
     @typep token :: HonteD.token
