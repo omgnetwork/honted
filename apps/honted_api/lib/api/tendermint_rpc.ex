@@ -17,6 +17,7 @@ defmodule HonteD.API.TendermintRPC do
 
   require Tesla
 
+  @impl true
   def client() do
     rpc_port = Application.get_env(:honted_api, :tendermint_rpc_port)
     Tesla.build_client [
@@ -25,6 +26,7 @@ defmodule HonteD.API.TendermintRPC do
     ]
   end
 
+  @impl true
   def broadcast_tx_sync(client, tx) do
     Tesla.get(client, "/broadcast_tx_sync", query: encode(
       tx: tx
@@ -32,6 +34,7 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_jsonrpc
   end
 
+  @impl true
   def broadcast_tx_commit(client, tx) do
     Tesla.get(client, "/broadcast_tx_commit", query: encode(
       tx: tx
@@ -39,6 +42,7 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_jsonrpc
   end
 
+  @impl true
   def abci_query(client, data, path) do
     Tesla.get(client, "abci_query", query: encode(
       data: data,
@@ -48,6 +52,7 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_abci_query
   end
 
+  @impl true
   def tx(client, hash) do
     Tesla.get(client, "tx", query: encode(
       hash: {:hash, hash},
@@ -57,11 +62,15 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_tx
   end
 
+  @impl true
   def block(client, height) do
-    Tesla.get(client, "block", query: encode(
-      height: height,
-    ))
-    |> decode_jsonrpc
+    {:ok, block} =
+      Tesla.get(client, "block", query: encode(
+            height: height,
+          ))
+      |> decode_jsonrpc
+    {:ok, update_in(block, ["block", "data", "txs"],
+                    fn(txs) -> Enum.map(txs, &Base.decode64!/1) end)}
   end
 
   ### private - tendermint rpc's specific encoding/decoding

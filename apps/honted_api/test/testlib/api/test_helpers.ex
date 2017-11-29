@@ -3,11 +3,11 @@ defmodule HonteD.API.TestHelpers do
   def address1(), do: "address1"
   def address2(), do: "address2"
 
-  def event_send(receiver, token \\ "asset") do
+  def event_send(receiver, fid, token \\ "asset", height \\ 0) do
     # FIXME: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
     tx = %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
-    {tx, receivable_for(tx)}
+    {tx, receivable_for(tx, fid, height)}
   end
 
   def event_sign_off(send_receivables, height \\ 1) do
@@ -26,15 +26,15 @@ defmodule HonteD.API.TestHelpers do
   @doc """
   Prepared based on documentation of HonteD.API.Events.notify
   """
-  def receivable_for(%HonteD.Transaction.Send{} = tx) do
-    {:event, %{source: :filter, type: :committed, transaction: tx}}
+  def receivable_for(%HonteD.Transaction.Send{} = tx, fid, height) do
+    {:event, %{height: height, finality: :committed, source: fid, transaction: tx}}
   end
 
   def receivable_finalized(list) when is_list(list) do
     for event <- list, do: receivable_finalized(event)
   end
-  def receivable_finalized({:event, recv = %{type: :committed}}) do
-    {:event, %{recv | type: :finalized}}
+  def receivable_finalized({:event, recv = %{finality: :committed}}) do
+    {:event, %{recv | finality: :finalized}}
   end
 
   def join(pids) when is_list(pids) do

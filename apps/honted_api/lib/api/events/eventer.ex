@@ -2,29 +2,44 @@ defmodule HonteD.API.Events.Eventer do
   @moduledoc """
   Handles stream of send events from HonteD.ABCI and forwards them to subscribers.
 
-  This implementation is as simple as it can be.
-
   Generic process registries are a bad fit since we want to hyper-optimize for
   particular use case (bloom filters etc).
   """
   use GenServer
   require Logger
 
+  alias HonteD.API.Events.Replay, as: Replay
+
   defmodule State do
     defstruct [subs: BiMultiMap.new(),
+               filters: BiMultiMap.new(),
+               pending_filters: [],
                monitors: Map.new(),
                committed: Map.new(),
-               height: 1,
+               height: 0,
                tendermint: HonteD.API.TendermintRPC,
               ]
-
-    @typep event :: HonteD.Transaction.t
+    @typedoc """
+    Many-to-many relation between lists of topics and subscribers' pids.
+    """
+    @type subs :: BiMultiMap.t([topic], pid)
+    @typedoc """
+    Stores filters - one for each call to new_send_filter; history filters are not stored here.
+    BiMultiMap is used instead of pair of maps because of convenience.
+    """
+    @type filters :: BiMultiMap.t(HonteD.filter_id, {[topic], pid})
     @typep topic :: HonteD.address
+    @typep event :: HonteD.Transaction.t
     @typep queue :: Qex.t({HonteD.block_height, event})
     @typep token :: HonteD.token
 
     @type t :: %State{
-      subs: BiMultiMap.t([topic], pid),
+      subs: subs,
+      filters: filters,
+      # New filter sends transaction from block boundary. Before the next block is mined, filter is
+      # being kept in this list.
+      pending_filters: [{HonteD.filter_id, pid, [topic]}],
+      # We monitor subscribers' pids to GC memory occupied by filters.
       monitors: %{pid => reference},
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
@@ -32,7 +47,7 @@ defmodule HonteD.API.Events.Eventer do
       # TODO: pull those events from Tendermint
       committed: %{optional(token) => queue},
       height: HonteD.block_height,
-      tendermint: module()
+      tendermint: module(),
     }
   end
 
@@ -48,19 +63,49 @@ defmodule HonteD.API.Events.Eventer do
     }
   end
 
+  @spec do_notify(:finalized | :committed, HonteD.Transaction.t, pos_integer, State.subs, State.filters)
+    :: :ok
+  def do_notify(finality_status, event_content, event_height, subs, filters) do
+    event_topics = event_topics_for(event_content)
+    pids = subscribed(event_topics, subs, filters)
+    _ = Logger.info("do_notify: #{inspect event_topics} #{inspect finality_status}, #{inspect event_content}, pid: #{inspect pids}")
+    for {filter_id, pid} <- pids do
+      msg = message(finality_status, event_height, filter_id, event_content)
+      send(pid, {:event, msg})
+    end
+    :ok
+  end
+
+  defp message(finality_status, height, filter_id, %HonteD.Transaction.Send{} = event_content)
+  when finality_status in [:committed, :finalized]
+    do
+    # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
+    %{source: filter_id, height: height, finality: finality_status, transaction: event_content}
+  end
+
+  def stream_end_msg(filter_id) do
+    %{source: filter_id, data: "replay finished"}
+  end
+
   ## callbacks
 
-  @spec init([map]) :: {:ok, State.t}
+  @spec init([] | [%{tendermint: module}]) :: {:ok, %State{}}
   def init([]), do: {:ok, %State{}}
   def init([%{tendermint: module}]), do: {:ok, %State{tendermint: module}}
 
-  def handle_cast({:event, %HonteD.Transaction.Send{} = event, _}, state) do
+  def handle_cast({:event, %HonteD.Transaction.Send{} = event}, state) do
     state = insert_committed(event, state)
-    do_notify(:committed, event, state.subs)
+    do_notify(:committed, event, state.height, state.subs, state.filters)
     {:noreply, state}
   end
 
-  def handle_cast({:event, %HonteD.Transaction.SignOff{} = event, tokens}, state) when is_list(tokens) do
+  def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event}, state) do
+    state = process_pending_filters(state)
+    {:noreply, %{state | height: event.height}}
+  end
+
+  def handle_cast({:event_context, %HonteD.Transaction.SignOff{} = event, tokens}, state)
+  when is_list(tokens) do
     case check_valid_signoff?(event, state.tendermint) do
       true ->
         {:noreply, finalize_events(tokens, event.height, state)}
@@ -70,12 +115,13 @@ defmodule HonteD.API.Events.Eventer do
     end
   end
 
-  def handle_cast({:event, %HonteD.API.Events.NewBlock{} = event, _}, state) do
-    {:noreply, %{state | height: event.height}}
+  def handle_cast({:event_context, event, context}, state) do
+    _ = Logger.warn("Warning: unhandled event #{inspect event} with context #{inspect context}")
+    {:noreply, state}
   end
 
-  def handle_cast({:event, event, context}, state) do
-    _ = Logger.warn("Warning: unhandled event #{inspect event} with context #{inspect context}")
+  def handle_cast({:event, event}, state) do
+    _ = Logger.warn("Warning: unhandled event #{inspect event} without context")
     {:noreply, state}
   end
 
@@ -84,26 +130,46 @@ defmodule HonteD.API.Events.Eventer do
   end
 
 
-  def handle_call({:subscribe, pid, topics}, _from, state) do
-    mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
-    subs = BiMultiMap.put(state.subs, topics, pid)
-    {:reply, :ok, %{state | subs: subs, monitors: mons}}
+  def handle_call({:new_filter, topics, pid}, _from, state) do
+    filter_id = make_filter_id()
+    {:reply,
+     {:ok, %{new_filter: filter_id, start_height: state.height + 1}},
+     %{state | pending_filters: [{filter_id, topics, pid} | state.pending_filters]}
+    }
   end
 
-  def handle_call({:unsubscribe, pid, topics}, _from, state) do
-    subs = BiMultiMap.delete(state.subs, topics, pid)
-    mons = case BiMultiMap.has_value?(subs, pid) do
-             false ->
-               state.monitors
-             true ->
-               Process.demonitor(state.monitors[pid], [:flush]);
-               Map.delete(state.monitors, pid)
-           end
-    {:reply, :ok, %{state | subs: subs, monitors: mons}}
+  def handle_call({:new_filter_history, topics, pid, first, last}, _from, state) do
+    filter_id = make_filter_id()
+    _ = Logger.warn("tendermint module is: #{inspect state.tendermint}")
+    _ = Replay.spawn(filter_id, state.tendermint, first, last, topics, pid)
+    {:reply, {:ok, %{history_filter: filter_id}}, state}
   end
 
-  def handle_call({:is_subscribed, pid, topics}, _from, state) do
-    {:reply, {:ok, BiMultiMap.member?(state.subs, topics, pid)}, state}
+  def handle_call({:drop_filter, filter_id}, _from, state) do
+    case BiMultiMap.get(state.filters, filter_id, nil) do
+      [{topics, pid}] ->
+        state = drop_filter(filter_id, topics, pid, state)
+        {:reply, :ok, state}
+      nil ->
+        case List.keytake(state.pending_filters, filter_id, 0) do
+          nil ->
+            {:reply, {:error, :notfound}, state}
+          {_, new_pending} ->
+            {:reply, :ok, %{state | pending_filters: new_pending}}
+        end
+    end
+  end
+
+  def handle_call({:status, filter_id}, _from, state) do
+    case {BiMultiMap.get(state.filters, filter_id),
+          List.keyfind(state.pending_filters, filter_id, 0)} do
+      {[], nil} ->
+        {:reply, {:error, :notfound}, state}
+      {[{topics, _}], _} ->
+        {:reply, {:ok, topics}, state}
+      {_, {_, topics, _}} ->
+        {:reply, {:ok, topics}, state}
+    end
   end
 
   def handle_call(msg, from, state) do
@@ -114,8 +180,13 @@ defmodule HonteD.API.Events.Eventer do
   def handle_info({:DOWN, _monref, :process, pid, _reason},
                   state = %{subs: subs, monitors: mons}) do
     mons = Map.delete(mons, pid)
+    topics = BiMultiMap.get_keys(subs, pid)
     subs = BiMultiMap.delete_value(subs, pid)
-    {:noreply, %{state | subs: subs, monitors: mons}}
+    drop_filter_ids = fn(topics_group, acc) ->
+      BiMultiMap.delete_value(acc, {topics_group, pid})
+    end
+    filters = Enum.reduce(topics, state.filters, drop_filter_ids)
+    {:noreply, %{state | subs: subs, monitors: mons, filters: filters}}
   end
 
   def handle_info(msg, state) do
@@ -124,11 +195,40 @@ defmodule HonteD.API.Events.Eventer do
 
   ## internals
 
-  defp finalize_events(tokens, height, state) do
+  # New filters are activated on block boundary; before that they are stored in pending_filters.
+  # This is a cleaner approach than starting to emit events in the middle of the block.
+  defp process_pending_filters(state) do
+    state = Enum.reduce(state.pending_filters, state, &apply_filter/2)
+    %{state | pending_filters: []}
+  end
+
+  defp apply_filter({filter_id, topics, pid}, state)
+  when is_pid(pid) and is_list(topics) do
+    mons = Map.put_new_lazy(state.monitors, pid, fn -> Process.monitor(pid) end)
+    filters = BiMultiMap.put(state.filters, filter_id, {topics, pid})
+    subs = BiMultiMap.put(state.subs, topics, pid)
+    %{state | subs: subs, monitors: mons, filters: filters}
+  end
+
+  defp drop_filter(filter_id, topics, pid, state) do
+    filters = BiMultiMap.delete(state.filters, filter_id, {topics, pid})
+    subs = BiMultiMap.delete(state.subs, topics, pid)
+    mons = case BiMultiMap.has_value?(subs, pid) do
+             false ->
+               state.monitors
+             true ->
+               Process.demonitor(state.monitors[pid], [:flush]);
+               Map.delete(state.monitors, pid)
+           end
+    %{state | subs: subs, monitors: mons, filters: filters}
+  end
+
+  defp finalize_events(tokens, signoff_height, state) do
     notify_token = fn(token, acc_committed) ->
       # for a given token will process the queue with events and emit :finalized events to subscribers
-      {events, acc_committed} = pop_finalized(token, height, acc_committed)
-      for event <- events, do: do_notify(:finalized, event, state.subs)
+      {events, acc_committed} = pop_finalized(token, signoff_height, acc_committed)
+      _ = for {height, event} <- events,
+        do: do_notify(:finalized, event, height, state.subs, state.filters)
       acc_committed
     end
     %{state | committed: Enum.reduce(tokens, state.committed, notify_token)}
@@ -149,9 +249,7 @@ defmodule HonteD.API.Events.Eventer do
       (queue) ->
         {finalized_tuples, rest} =
           HonteD.Transaction.Finality.split_finalized_events(queue, signed_off_height)
-        # unzip to discard the heights and keep only the events
-        {_, finalized} = Enum.unzip(finalized_tuples)
-        {finalized, Qex.new(rest)}
+        {finalized_tuples, Qex.new(rest)}
     end
     Map.get_and_update(committed, token, split_queue_by_finalized_status)
   end
@@ -166,26 +264,23 @@ defmodule HonteD.API.Events.Eventer do
     event.asset
   end
 
-  defp do_notify(event_type, event_content, all_subs) do
-    pids = subscribed(event_topics_for(event_content), all_subs)
-    _ = Logger.info("do_notify: #{inspect event_type}, #{inspect event_content}, pid: #{inspect pids}")
-    prepared_message = message(event_type, event_content)
-    for pid <- pids, do: send(pid, {:event, prepared_message})
-    :ok
-  end
-
-  defp message(event_type, %HonteD.Transaction.Send{} = event_content)
-  when event_type in [:committed, :finalized]
-    do
-    # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
-    %{source: :filter, type: event_type, transaction: event_content}
-  end
 
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
+  defp event_topics_for(_), do: []
 
   # FIXME: this maps get should be done for set of all subsets
-  defp subscribed(topics, subs) do
-    BiMultiMap.get(subs, topics)
+  defp subscribed(topics, subs, filters) do
+    pids = BiMultiMap.get(subs, topics)
+    for pid <- pids do
+      [filter_id] = BiMultiMap.get_keys(filters, {topics, pid})
+      {filter_id, pid}
+    end
+  end
+
+  defp make_filter_id() do
+    make_ref()
+    |> :erlang.term_to_binary
+    |> HonteD.Crypto.hash
   end
 
 end

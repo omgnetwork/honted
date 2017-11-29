@@ -16,7 +16,7 @@ defmodule HonteD.ABCI.Events do
     end
   end
   def notify(_, tx) do
-    HonteD.API.Events.notify(tx, [])
+    HonteD.API.Events.notify_without_context(tx)
   end
 
 end

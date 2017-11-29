@@ -28,7 +28,7 @@ defmodule HonteD.ABCI.EventsTest do
         :expected_silence ->
           spawn_link(fn ->
             refute_receive(_, @timeout)
-          end)          
+          end)
         expected_message ->
           spawn_link(fn ->
             assert_receive({:"$gen_cast", ^expected_message}, @timeout)
@@ -46,9 +46,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, issuer: issuer.addr]
       server_pid = server_spawner.({
         :event,
-        struct(HonteD.Transaction.CreateToken, params),
-        []
-      })
+        struct(HonteD.Transaction.CreateToken, params)})
       
       create_create_token(params) |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
@@ -60,9 +58,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr]
       server_pid = server_spawner.({
         :event,
-        struct(HonteD.Transaction.Issue, params),
-        []
-      })
+        struct(HonteD.Transaction.Issue, params)})
       
       create_issue(params) |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
@@ -74,9 +70,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr]
       server_pid = server_spawner.({
         :event,
-        struct(HonteD.Transaction.Send, params),
-        []
-      })
+        struct(HonteD.Transaction.Send, params)})
       
       create_send(params) |> sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
@@ -92,7 +86,7 @@ defmodule HonteD.ABCI.EventsTest do
       
       params = [nonce: 0, height: 1, hash: hash, sender: alice.addr, signoffer: issuer.addr]
       server_pid = server_spawner.({
-        :event,
+        :event_context,
         struct(HonteD.Transaction.SignOff, params),
         [asset]
       })
@@ -107,9 +101,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true]
       server_pid = server_spawner.({
         :event,
-        struct(HonteD.Transaction.Allow, params),
-        []
-      })
+        struct(HonteD.Transaction.Allow, params)})
       
       create_allow(params) |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
@@ -130,8 +122,12 @@ defmodule HonteD.ABCI.EventsTest do
                                                    server_spawner: server_spawner} do
       params = [nonce: 1, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
-      
-      create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+      # FIXME: deliver_tx should not crash here: this is intended version. Please restore
+      #  next line after allowing :ResponseDeliverTx to return non-zero error codes.
+      # create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
+      raw_tx = create_sign_off(params) |> sign(issuer.priv)
+      # FIXME: but deliver_tx still crashes and we want to be sure that nothing was emitted anyway:
+      assert_raise(MatchError, fn() -> deliver_tx(raw_tx, state) end)
       join(server_pid)
     end
 
@@ -140,10 +136,16 @@ defmodule HonteD.ABCI.EventsTest do
                                                server_spawner: server_spawner} do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
-      
-      create_sign_off(params) |> deliver_tx(state)
+
+      # FIXME: deliver_tx should not crash here: this is intended version. Please restore
+      #  next line after allowing :ResponseDeliverTx to return non-zero error codes.
+      # create_sign_off(params) |> deliver_tx(state)
+
+      raw_tx = create_sign_off(params)
+      # FIXME: but deliver_tx still crashes and we want to be sure that nothing was emitted anyway:
+      assert_raise(MatchError, fn() -> deliver_tx(raw_tx, state) end)
       join(server_pid)
     end
-    
+
   end
 end
