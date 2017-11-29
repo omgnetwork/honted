@@ -228,7 +228,6 @@ defmodule HonteD.Integration.SmokeTest do
     } = TestWebsocket.sendrecv!(websocket, :new_send_filter, %{watched: bob})
 
     assert height > 0 and is_integer(height) # smoke test this, no way to test this sensibly
-    assert is_binary(filter_id) # <- this check is enough because value used later
     assert {:ok, [^bob]} = TestWebsocket.sendrecv!(websocket, :status_filter, %{filter_id: filter_id})
     
     {:ok, raw_tx} = API.create_send_transaction(asset, 5, alice, bob)
