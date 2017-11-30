@@ -77,8 +77,8 @@ defmodule HonteD.API.TendermintRPC do
 
   defp decode_jsonrpc(response) do
     case response.body do
-      %{"error" => "", "result" => result} -> {:ok, result}
-      %{"error" => error, "result" => nil} -> {:error, error}
+      %{"result" => result} -> {:ok, result}
+      %{"error" => error} -> {:error, error}
     end
   end
   

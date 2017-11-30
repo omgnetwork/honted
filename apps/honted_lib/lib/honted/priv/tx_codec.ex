@@ -7,6 +7,16 @@ defmodule HonteD.TxCodec do
   alias HonteD.Transaction
 
   def decode(line) do
+    with :ok <- valid_size?(line),
+         do: do_decode(line)
+  end
+  
+  # FIXME: find the correct and informed maximum valid transaction byte-size
+  # and test that out properly (by trying out a maximal valid transaction possible - right now it only tests a 0.5KB tx)
+  defp valid_size?(line) when byte_size(line) <= 274, do: :ok
+  defp valid_size?(_line), do: {:error, :transaction_too_large}
+  
+  defp do_decode(line) do
     case String.split(line) do
       [nonce, "CREATE_TOKEN", issuer, signature] when byte_size(signature) == 64 ->
         case Integer.parse(nonce) do
