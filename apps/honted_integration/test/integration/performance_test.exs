@@ -10,6 +10,8 @@ defmodule HonteD.Integration.PerformanceTest do
   @moduletag :performance
   @moduletag :integration
   
+  @moduletag timeout: :infinity
+  
   @startup_timeout 100
   @await_result_timeout 11000
   
@@ -36,6 +38,7 @@ defmodule HonteD.Integration.PerformanceTest do
     # FIXME: remove, just smoke testing the 
     txs = 
       Stream.interval(0)
+      |> Stream.map(&IO.inspect/1)
       |> Stream.map(fn _ -> 
         {:ok, issuer_priv} = Crypto.generate_private_key()
         {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
@@ -45,6 +48,12 @@ defmodule HonteD.Integration.PerformanceTest do
         raw_tx <> " " <> signature
       end)
       
+    # fill the state a bit
+    txs
+    |> Stream.take(30000)
+    |> Enum.map(fn tx -> API.submit_transaction_async(tx) end)
+
+    _ = Logger.info("starting tm-bench")
     {tm_bench, tm_bench_out} = tm_bench_starter.()
     
     Task.async(fn ->
