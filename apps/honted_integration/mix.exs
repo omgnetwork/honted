@@ -27,6 +27,7 @@ defmodule HonteD.Integration.Mixfile do
       {:temp, "~> 0.4", only: :test},
       {:socket, "~> 0.3", only: :test},
       {:hackney, "~> 1.7", only: :test},
+      {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},      
       #
       {:honted_api, in_umbrella: true},
       {:honted_abci, in_umbrella: true},
