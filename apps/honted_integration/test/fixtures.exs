@@ -24,14 +24,12 @@ defmodule HonteD.Integration.Fixtures do
       "tendermint --home #{homedir} --log_level \"*:info\" node",
       out: :stream,
     )
-    :ok = 
-      fn -> wait_for_tendermint_start(tendermint_out) end
-      |> Task.async
-      |> Task.await(@startup_timeout)
+    :ok = wait_for_tendermint_start(tendermint_out)
       
     on_exit fn -> 
       Porcelain.Process.stop(tendermint_proc)
     end
+    :ok
   end
   
   deffixture honted() do
@@ -48,13 +46,27 @@ defmodule HonteD.Integration.Fixtures do
     :ok
   end
   
-  defp wait_for_tendermint_start(outstream) do
-    # monitors the stdout coming out of Tendermint for signal of successful startup
-    outstream
-    |> Stream.take_while(fn line -> not String.contains?(line, "Started node") end)
-    |> Enum.to_list
+  defp wait_for_tendermint_start(tendermint_out) do
+    wait_for_start(tendermint_out, "Started node", @startup_timeout)
+  end
+  
+  ### HELPER FUNCTIONS
+  
+  @doc """
+  Monitors the stdout coming out of a process for signal of successful startup
+  """
+  def wait_for_start(outstream, look_for, timeout) do
+    waiting_task_function = fn ->
+      outstream
+      |> Stream.take_while(fn line -> not String.contains?(line, look_for) end)
+      |> Enum.to_list
+    end
+    
+    waiting_task_function
+    |> Task.async
+    |> Task.await(timeout)
+    
     :ok
   end
   
-
 end
