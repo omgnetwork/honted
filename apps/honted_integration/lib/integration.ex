@@ -3,9 +3,7 @@ defmodule HonteD.Integration do
   The intention is to have an app that depends on all other apps, which could serve as the place to put 
   integration tests
   """
-  
-  alias HonteD.{Crypto, API}
-  
+    
   require Logger
   
   def homedir() do
@@ -49,59 +47,6 @@ defmodule HonteD.Integration do
     {:ok, fn -> 
       Porcelain.Process.stop(tendermint_proc)
     end}
-  end 
-   
-  def tm_bench(duration_T) do
-    # start tendermint and capture the stdout
-    tm_bench_proc = %Porcelain.Process{err: nil, out: tm_bench_out} = Porcelain.spawn_shell(
-      "tm-bench -c 0 -T #{duration_T} localhost:46657",
-      out: :stream,
-    )
-    :ok = wait_for_tm_bench_start(tm_bench_out)
-    
-    {tm_bench_proc, tm_bench_out}
-  end
-  
-  def dummy_txs_source(nstreams) do
-    for stream_id <- 1..nstreams do
-      Stream.interval(0)
-      # FIXME: useful for debugging, remove after sprint
-      # |> Stream.map(fn tx_id -> IO.puts("stream: #{stream_id}, tx: #{tx_id}"); tx_id end)
-      |> Stream.map(fn _ -> 
-        {:ok, issuer_priv} = Crypto.generate_private_key()
-        {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
-        {:ok, issuer} = Crypto.generate_address(issuer_pub)
-        {:ok, raw_tx} = HonteD.Transaction.create_create_token(nonce: 0, issuer: issuer)
-        {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-        raw_tx <> " " <> signature
-      end)
-    end
-  end
-  
-  @doc """
-  Fills the state a bit using txs source
-  """
-  def fill_in(txs_source, fill_in_per_stream) do
-    fill_tasks = for txs_stream <- txs_source, do: Task.async(fn ->
-      txs_stream
-      |> Stream.take(fill_in_per_stream)
-      |> Enum.map(fn tx -> HonteD.API.submit_transaction_async(tx) end)
-    end)
-      
-    for task <- fill_tasks, do: Task.await(task, 100000)
-  end
-  
-  def run_performance_test(txs_source, durationT) do
-    _ = Logger.info("starting tm-bench")
-    {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
-    
-    for txs_stream <- txs_source, do: Task.async(fn ->
-      txs_stream
-      |> Enum.map(fn tx -> API.submit_transaction_async(tx) end)
-    end)
-    
-    Porcelain.Process.await(tm_bench_proc, durationT * 1000 + 1000)
-    tm_bench_out
   end
   
   ### HELPER FUNCTIONS
@@ -110,11 +55,7 @@ defmodule HonteD.Integration do
     wait_for_start(tendermint_out, "Started node", 20000)
   end
   
-  defp wait_for_tm_bench_start(tm_bench_out) do
-    wait_for_start(tm_bench_out, "Running ", 100)
-  end
-  
-  defp wait_for_start(outstream, look_for, timeout) do
+  def wait_for_start(outstream, look_for, timeout) do
     # Monitors the stdout coming out of a process for signal of successful startup
     waiting_task_function = fn ->
       outstream

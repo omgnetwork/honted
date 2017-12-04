@@ -5,7 +5,7 @@ defmodule HonteD.Integration.PerformanceTest do
   use ExUnitFixtures
   use ExUnit.Case, async: false
   
-  alias HonteD.Integration
+  alias HonteD.Integration.Performance
   
   @moduletag :integration
   
@@ -18,21 +18,17 @@ defmodule HonteD.Integration.PerformanceTest do
   
   deffixture txs_source() do
     # dummy txs_source for now, as many create_token transaction as possible
-    Integration.dummy_txs_source(@nstreams)
+    Performance.dummy_txs_source(@nstreams)
   end
   
-  deffixture fill_in(tendermint, txs_source) do
-    :ok = tendermint
+  @tag fixtures: [:tendermint, :txs_source]
+  test "performance test should run with fill in", %{txs_source: txs_source} do
+    txs_source
+    |> Performance.fill_in(div(@fill_in, @nstreams))
     
     txs_source
-    |> Integration.fill_in(div(@fill_in, @nstreams))
-  end
-  
-  @tag fixtures: [:tendermint, :txs_source, :fill_in]
-  test "send transaction performance", %{txs_source: txs_source} do
-    txs_source
-    |> Integration.run_performance_test(@duration)
-    |> Enum.to_list
-    |> IO.puts
+    |> Performance.run_performance_test(@duration)
+    |> String.contains?("Txs/sec")
+    |> assert
   end
 end
