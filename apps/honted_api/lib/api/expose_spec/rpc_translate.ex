@@ -1,7 +1,10 @@
-defmodule HonteD.API.RPCTranslate do
+defmodule HonteD.API.ExposeSpec.RPCTranslate do
   @moduledoc """
-  Translate JSONRPC2 call to a form that can be executed with :erlang.apply/3
-  Returns JSONRPC2-specific error values if there is a problem.
+  Translate an incoming call to a form that can be executed with :erlang.apply/3
+  
+  The incoming call can originate from the JSONRPC handler or the Websockets handler (or other)
+  
+  Returns JSONRPC2-like error values if there is a problem.
   """
 
   @type function_name :: binary

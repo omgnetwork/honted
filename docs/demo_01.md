@@ -1,3 +1,5 @@
+## [OBSOLETE] Multinode Tendermint and sample transactions
+
 To run two Tendermint nodes and to ABCI servers on same machine do following.
 
 1. `tendermint init` as usual (no `unsafe_reset_all`)

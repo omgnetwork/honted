@@ -1,4 +1,4 @@
-defmodule HonteD.API.RPCTranslateTest do
+defmodule HonteD.API.ExposeSpec.RPCTranslateTest do
   @moduledoc """
   """
   use ExUnit.Case, async: true
@@ -15,7 +15,7 @@ defmodule HonteD.API.RPCTranslateTest do
     spec = TransformRequestTest.get_specs()
     method = "basic"
     params = %{"x" => "2", "y" => "3"}
-    assert {:ok, :basic, ["2", "3"]} == HonteD.API.RPCTranslate.to_fa(method, params, spec)
+    assert {:ok, :basic, ["2", "3"]} == HonteD.API.ExposeSpec.RPCTranslate.to_fa(method, params, spec)
   end
 
 

@@ -1,4 +1,4 @@
-defmodule HonteD.WS.RPC do
+defmodule HonteD.WS.Server do
   
   def child_spec(_) do
     %{

@@ -1,4 +1,4 @@
-To run two Tendermint nodes and to ABCI servers on same machine do following.
+## [OBSOLETE] Issuing tokens and auto-expose API via JSONRPC 2.0 and Websockets
 
 1. Run a single node HonteD-Tendermint as usual (both apps!)
 7. in `iex`/`wscat`/shell:
