@@ -17,7 +17,7 @@ defmodule HonteD.Integration.Mixfile do
 
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [],  # we're running using --no-start. Look into test_helper.exs for started apps
     ]
   end
 

@@ -32,7 +32,7 @@ defmodule HonteD.Integration.Fixtures do
     :ok
   end
   
-  deffixture honted() do
+  def honted() do
     # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
     our_apps_to_start = [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
     started_apps = 
@@ -44,6 +44,10 @@ defmodule HonteD.Integration.Fixtures do
       |> Enum.map(&Application.stop/1)
     end
     :ok
+  end
+  
+  deffixture honted() do
+    honted()
   end
   
   defp wait_for_tendermint_start(tendermint_out) do
