@@ -1,29 +1,34 @@
 defmodule HonteD.Integration.Performance do
+
+  alias HonteD.Integration
   
+  def run(nstreams, fill_in, duration) do
+    {homedir, homedir_exit_fn} = Integration.homedir()
+    try do
+      {:ok, _exit_fn} = Integration.honted()
+      {:ok, _exit_fn} = Integration.tendermint(homedir)
+      txs_source = Integration.dummy_txs_source(nstreams)
+
+      txs_source
+      |> Integration.fill_in(div(fill_in, nstreams))
+
+
+      txs_source
+      |> Integration.run_performance_test(duration)
+      |> Enum.to_list
+    after
+      homedir_exit_fn.()
+    end
+  end
 end
-
-IO.puts "test"
-
-alias HonteD.Integration
 
 [:porcelain, :hackney]
 |> Enum.map(&Application.ensure_all_started/1)
 
-fill_in_per_stream = 200
-nstreams = 10
-duration = 2
-
-{homedir, homedir_exit_fn} = Integration.homedir()
-{:ok, _exit_fn} = Integration.honted()
-{:ok, _exit_fn} = Integration.tendermint(homedir)
-txs_source = Integration.dummy_txs_source(nstreams)
-
-txs_source
-|> Integration.fill_in(fill_in_per_stream)
-
-
-txs_source
-|> Integration.run_performance_test(duration)
-|> Enum.to_list
-|> IO.puts
+System.argv()
+|> OptionParser.parse!(strict: [nstreams: :integer, fill_in: :integer, duration: :integer])
+|> case do
+  {[nstreams: nstreams, fill_in: fill_in, duration: duration], []} ->
+    IO.puts(HonteD.Integration.Performance.run(nstreams, fill_in, duration))
+end
 

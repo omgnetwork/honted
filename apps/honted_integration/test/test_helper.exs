@@ -2,7 +2,7 @@
 [:porcelain, :hackney]
 |> Enum.map(&Application.ensure_all_started/1)
 
-ExUnit.configure(exclude: [integration: true, performance: true])
+ExUnit.configure(exclude: [integration: true])
 ExUnitFixtures.start()
 ExUnitFixtures.load_fixture_files() # need to do this in umbrella apps
 ExUnit.start()

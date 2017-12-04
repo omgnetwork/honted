@@ -65,7 +65,8 @@ defmodule HonteD.Integration do
   def dummy_txs_source(nstreams) do
     for stream_id <- 1..nstreams do
       Stream.interval(0)
-      |> Stream.map(fn tx_id -> IO.puts("stream: #{stream_id}, tx: #{tx_id}"); tx_id end)
+      # FIXME: useful for debugging, remove after sprint
+      # |> Stream.map(fn tx_id -> IO.puts("stream: #{stream_id}, tx: #{tx_id}"); tx_id end)
       |> Stream.map(fn _ -> 
         {:ok, issuer_priv} = Crypto.generate_private_key()
         {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)

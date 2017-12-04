@@ -7,7 +7,6 @@ defmodule HonteD.Integration.PerformanceTest do
   
   alias HonteD.Integration
   
-  @moduletag :performance
   @moduletag :integration
   
   @moduletag timeout: :infinity
@@ -16,7 +15,6 @@ defmodule HonteD.Integration.PerformanceTest do
   
   @nstreams 2
   @fill_in 200
-  @fill_in_per_stream div(@fill_in, @nstreams)
   
   deffixture txs_source() do
     # dummy txs_source for now, as many create_token transaction as possible
@@ -27,7 +25,7 @@ defmodule HonteD.Integration.PerformanceTest do
     :ok = tendermint
     
     txs_source
-    |> Integration.fill_in(@fill_in_per_stream)
+    |> Integration.fill_in(div(@fill_in, @nstreams))
   end
   
   @tag fixtures: [:tendermint, :txs_source, :fill_in]
