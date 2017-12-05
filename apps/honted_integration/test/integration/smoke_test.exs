@@ -11,7 +11,7 @@ defmodule HonteD.Integration.SmokeTest do
   
   alias HonteD.{Crypto, API}
 
-  @startup_timeout 20000
+  @startup_timeout 20_000
   @supply 5
   
   @moduletag :integration
@@ -65,7 +65,7 @@ defmodule HonteD.Integration.SmokeTest do
     # monitors the stdout coming out of Tendermint for signal of successful startup
     outstream
     |> Stream.take_while(fn line -> not String.contains?(line, "Started node") end)
-    |> Enum.to_list
+    |> Stream.run
     :ok
   end
   
@@ -121,7 +121,8 @@ defmodule HonteD.Integration.SmokeTest do
   deffixture jsonrpc do
     jsonrpc_port = Application.get_env(:honted_jsonrpc, :honted_api_rpc_port)
     fn (method, params) ->
-      JSONRPC2.Clients.HTTP.call("http://localhost:#{jsonrpc_port}", to_string(method), params)
+      "http://localhost:#{jsonrpc_port}"
+      |> JSONRPC2.Clients.HTTP.call(to_string(method), params)
       |> case do
         # JSONRPC Client returns the result in a specific format. We need to bring to common format with WS client
         {:error, {code, message, data}} -> {:error, %{"code" => code, "message" => message, "data" => data}}
@@ -142,7 +143,6 @@ defmodule HonteD.Integration.SmokeTest do
   
   @tag fixtures: [:tendermint, :websocket, :apis_caller]
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
-    # FIXME: dry this setup?
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
     {:ok, issuer} = Crypto.generate_address(issuer_pub)
@@ -213,7 +213,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
     
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _ } = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
 
     assert {:ok, @supply} = API.query_balance(asset, alice)
     
@@ -296,7 +296,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
     
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _ } = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
     
     # SIGNOFF
     

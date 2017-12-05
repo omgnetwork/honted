@@ -25,10 +25,8 @@ defmodule HonteD.JSONRPC.Exposer do
   end
 
   defp apply_call(module, fname, args) do
-    case :erlang.apply(module, fname, args) do
-      # FIXME: Mapping between Elixir-style errors
-      #        and JSONRPC errors is needed here.
-      #        Code below is a stub.
+    case apply(module, fname, args) do
+      # NOTE: let's treat all error in the called API as internal errors, this seems legit
       {:ok, any} -> {:ok, any}
       {:error, any} -> {:internal_error, any}
     end
