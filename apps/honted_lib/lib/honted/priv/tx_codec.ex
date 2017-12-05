@@ -11,11 +11,13 @@ defmodule HonteD.TxCodec do
          do: do_decode(line)
   end
   
-  # FIXME: find the correct and informed maximum valid transaction byte-size
+  # NOTE: find the correct and informed maximum valid transaction byte-size
   # and test that out properly (by trying out a maximal valid transaction possible - right now it only tests a 0.5KB tx)
   defp valid_size?(line) when byte_size(line) <= 274, do: :ok
   defp valid_size?(_line), do: {:error, :transaction_too_large}
   
+  # NOTE: credo complains about CC here, but this is going away with RLP so why bother
+  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   defp do_decode(line) do
     case String.split(line) do
       [nonce, "CREATE_TOKEN", issuer, signature] when byte_size(signature) == 64 ->

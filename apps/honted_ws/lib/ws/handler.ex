@@ -23,7 +23,7 @@ defmodule HonteD.WS.Handler do
   def websocket_handle({:text, content}, req, state) do
     case decode(content) do
       {:ok, decoded_rq} ->
-        id = Map.get(decoded_rq, "id", nil);
+        id = Map.get(decoded_rq, "id", nil)
         try do
           resp = process_request(decoded_rq, state)
           ws_reply(id, resp, req, state)
@@ -83,12 +83,12 @@ defmodule HonteD.WS.Handler do
     %{"type": "rs", "error": %{"code": code, "data": data, "message": msg}}
   end
 
-  defp error_code_and_message(:parse_error), do: {-32700, "Parse error"}
-  defp error_code_and_message(:invalid_request), do: {-32600, "Invalid Request"}
-  defp error_code_and_message(:method_not_found), do: {-32601, "Method not found"}
-  defp error_code_and_message(:invalid_params), do: {-32602, "Invalid params"}
-  defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
-  defp error_code_and_message(:server_error), do: {-32000, "Server error"}
+  defp error_code_and_message(:parse_error), do: {-32_700, "Parse error"}
+  defp error_code_and_message(:invalid_request), do: {-32_600, "Invalid Request"}
+  defp error_code_and_message(:method_not_found), do: {-32_601, "Method not found"}
+  defp error_code_and_message(:invalid_params), do: {-32_602, "Invalid params"}
+  defp error_code_and_message(:internal_error), do: {-32_603, "Internal error"}
+  defp error_code_and_message(:server_error), do: {-32_000, "Server error"}
 
   defp decode(content) do
     case Poison.decode(content) do

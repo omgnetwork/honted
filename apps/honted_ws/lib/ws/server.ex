@@ -1,4 +1,7 @@
 defmodule HonteD.WS.Server do
+  @moduledoc """
+  Cowboy server serving the Websocket handler
+  """
   
   def child_spec(_) do
     %{
@@ -10,11 +13,11 @@ defmodule HonteD.WS.Server do
   def start(_type, _args) do
     ws_port = Application.get_env(:honted_ws, :honted_api_ws_port)
     dispatch_config = build_dispatch_config()
-    { :ok, _ } = :cowboy.start_http(:http,
-                                    100,
-                                   [{:port, ws_port}],
-                                   [{ :env, [{:dispatch, dispatch_config}]}]
-                                   )
+    {:ok, _} = :cowboy.start_http(:http,
+                                  100,
+                                  [{:port, ws_port}],
+                                  [{:env, [{:dispatch, dispatch_config}]}]
+                                  )
 
   end
 

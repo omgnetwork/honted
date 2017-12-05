@@ -8,6 +8,7 @@ defmodule HonteD.Transaction do
   alias HonteD.Transaction.Validation
   
   defmodule CreateToken do
+    @moduledoc false
     defstruct [:nonce, :issuer]
     
     @type t :: %CreateToken{
@@ -17,6 +18,7 @@ defmodule HonteD.Transaction do
   end
   
   defmodule Issue do
+    @moduledoc false
     defstruct [:nonce, :asset, :amount, :dest, :issuer]
     
     @type t :: %Issue{
@@ -29,6 +31,7 @@ defmodule HonteD.Transaction do
   end
   
   defmodule Send do
+    @moduledoc false
     defstruct [:nonce, :asset, :amount, :from, :to]
     
     @type t :: %Send{
@@ -41,6 +44,7 @@ defmodule HonteD.Transaction do
   end
   
   defmodule SignOff do
+    @moduledoc false
     defstruct [:nonce, :height, :hash, :sender, :signoffer]
     
     @type t :: %SignOff{
@@ -53,6 +57,7 @@ defmodule HonteD.Transaction do
   end
   
   defmodule Allow do
+    @moduledoc false
     defstruct [:nonce, :allower, :allowee, :privilege, :allow]
     
     @type t :: %Allow{
@@ -65,6 +70,7 @@ defmodule HonteD.Transaction do
   end
   
   defmodule SignedTx do
+    @moduledoc false
     defstruct [:raw_tx, :signature]
     
     @type t :: %SignedTx{
@@ -131,7 +137,8 @@ defmodule HonteD.Transaction do
     create_encoded(SignOff, args)
   end
   def create_sign_off([nonce: _, height: _, hash: _, sender: sender] = args) do
-    Keyword.merge(args, [signoffer: sender])
+    args
+    |> Keyword.merge([signoffer: sender])
     |> create_sign_off
   end
   
