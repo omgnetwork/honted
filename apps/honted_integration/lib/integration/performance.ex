@@ -27,8 +27,6 @@ defmodule HonteD.Integration.Performance do
     for _stream_id <- 1..nstreams do
       0
       |> Stream.interval
-      # FIXME: useful for debugging, remove after sprint
-      # |> Stream.map(fn tx_id -> IO.puts("stream: #{stream_id}, tx: #{tx_id}"); tx_id end)
       |> Stream.map(fn _ -> 
         {:ok, issuer_priv} = Crypto.generate_private_key()
         {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)

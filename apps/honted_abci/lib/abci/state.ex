@@ -4,7 +4,7 @@ defmodule HonteD.ABCI.State do
   """
   alias HonteD.Transaction
 
-  @max_amount round(:math.pow(2,256))  # used to limit integers handled on-chain
+  @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
 
   def empty(), do: %{}
 
@@ -37,7 +37,7 @@ defmodule HonteD.ABCI.State do
 
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          :ok <- is_issuer?(state, tx.asset, tx.issuer),
-         :ok <- not_too_much?(state["tokens/#{tx.asset}/total_supply"] + tx.amount),
+         :ok <- not_too_much?(tx.amount, state["tokens/#{tx.asset}/total_supply"]),
          do: {:ok, state 
                    |> apply_issue(tx.asset, tx.amount, tx.dest)
                    |> bump_nonce_after(tx)}
@@ -79,13 +79,14 @@ defmodule HonteD.ABCI.State do
     if Map.get(state, "nonces/#{src}", 0) == nonce, do: :ok, else: {:error, :invalid_nonce}
   end
 
-  defp not_too_much?(amount_entering) do
-    # FIXME: this probably should be changed to be taken care off earlier on - on transaction parsing
-    # probably in state-less transaction validation
-    
+  defp not_too_much?(amount_entering, amount_present)
+  when amount_entering >= 0 and
+       amount_present >= 0 do
     # limits the ability to exploit BEAM's uncapped integer in an attack.
     # Has nothing to do with token supply mechanisms
-    if amount_entering < @max_amount, do: :ok, else: {:error, :amount_way_too_large}
+    # NOTE: this is a stateful test,
+    # the state-less test is better handled by limitting the tx's byte-size
+    if amount_entering + amount_present < @max_amount, do: :ok, else: {:error, :amount_way_too_large}
   end
 
   defp is_issuer?(state, token_addr, address) do
@@ -120,7 +121,7 @@ defmodule HonteD.ABCI.State do
     state
     |> Map.put("tokens/#{token_addr}/issuer", issuer)
     |> Map.put("tokens/#{token_addr}/total_supply", 0)
-    # FIXME: check for duplicate entries or don't care?
+    # NOTE: check for duplicate entries or don't care?
     |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
 
@@ -154,7 +155,7 @@ defmodule HonteD.ABCI.State do
   end
 
   def hash(state) do
-    # FIXME: crudest of all app state hashes
+    # NOTE: crudest of all app state hashes
     state
     |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
     |> HonteD.Crypto.hash

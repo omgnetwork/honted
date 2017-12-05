@@ -63,7 +63,8 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call({:RequestDeliverTx, tx}, _from, state) do
-    # FIXME: yes, we want to crash on invalid transactions, lol
+    # NOTE: yes, we want to crash on invalid transactions, lol
+    # there's a chore to fix that
     {:ok, decoded} = HonteD.TxCodec.decode(tx)
     {:ok, state} = generic_handle_tx(state, decoded)
     HonteD.ABCI.Events.notify(state, decoded.raw_tx)
@@ -115,8 +116,7 @@ defmodule HonteD.ABCI do
     {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'unrecognized query'}, state}
   end
 
-  # FIXME: all-matching clause to keep tendermint from complaining, remove!
-  def handle_call(request, from, state) do
+  def handle_call({:RequestInitChain, [{:Validator, _somebytes, _someint}]} = request, from, state) do
     _ = Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
     {:reply, {}, state}
   end
@@ -139,6 +139,6 @@ defmodule HonteD.ABCI do
   end
 
   defp handle_get({:ok, value}), do: {0, value, ''}
-  # FIXME: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
+  # NOTE: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
   defp handle_get(nil), do: {1, "", 'not_found'}
 end
