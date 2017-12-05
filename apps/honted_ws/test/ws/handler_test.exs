@@ -13,7 +13,7 @@ defmodule HonteD.WS.HandlerTest do
 
     @test_event_payload %{"test_event_payload" => "payload"}
 
-    def test_event_payload(), do: @test_event_payload
+    def test_event_payload, do: @test_event_payload
 
     @spec is_even_N(x :: integer) :: {:ok, boolean} | {:error, :badarg}
     def is_even_N(x) when x > 0 and is_integer(x) do

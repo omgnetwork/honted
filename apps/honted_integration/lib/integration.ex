@@ -6,7 +6,7 @@ defmodule HonteD.Integration do
 
   require Logger
 
-  def homedir() do
+  def homedir do
     dir_path = Temp.mkdir!(%{prefix: "honted_tendermint_test_homedir"})
     {dir_path, fn ->
       _ = File.rm_rf!(dir_path)
@@ -16,7 +16,7 @@ defmodule HonteD.Integration do
   @doc """
   Runs a HonteD ABCI app using Porcelain
   """
-  def honted() do
+  def honted do
     # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
     our_apps_to_start = [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
     started_apps =
@@ -69,6 +69,4 @@ defmodule HonteD.Integration do
 
     :ok
   end
-
-
 end

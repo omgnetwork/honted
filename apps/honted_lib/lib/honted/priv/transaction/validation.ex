@@ -52,6 +52,4 @@ defmodule HonteD.Transaction.Validation do
       # _ -> {:error, :malformed_signature}
     end
   end
-
-
 end

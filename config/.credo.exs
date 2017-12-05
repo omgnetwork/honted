@@ -51,7 +51,8 @@
         # You can customize the priority of any check
         # Priority values are: `low, normal, high, higher`
         #
-        {Credo.Check.Design.AliasUsage, priority: :low},
+        # NOTE: PD: turning off, use aliases only when necessary
+        {Credo.Check.Design.AliasUsage, false},
 
         # For some checks, you can also set other parameters
         #
@@ -65,11 +66,13 @@
         # If you don't want TODO comments to cause `mix credo` to fail, just
         # set this value to 0 (zero).
         #
+        # NOTE: setting to 0, this is less stringent than fixmes
         {Credo.Check.Design.TagTODO, exit_status: 0},
         {Credo.Check.Design.TagFIXME},
 
         {Credo.Check.Readability.FunctionNames},
         {Credo.Check.Readability.LargeNumbers},
+        # NOTE: bump this to a more modern value
         {Credo.Check.Readability.MaxLineLength, priority: :low, max_length: 120},
         {Credo.Check.Readability.ModuleAttributeNames},
         {Credo.Check.Readability.ModuleDoc},

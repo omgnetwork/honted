@@ -95,9 +95,17 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a Issue transaction, ensures state-less validity and encodes
   """
-  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) ::
+  @spec create_issue([nonce: HonteD.nonce,
+                      asset: HonteD.token,
+                      amount: pos_integer,
+                      dest: HonteD.address,
+                      issuer: HonteD.address]) ::
     {:ok, Issue.t} | {:error, atom}
-  def create_issue([nonce: nonce, asset: asset, amount: amount, dest: dest, issuer: issuer] = args)
+  def create_issue([nonce: nonce,
+                    asset: asset,
+                    amount: amount,
+                    dest: dest,
+                    issuer: issuer] = args)
   when is_integer(nonce) and
        is_binary(asset) and
        is_integer(amount) and
@@ -110,9 +118,17 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a Send transaction, ensures state-less validity and encodes
   """
-  @spec create_send([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, from: HonteD.address, to: HonteD.address]) ::
+  @spec create_send([nonce: HonteD.nonce,
+                     asset: HonteD.token,
+                     amount: pos_integer,
+                     from: HonteD.address,
+                     to: HonteD.address]) ::
     {:ok, Send.t} | {:error, atom}
-  def create_send([nonce: nonce, asset: asset, amount: amount, from: from, to: to] = args)
+  def create_send([nonce: nonce,
+                   asset: asset,
+                   amount: amount,
+                   from: from,
+                   to: to] = args)
   when is_integer(nonce) and
        is_binary(asset) and
        is_integer(amount) and
@@ -125,9 +141,17 @@ defmodule HonteD.Transaction do
   @doc """
   Creates a SignOff transaction, ensures state-less validity and encodes
   """
-  @spec create_sign_off([nonce: HonteD.nonce, height: HonteD.block_height, hash: HonteD.block_hash, sender: HonteD.address, signoffer: HonteD.address]) ::
+  @spec create_sign_off([nonce: HonteD.nonce,
+                         height: HonteD.block_height,
+                         hash: HonteD.block_hash,
+                         sender: HonteD.address,
+                         signoffer: HonteD.address]) ::
     {:ok, SignOff.t} | {:error, atom}
-  def create_sign_off([nonce: nonce, height: height, hash: hash, sender: sender, signoffer: signoffer] = args)
+  def create_sign_off([nonce: nonce,
+                       height: height,
+                       hash: hash,
+                       sender: sender,
+                       signoffer: signoffer] = args)
   when is_integer(nonce) and
        is_integer(height) and
        height > 0 and
@@ -145,9 +169,17 @@ defmodule HonteD.Transaction do
   @doc """
   Creates an Allow transaction, ensures state-less validity and encodes
   """
-  @spec create_allow([nonce: HonteD.nonce, allower: HonteD.address, allowee: HonteD.address, privilege: HonteD.privilege, allow: boolean]) ::
+  @spec create_allow([nonce: HonteD.nonce,
+                      allower: HonteD.address,
+                      allowee: HonteD.address,
+                      privilege: HonteD.privilege,
+                      allow: boolean]) ::
     {:ok, Allow.t} | {:error, atom}
-  def create_allow([nonce: nonce, allower: allower, allowee: allowee, privilege: privilege, allow: allow] = args)
+  def create_allow([nonce: nonce,
+                    allower: allower,
+                    allowee: allowee,
+                    privilege: privilege,
+                    allow: allow] = args)
   when is_integer(nonce) and
        is_binary(allower) and
        is_binary(allowee) and

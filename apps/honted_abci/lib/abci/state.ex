@@ -6,7 +6,7 @@ defmodule HonteD.ABCI.State do
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
 
-  def empty(), do: %{}
+  def empty, do: %{}
 
   def get(state, key) do
     case state[key] do

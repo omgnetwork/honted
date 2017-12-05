@@ -87,7 +87,4 @@ defmodule HonteD.API.Tools do
   defp block_hash(block) do
     block["block_meta"]["block_id"]["hash"]
   end
-
-
-
 end

@@ -4,6 +4,8 @@ defmodule HonteD.WS.Handler do
   """
   require Logger
 
+  alias HonteD.API.ExposeSpec.RPCTranslate
+
   @behaviour :cowboy_websocket_handler
 
   # WS callbacks
@@ -124,7 +126,7 @@ defmodule HonteD.WS.Handler do
 
   defp process_request(decoded_rq, %{api: target}) do
     with {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- HonteD.API.ExposeSpec.RPCTranslate.to_fa(method, params, target.get_specs(),
+         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, target.get_specs(),
                                                   &substitute_pid_with_self/3),
       do: apply_call(target, fname, args)
   end

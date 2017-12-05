@@ -13,7 +13,6 @@ defmodule HonteD.API.ExposeSpec.RPCTranslate do
   @type json_args :: %{required(arg_name) => any}
   @type rpc_error :: {:method_not_found, map} | {:invalid_params, map}
 
-
   @doc """
   `to_fa/3` transforms JSONRPC2 method and params to Elixir's Function and Arguments,
   since the naming. See also type mfa() in Elixir's typespecs.

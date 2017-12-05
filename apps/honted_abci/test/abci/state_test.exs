@@ -145,8 +145,9 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(issuer.priv) |> check_tx(state) |> fail?(1, 'amount_way_too_large') |> same?(state)
 
       # issue just under the limit to see error in next step
+      that_fits = round(:math.pow(2, 256)) - 1
       %{state: state} =
-        create_issue(nonce: 1, asset: asset, amount: round(:math.pow(2, 256)) - 1, dest: alice.addr, issuer: issuer.addr)
+        create_issue(nonce: 1, asset: asset, amount: that_fits, dest: alice.addr, issuer: issuer.addr)
         |> sign(issuer.priv) |> deliver_tx(state) |> success?
 
       create_issue(nonce: 2, asset: asset, amount: 1, dest: alice.addr, issuer: issuer.addr)

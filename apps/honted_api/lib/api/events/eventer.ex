@@ -130,7 +130,6 @@ defmodule HonteD.API.Events.Eventer do
     {:stop, {:unhandled_cast, msg}, state}
   end
 
-
   def handle_call({:new_filter, topics, pid}, _from, state) do
     filter_id = make_filter_id()
     {:reply,
@@ -176,7 +175,6 @@ defmodule HonteD.API.Events.Eventer do
   def handle_call(msg, from, state) do
     {:stop, {:unhandled_call, from, msg}, state}
   end
-
 
   def handle_info({:DOWN, _monref, :process, pid, _reason},
                   %{subs: subs, monitors: mons} = state) do
@@ -265,7 +263,6 @@ defmodule HonteD.API.Events.Eventer do
     event.asset
   end
 
-
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
   defp event_topics_for(_), do: []
 
@@ -278,7 +275,7 @@ defmodule HonteD.API.Events.Eventer do
     end
   end
 
-  defp make_filter_id() do
+  defp make_filter_id do
     make_ref()
     |> :erlang.term_to_binary
     |> HonteD.Crypto.hash

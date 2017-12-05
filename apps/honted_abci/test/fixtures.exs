@@ -62,9 +62,7 @@ defmodule HonteD.ABCI.Fixtures do
     state
   end
 
-  deffixture some_block_hash() do
+  deffixture some_block_hash do
     "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
   end
-
-
 end

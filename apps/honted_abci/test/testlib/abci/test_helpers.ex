@@ -7,7 +7,7 @@ defmodule HonteD.ABCI.TestHelpers do
   import HonteD.ABCI
 
   ## HELPER functions
-  def generate_entity() do
+  def generate_entity do
     {:ok, priv} = HonteD.Crypto.generate_private_key
     {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
     {:ok, addr} = HonteD.Crypto.generate_address(pub)

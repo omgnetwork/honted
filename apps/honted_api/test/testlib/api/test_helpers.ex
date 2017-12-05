@@ -3,8 +3,8 @@ defmodule HonteD.API.TestHelpers do
   Varius shared functions for testing the API
   """
 
-  def address1(), do: "address1"
-  def address2(), do: "address2"
+  def address1, do: "address1"
+  def address2, do: "address2"
 
   def event_send(receiver, fid, token \\ "asset", height \\ 0) do
     # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
@@ -51,7 +51,7 @@ defmodule HonteD.API.TestHelpers do
     end
   end
 
-  def join() do
+  def join do
     join(Process.get(:clients, []))
   end
 
