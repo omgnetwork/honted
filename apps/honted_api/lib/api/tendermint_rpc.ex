@@ -27,6 +27,14 @@ defmodule HonteD.API.TendermintRPC do
   end
 
   @impl true
+  def broadcast_tx_async(client, tx) do
+    Tesla.get(client, "/broadcast_tx_async", query: encode(
+      tx: tx
+    ))
+    |> decode_jsonrpc
+  end
+
+  @impl true
   def broadcast_tx_sync(client, tx) do
     Tesla.get(client, "/broadcast_tx_sync", query: encode(
       tx: tx
