@@ -9,7 +9,7 @@ defmodule HonteD.Integration.Performance do
   alias HonteD.{Crypto, API}
    
   def tm_bench(duration_T) do
-    # start tendermint and capture the stdout
+    # start the benchmarking tool and capture the stdout
     tm_bench_proc = %Porcelain.Process{err: nil, out: tm_bench_out} = Porcelain.spawn_shell(
       "tm-bench -c 0 -T #{duration_T} localhost:46657",
       out: :stream,
@@ -55,12 +55,13 @@ defmodule HonteD.Integration.Performance do
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
     
-    for txs_stream <- txs_source, do: Task.async(fn ->
+    for txs_stream <- txs_source, do: _ = Task.async(fn ->
       txs_stream
       |> Enum.each(fn tx -> API.submit_transaction_async(tx) end)
     end)
     
-    Porcelain.Process.await(tm_bench_proc, durationT * 1000 + 1000)
+    # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
+    {:error, :noproc} = Porcelain.Process.await(tm_bench_proc, durationT * 1000 + 1000)
     
     tm_bench_out
     |> Enum.to_list
@@ -76,7 +77,6 @@ defmodule HonteD.Integration.Performance do
 
       txs_source
       |> fill_in(div(fill_in, nstreams))
-
 
       txs_source
       |> run_performance_test(duration)

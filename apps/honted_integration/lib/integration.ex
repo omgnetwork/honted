@@ -7,9 +7,9 @@ defmodule HonteD.Integration do
   require Logger
   
   def homedir() do
-    {:ok, dir_path} = Temp.mkdir("tendermint")
+    dir_path = Temp.mkdir!(%{prefix: "honted_tendermint_test_homedir"})
     {dir_path, fn ->
-      {:ok, _} = File.rm_rf(dir_path)
+      _ = File.rm_rf!(dir_path)
     end}
   end
   
