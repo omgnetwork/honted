@@ -1,5 +1,6 @@
 defmodule HonteD.Integration.PerformanceTest do
   @moduledoc """
+  This is an integration test of the performance testing device
   """
   
   use ExUnitFixtures

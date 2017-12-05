@@ -6,4 +6,6 @@ System.argv()
 |> case do
   {[nstreams: nstreams, fill_in: fill_in, duration: duration], []} ->
     IO.puts(HonteD.Integration.Performance.run(nstreams, fill_in, duration))
+  _ ->
+    raise("Invalid commandline arguments. Look here for details on usage:")
 end
