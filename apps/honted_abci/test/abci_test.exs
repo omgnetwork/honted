@@ -2,6 +2,9 @@ defmodule HonteD.ABCITest do
   @moduledoc """
   **NOTE** this test will pretend to be Tendermint core
   """
+  # NOTE: we can't enforce this here, because of the keyword-list-y form of create_x calls
+  # credo:disable-for-this-file Credo.Check.Refactor.PipeChainStart
+  
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
