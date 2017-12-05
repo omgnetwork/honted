@@ -17,7 +17,8 @@ defmodule HonteD.ABCI.StateTest do
     @tag fixtures: [:issuer, :empty_state]
     test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
       # correct
-      create_create_token(nonce: 0, issuer: issuer.addr) |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
+      create_create_token(nonce: 0, issuer: issuer.addr)
+      |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
 
       # malformed
       sign("0 CREATE_TOKE #{issuer.addr}", issuer.priv)
@@ -102,13 +103,13 @@ defmodule HonteD.ABCI.StateTest do
     end
 
     @tag fixtures: [:alice, :state_with_token, :asset]
-    test "can't issue other issuer's token", %{alice: alice, state_with_token: state, asset: asset } do
+    test "can't issue other issuer's token", %{alice: alice, state_with_token: state, asset: asset} do
       create_issue(nonce: 0, asset: asset, amount: 5, dest: alice.addr, issuer: alice.addr)
       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'incorrect_issuer') |> same?(state)
     end
 
     @tag fixtures: [:issuer, :alice, :empty_state]
-    test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state } do
+    test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state} do
       %{state: state} = 
         create_create_token(nonce: 0, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(state) |> success?
       %{state: state} = 

@@ -16,7 +16,8 @@ defmodule HonteD.ABCITest do
   describe "info requests from tendermint" do
     @tag fixtures: [:empty_state]
     test "info about clean state", %{empty_state: state} do
-      assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} = handle_call({:RequestInfo}, nil, state)
+      assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} =
+        handle_call({:RequestInfo}, nil, state)
     end
   end
 
@@ -25,7 +26,9 @@ defmodule HonteD.ABCITest do
     test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
       assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = handle_call({:RequestCommit}, nil, state)
 
-      %{state: state} = create_create_token(nonce: 0, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} =
+        create_create_token(nonce: 0, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
 
       assert {:reply, {:ResponseCommit, 0, newhash, _}, ^state} =  handle_call({:RequestCommit}, nil, state)
       assert newhash != cleanhash
