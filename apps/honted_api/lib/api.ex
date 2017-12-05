@@ -115,6 +115,21 @@ defmodule HonteD.API do
     end
   end
   
+  def submit_transaction_async(transaction) do
+    client = TendermintRPC.client()
+    rpc_response = TendermintRPC.broadcast_tx_async(client, transaction)
+    case rpc_response do
+      # successes / no-ops
+      {:ok, %{"code" => 0, "hash" => hash}} ->
+        {:ok, %{tx_hash: hash}}
+      # failures
+      {:ok, %{"code" => code, "data" => data, "log" => log, "hash" => hash}} ->
+        {:error, %{reason: :submit_failed, tx_hash: hash, code: code, data: data, log: log}}
+      result -> 
+        {:error, %{reason: :unknown_error, raw_result: inspect result}}
+    end
+  end
+
   @doc """
   Queries a current balance in `asset` for a particular `address`
   """

@@ -26,7 +26,22 @@ Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean
  - Dialyzer: `mix dialyzer`. First run will build the PLT, so may take several minutes
  - style & linting: `mix credo --strict`
 
-When running `integration` or `performance` tests, remember to have `tendermint` binaries reachable in your `$PATH`.
+### Integration tests
+
+**NOTE** Integration tests require `tm-bench` to be installed.
+To do that setup `golang` (at least `1.9.2`) and `go get -u github.com/tendermint/tools/tm-bench`.
+
+**NOTE** `tm-bench` currently requires exactly Tendermint 0.11.1.
+To do that setup `golang` (at least `1.9.2`), check out `0.11.1` tag for Tendermint and `go install github.com/tendermint/tendermint/cmd/tendermint`.
+
+When running `integration` tests, remember to have `tendermint` and `tm-bench` binaries reachable in your `$PATH`.
+
+### Performance test - quick guide
+
+In the same setup as for the Integration tests, run e.g.:
+```
+mix run apps/honted_integration/scripts/performance.exs --nstreams 2 --fill-in 200 --duration 4
+```
 
 ## Using the APIs
 

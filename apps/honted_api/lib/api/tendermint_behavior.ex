@@ -11,6 +11,7 @@ defmodule HonteD.API.TendermintBehavior do
   @type client_ref() :: any
 
   @callback client() :: client_ref
+  @callback broadcast_tx_async(client_ref, tx) :: result
   @callback broadcast_tx_sync(client_ref, tx) :: result
   @callback broadcast_tx_commit(client_ref, tx) :: result
   @callback abci_query(client_ref, data, path) :: result
