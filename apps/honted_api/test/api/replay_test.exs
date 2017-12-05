@@ -31,7 +31,12 @@ defmodule HonteD.API.ReplayTest do
   end
 
   defp block_transactions_mock(_, height) do
-    {:ok, %{"block" => %{"data" => %{"txs" => native(height)}}}}
+    {:ok, %{
+      "block" => %{
+        "data" => %{"txs" => native(height)},
+        "header" => %{"height" => height},
+      }
+    }}
   end
 
   defp native(1), do: [signed_send(1), ]
