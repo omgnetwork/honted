@@ -1,4 +1,7 @@
 defmodule HonteD.ABCI.TestHelpers do
+  @moduledoc """
+  Various shared functions used in ABCI tests
+  """
 
   import ExUnit.Assertions
   import HonteD.ABCI

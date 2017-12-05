@@ -10,6 +10,10 @@ defmodule HonteD.API.Events do
   @server HonteD.API.Events.Eventer
 
   defmodule NewBlock do
+    @moduledoc """
+    Event indicating a new block being processed
+    """
+    
     defstruct [:height]
 
     @type t :: %NewBlock{
