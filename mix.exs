@@ -16,6 +16,7 @@ defmodule HonteD.Umbrella.Mixfile do
     [
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:mox, "~> 0.3.1", only: :test},
+      {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
     ]
   end
 end
