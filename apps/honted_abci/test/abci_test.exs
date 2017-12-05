@@ -4,12 +4,12 @@ defmodule HonteD.ABCITest do
   """
   # NOTE: we can't enforce this here, because of the keyword-list-y form of create_x calls
   # credo:disable-for-this-file Credo.Check.Refactor.PipeChainStart
-  
+
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
   import HonteD.ABCI.TestHelpers
-  
+
   import HonteD.ABCI
   import HonteD.Transaction
 
@@ -34,7 +34,7 @@ defmodule HonteD.ABCITest do
       assert newhash != cleanhash
     end
   end
-  
+
   describe "generic transaction checks" do
     @tag fixtures: [:empty_state]
     test "too large transactions throw", %{empty_state: state} do

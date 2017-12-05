@@ -13,7 +13,7 @@ defmodule HonteD.API.Events do
     @moduledoc """
     Event indicating a new block being processed
     """
-    
+
     defstruct [:height]
 
     @type t :: %NewBlock{

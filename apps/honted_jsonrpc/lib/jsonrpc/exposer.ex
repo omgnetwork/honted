@@ -1,7 +1,7 @@
 defmodule HonteD.JSONRPC.Exposer do
   @moduledoc """
   This module contains a helper function to be called within JSONRPC Handlers `handle_request`
-  
+
   It takes the original data request and channels it to a specific API exposed using HonteD.API.ExposeSpec
 
   Internally uses HonteD.API.ExposeSpec macro to expose function argument names
@@ -10,8 +10,8 @@ defmodule HonteD.JSONRPC.Exposer do
   Note: it ignores extra args and does not yet handle functions
   of same name but different arity
   """
-  
-  @spec handle_request_on_api(method :: binary, 
+
+  @spec handle_request_on_api(method :: binary,
                               params :: %{required(binary) => any},
                               api :: atom) :: any
   def handle_request_on_api(method, params, api) do

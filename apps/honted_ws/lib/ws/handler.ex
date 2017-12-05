@@ -3,7 +3,7 @@ defmodule HonteD.WS.Handler do
   Translates requests flowing from the websocket connection to the auto-exposed API
   """
   require Logger
-  
+
   @behaviour :cowboy_websocket_handler
 
   # WS callbacks

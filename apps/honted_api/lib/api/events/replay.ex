@@ -7,10 +7,10 @@ defmodule HonteD.API.Events.Replay do
 
   require Logger
   alias HonteD.API.Events.Eventer, as: Eventer
-  
+
   defp iterate_block(block, ad_hoc_subscription, ad_hoc_filters) do
     height = get_in(block, ["block", "header", "height"])
-    
+
     block
     |> get_in(["block", "data", "txs"])
     |> Enum.map(&HonteD.TxCodec.decode!/1)
@@ -18,7 +18,7 @@ defmodule HonteD.API.Events.Replay do
     |> Enum.map(&(Eventer.do_notify(:committed, &1, height, ad_hoc_subscription, ad_hoc_filters)))
     |> Enum.map(fn :ok -> true end)
   end
-  
+
   defp get_block(tendermint, client, height) do
     {:ok, block} = tendermint.block(client, height)
     block

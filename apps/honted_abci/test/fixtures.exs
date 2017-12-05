@@ -1,7 +1,7 @@
 defmodule HonteD.ABCI.Fixtures do
   # NOTE: we can't enforce this here, because of the keyword-list-y form of create_x calls
   # credo:disable-for-this-file Credo.Check.Refactor.PipeChainStart
-  
+
   use ExUnitFixtures.FixtureModule
 
   import HonteD.Transaction

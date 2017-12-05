@@ -1,26 +1,26 @@
 defmodule HonteD.Transaction do
   @moduledoc """
   Used to manipulate the transaction structures
-  
+
   # FIXME: sometime let's reduce this boilerplate code that now is spread accross here, tx_codec, api
   #        it's pretty consistent but drying this would be nice, hopefully without complicating too much
   """
   alias HonteD.Transaction.Validation
-  
+
   defmodule CreateToken do
     @moduledoc false
     defstruct [:nonce, :issuer]
-    
+
     @type t :: %CreateToken{
       nonce: HonteD.nonce,
       issuer: HonteD.address,
     }
   end
-  
+
   defmodule Issue do
     @moduledoc false
     defstruct [:nonce, :asset, :amount, :dest, :issuer]
-    
+
     @type t :: %Issue{
       nonce: HonteD.nonce,
       asset: HonteD.token,
@@ -29,11 +29,11 @@ defmodule HonteD.Transaction do
       issuer: HonteD.address,
     }
   end
-  
+
   defmodule Send do
     @moduledoc false
     defstruct [:nonce, :asset, :amount, :from, :to]
-    
+
     @type t :: %Send{
       nonce: HonteD.nonce,
       asset: HonteD.token,
@@ -42,11 +42,11 @@ defmodule HonteD.Transaction do
       to: HonteD.address,
     }
   end
-  
+
   defmodule SignOff do
     @moduledoc false
     defstruct [:nonce, :height, :hash, :sender, :signoffer]
-    
+
     @type t :: %SignOff{
       nonce: HonteD.nonce,
       height: pos_integer,
@@ -55,11 +55,11 @@ defmodule HonteD.Transaction do
       signoffer: HonteD.address,
     }
   end
-  
+
   defmodule Allow do
     @moduledoc false
     defstruct [:nonce, :allower, :allowee, :privilege, :allow]
-    
+
     @type t :: %Allow{
       nonce: HonteD.nonce,
       allower: HonteD.address,
@@ -68,34 +68,34 @@ defmodule HonteD.Transaction do
       allow: boolean,
     }
   end
-  
+
   defmodule SignedTx do
     @moduledoc false
     defstruct [:raw_tx, :signature]
-    
+
     @type t :: %SignedTx{
       raw_tx: HonteD.Transaction.t,
       signature: HonteD.signature
     }
   end
-  
+
   @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t
-  
+
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
   """
-  @spec create_create_token([nonce: HonteD.nonce, issuer: HonteD.address]) :: 
+  @spec create_create_token([nonce: HonteD.nonce, issuer: HonteD.address]) ::
     {:ok, CreateToken.t} | {:error, atom}
   def create_create_token([nonce: nonce, issuer: issuer] = args)
   when is_integer(nonce) and
        is_binary(issuer) do
     create_encoded(CreateToken, args)
   end
-  
+
   @doc """
   Creates a Issue transaction, ensures state-less validity and encodes
   """
-  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) :: 
+  @spec create_issue([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, dest: HonteD.address, issuer: HonteD.address]) ::
     {:ok, Issue.t} | {:error, atom}
   def create_issue([nonce: nonce, asset: asset, amount: amount, dest: dest, issuer: issuer] = args)
   when is_integer(nonce) and
@@ -106,11 +106,11 @@ defmodule HonteD.Transaction do
        is_binary(dest) do
     create_encoded(Issue, args)
   end
-  
+
   @doc """
   Creates a Send transaction, ensures state-less validity and encodes
   """
-  @spec create_send([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, from: HonteD.address, to: HonteD.address]) :: 
+  @spec create_send([nonce: HonteD.nonce, asset: HonteD.token, amount: pos_integer, from: HonteD.address, to: HonteD.address]) ::
     {:ok, Send.t} | {:error, atom}
   def create_send([nonce: nonce, asset: asset, amount: amount, from: from, to: to] = args)
   when is_integer(nonce) and
@@ -121,7 +121,7 @@ defmodule HonteD.Transaction do
        is_binary(to) do
     create_encoded(Send, args)
   end
-  
+
   @doc """
   Creates a SignOff transaction, ensures state-less validity and encodes
   """
@@ -141,7 +141,7 @@ defmodule HonteD.Transaction do
     |> Keyword.merge([signoffer: sender])
     |> create_sign_off
   end
-  
+
   @doc """
   Creates an Allow transaction, ensures state-less validity and encodes
   """
@@ -155,7 +155,7 @@ defmodule HonteD.Transaction do
        is_boolean(allow) do
     create_encoded(Allow, args)
   end
-  
+
   defp create_encoded(type, args) do
     with tx <- struct(type, args),
          :ok <- Validation.valid?(tx),

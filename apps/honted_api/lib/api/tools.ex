@@ -2,9 +2,9 @@ defmodule HonteD.API.Tools do
   @moduledoc """
   Shared functionality used by HonteD.API _not to be auto-exposed_
   """
-  
+
   alias HonteD.API.TendermintRPC
-  
+
   @doc """
   Uses a TendermintRPC `client` to get the current nonce for the `from` address. Returns raw Tendermint response
   in case of any failure
@@ -12,14 +12,14 @@ defmodule HonteD.API.Tools do
   def get_nonce(client, from) do
     get_and_decode(client, "/nonces/#{from}")
   end
-  
+
   @doc """
   Uses a TendermintRPC `client` to the issuer for a token
   """
   def get_issuer(client, token) do
     get_and_decode(client, "/tokens/#{token}/issuer")
   end
-  
+
   @doc """
   Uses a TendermintRPC `client` to query anything from the abci and decode to map
   """

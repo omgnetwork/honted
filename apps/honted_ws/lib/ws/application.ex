@@ -3,11 +3,11 @@ defmodule HonteD.WS.Application do
 
   use Application
 
-  def start(_type, _args) do  
+  def start(_type, _args) do
     children = [
       HonteD.WS.Server,
     ]
-    
+
     opts = [strategy: :one_for_one, name: HonteD.WS.Supervisor]
     Supervisor.start_link(children, opts)
   end

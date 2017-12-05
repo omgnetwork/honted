@@ -25,7 +25,7 @@ defmodule HonteD.API do
 
   @doc """
   Creates a signable, encoded transaction that issues `amount` `asset`-tokens to `to`
-  
+
   NOTE: total_supply issuable is capped at 2^256, to limit the capability to exploit unlimited integers in BEAM
         see code that handles state transition for issuing.
         This cap has nothing to do with token supply
@@ -110,11 +110,11 @@ defmodule HonteD.API do
         {:error, %{reason: :deliver_tx_failed, tx_hash: hash, raw_result: result}}
       {:ok, %{"check_tx" => %{"code" => code, "data" => data, "log" => log}, "hash" => hash}} ->
         {:error, %{reason: :check_tx_failed, tx_hash: hash, code: code, data: data, log: log}}
-      result -> 
+      result ->
         {:error, %{reason: :unknown_error, raw_result: inspect result}}
     end
   end
-  
+
   def submit_transaction_async(transaction) do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.broadcast_tx_async(client, transaction)
@@ -125,7 +125,7 @@ defmodule HonteD.API do
       # failures
       {:ok, %{"code" => code, "data" => data, "log" => log, "hash" => hash}} ->
         {:error, %{reason: :submit_failed, tx_hash: hash, code: code, data: data, log: log}}
-      result -> 
+      result ->
         {:error, %{reason: :unknown_error, raw_result: inspect result}}
     end
   end
@@ -140,7 +140,7 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     Tools.get_and_decode(client, "/accounts/#{token}/#{address}")
   end
-  
+
   @doc """
   Lists tokens issued by a particular address
   """
@@ -150,7 +150,7 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     Tools.get_and_decode(client, "/issuers/#{issuer}")
   end
-  
+
   @doc """
   Get detailed information for a particular token
   """
@@ -164,7 +164,7 @@ defmodule HonteD.API do
          {:ok, total_supply} <- Tools.get_and_decode(client, "/tokens/#{token}/total_supply"),
          do: {:ok, %{token: token, issuer: issuer, total_supply: total_supply}}
   end
-  
+
   @doc """
   Queries for detailed data on a particular submitted transaction with hash `hash`.
   Appends a convenience field `decoded_tx` to the details supplied by Tendermint

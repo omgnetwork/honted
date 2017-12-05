@@ -3,7 +3,7 @@ defmodule HonteD.Integration.VersionTest do
   Intends to make a quick check whether the binaries available are at their correct versions
   """
   use ExUnit.Case, async: false
-  
+
   @moduletag :integration
 
   test "Tendermint at supported version" do
@@ -13,6 +13,6 @@ defmodule HonteD.Integration.VersionTest do
     version_output
     |> String.trim
     |> Version.match?("~> 0.11")
-    |> assert 
+    |> assert
   end
 end

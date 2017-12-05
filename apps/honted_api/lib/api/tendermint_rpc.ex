@@ -1,10 +1,10 @@
 defmodule HonteD.API.TendermintRPC do
   @moduledoc """
   Wraps Tendermints RPC to allow to broadcast transactions from Elixir functions, inter alia
-  
+
   This should only depend on Tendermint rpc's specs, never on any of our stuff. Thus it only does the Base16/64
   decoding, and the Poison decoding of e.g. query responses happens elsewhere.
-  
+
   The sequence of every call to the RPC is:
     - incoming request from Elixir
     - encode the query using `encode` for their respective types
@@ -89,19 +89,19 @@ defmodule HonteD.API.TendermintRPC do
       %{"error" => error} -> {:error, error}
     end
   end
-  
+
   defp decode_abci_query({:ok, result}) do
-    {:ok, result 
+    {:ok, result
           |> update_in(["response", "value"], &Base.decode16!/1)}
   end
   defp decode_abci_query(other), do: other
-  
+
   defp decode_tx({:ok, result}) do
-    {:ok, result 
+    {:ok, result
           |> Map.update!("tx", &Base.decode64!/1)}
   end
   defp decode_tx(other), do: other
-  
+
   defp encode(arglist) when is_list(arglist) do
     arglist
     |> Enum.map(fn {argname, argval} -> {argname, encode(argval)} end)
@@ -110,5 +110,5 @@ defmodule HonteD.API.TendermintRPC do
   defp encode(raw) when is_binary(raw), do: "\"#{raw}\""
   defp encode(raw) when is_boolean(raw), do: to_string(raw)
   defp encode(raw) when is_integer(raw), do: Integer.to_string(raw)
-  
+
 end

@@ -38,7 +38,7 @@ defmodule HonteD.ABCI.State do
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          :ok <- is_issuer?(state, tx.asset, tx.issuer),
          :ok <- not_too_much?(tx.amount, state["tokens/#{tx.asset}/total_supply"]),
-         do: {:ok, state 
+         do: {:ok, state
                    |> apply_issue(tx.asset, tx.amount, tx.dest)
                    |> bump_nonce_after(tx)}
   end
@@ -49,7 +49,7 @@ defmodule HonteD.ABCI.State do
 
     with :ok <- nonce_valid?(state, tx.from, tx.nonce),
          :ok <- account_has_at_least?(state, key_src, tx.amount),
-         do: {:ok, state 
+         do: {:ok, state
                   |> apply_send(tx.amount, key_src, key_dest)
                   |> bump_nonce_after(tx)}
   end
@@ -58,19 +58,19 @@ defmodule HonteD.ABCI.State do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
          :ok <- allows_for?(state, tx.signoffer, tx.sender, :signoff),
          :ok <- sign_off_incremental?(state, tx.height, tx.signoffer),
-         do: {:ok, state 
+         do: {:ok, state
                    |> apply_sign_off(tx.height, tx.hash, tx.signoffer)
                    |> bump_nonce_after(tx)}
   end
-  
+
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Allow{} = tx}) do
-    
+
     with :ok <- nonce_valid?(state, tx.allower, tx.nonce),
-         do: {:ok, state 
+         do: {:ok, state
                    |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)
                    |> bump_nonce_after(tx)}
   end
-  
+
   defp account_has_at_least?(state, key_src, amount) do
     if Map.get(state, key_src, 0) >= amount, do: :ok, else: {:error, :insufficient_funds}
   end
@@ -104,12 +104,12 @@ defmodule HonteD.ABCI.State do
       %{height: old_height} when is_integer(old_height) -> {:error, :sign_off_not_incremental}
     end
   end
-  
+
   defp allows_for?(state, allower, allowee, privilege) when is_atom(privilege) do
     # checks whether allower allows allowee for privilege
-    
+
     # always self-allow and in case allower != allowee - check delegations in state
-    if allower == allowee or Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do 
+    if allower == allowee or Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do
       :ok
     else
       {:error, :invalid_delegation}
@@ -142,12 +142,12 @@ defmodule HonteD.ABCI.State do
     state
     |> Map.put("sign_offs/#{signoffer}", %{height: height, hash: hash})
   end
-  
+
   defp apply_allow(state, allower, allowee, privilege, allow) do
     state
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
-  
+
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)
     state

@@ -86,7 +86,7 @@ defmodule HonteD.ABCI do
     value = Map.get(state, key, 0)
     {:reply, {:ResponseQuery, 0, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, ''}, state}
   end
-  
+
   @doc """
   Specialized query for issued tokens for an issuer
   """
@@ -100,7 +100,7 @@ defmodule HonteD.ABCI do
 
   @doc """
   Generic raw query for any key in state.
-  
+
   TODO: interface querying the state out, so that state remains implementation detail
   """
   def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
@@ -120,7 +120,7 @@ defmodule HonteD.ABCI do
     _ = Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
     {:reply, {}, state}
   end
-  
+
   ### END GenServer
 
   defp encode_query_response(object) do
@@ -133,7 +133,7 @@ defmodule HonteD.ABCI do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
          do: State.exec(state, tx)
   end
-  
+
   defp lookup(state, key) do
     state |> State.get(key) |> handle_get
   end

@@ -46,11 +46,11 @@ defmodule HonteD.ABCI.EventsTest do
       server_pid = server_spawner.({
         :event,
         struct(HonteD.Transaction.CreateToken, params)})
-      
+
       params |> create_create_token |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
-    
+
     @tag fixtures: [:server_spawner, :state_with_token, :alice, :asset, :issuer]
     test "issue transaction emits events", %{state_with_token: state, asset: asset, alice: alice, issuer: issuer,
                                              server_spawner: server_spawner} do
@@ -58,11 +58,11 @@ defmodule HonteD.ABCI.EventsTest do
       server_pid = server_spawner.({
         :event,
         struct(HonteD.Transaction.Issue, params)})
-      
+
       params |> create_issue |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
-    
+
     @tag fixtures: [:server_spawner, :state_alice_has_tokens, :alice, :bob, :asset]
     test "send transaction emits events", %{state_alice_has_tokens: state, asset: asset, alice: alice, bob: bob,
                                             server_spawner: server_spawner} do
@@ -70,30 +70,30 @@ defmodule HonteD.ABCI.EventsTest do
       server_pid = server_spawner.({
         :event,
         struct(HonteD.Transaction.Send, params)})
-      
+
       params |> create_send |> sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
     end
-    
+
     @tag fixtures: [:server_spawner, :state_with_token, :some_block_hash, :issuer, :alice, :asset]
     test "signoff transaction emits events with tokens", %{state_with_token: state, issuer: issuer, alice: alice,
                                                            some_block_hash: hash, server_spawner: server_spawner,
                                                            asset: asset} do
       setup_params = [nonce: 1, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true]
-      %{state: state} = 
+      %{state: state} =
         setup_params |> create_allow |> sign(issuer.priv) |> deliver_tx(state)
-      
+
       params = [nonce: 0, height: 1, hash: hash, sender: alice.addr, signoffer: issuer.addr]
       server_pid = server_spawner.({
         :event_context,
         struct(HonteD.Transaction.SignOff, params),
         [asset]
       })
-      
+
       params |> create_sign_off |> sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
     end
-    
+
     @tag fixtures: [:server_spawner, :empty_state, :issuer, :alice]
     test "allow transaction emits events", %{empty_state: state, issuer: issuer, alice: alice,
                                              server_spawner: server_spawner} do
@@ -101,7 +101,7 @@ defmodule HonteD.ABCI.EventsTest do
       server_pid = server_spawner.({
         :event,
         struct(HonteD.Transaction.Allow, params)})
-      
+
       params |> create_allow |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
@@ -111,7 +111,7 @@ defmodule HonteD.ABCI.EventsTest do
                                                   server_spawner: server_spawner} do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
-      
+
       params |> create_sign_off |> sign(issuer.priv) |> check_tx(state)
       join(server_pid)
     end
@@ -124,7 +124,7 @@ defmodule HonteD.ABCI.EventsTest do
       # NOTE: deliver_tx should not crash here: this is intended version. Please restore
       #  next line after allowing :ResponseDeliverTx to return non-zero error codes.
       # create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
-      raw_tx = 
+      raw_tx =
         params
         |> create_sign_off
         |> sign(issuer.priv)
