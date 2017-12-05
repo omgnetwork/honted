@@ -15,7 +15,7 @@ defmodule HonteD.JSONRPC.Exposer do
                               params :: %{required(binary) => any},
                               api :: atom) :: any
   def handle_request_on_api(method, params, api) do
-    with {:ok, fname, args} <- HonteD.API.RPCTranslate.to_fa(method, params, api.get_specs()),
+    with {:ok, fname, args} <- HonteD.API.ExposeSpec.RPCTranslate.to_fa(method, params, api.get_specs()),
          {:ok, result} <- apply_call(api, fname, args)
     do
       result

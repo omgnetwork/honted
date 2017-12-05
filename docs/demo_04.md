@@ -1,4 +1,4 @@
-To run two Tendermint nodes and to ABCI servers on same machine do following.
+## Finalized events and richer sign-off transaction logic. Reliable replay of events
 
 1. Run a single node HonteD-Tendermint as usual (both apps!)
 7. in `iex`/`wscat`/shell:
@@ -114,7 +114,7 @@ submit_transaction raw_tx <> " " <> signature
 submit_transaction raw_tx <> " " <> signature
 
 # now grab the historic events 
-# {"wsrpc": "1.0", "type": "rq", "method": "??????", "params": {"watched": "", ...??????}}
+# {"wsrpc": "1.0", "type": "rq", "method": "new_send_filter_history", "params": {"watched": "", "first": "", "last": ""}}
 
 # use the committed but not finalized list to actively poll the finality of the remaining transactions
 # NOTE: check both the transactions from the previous and current wscat session

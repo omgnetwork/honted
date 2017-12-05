@@ -1,4 +1,4 @@
-To run two Tendermint nodes and to ABCI servers on same machine do following.
+## [OBSOLETE] Basic sign-off transactions
 
 1. Run a single node HonteD-Tendermint as usual (both apps!)
 7. in `iex`/`wscat`/shell:

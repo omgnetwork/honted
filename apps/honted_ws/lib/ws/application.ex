@@ -5,7 +5,7 @@ defmodule HonteD.WS.Application do
 
   def start(_type, _args) do  
     children = [
-      HonteD.WS.RPC,
+      HonteD.WS.Server,
     ]
     
     opts = [strategy: :one_for_one, name: HonteD.WS.Supervisor]

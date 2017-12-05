@@ -1,4 +1,7 @@
 defmodule HonteD.API.TendermintBehavior do
+  @moduledoc """
+  Interface of Tendermint's RPC api
+  """
 
   @type result :: {:ok, map} | {:error, any}
   @type tx :: binary

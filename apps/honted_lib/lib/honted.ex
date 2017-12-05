@@ -1,4 +1,7 @@
 defmodule HonteD do
+  @moduledoc """
+  All stateless and generic functionality, shared application logic
+  """
   @type address :: String.t
   @type token :: String.t
   @type signature :: String.t
