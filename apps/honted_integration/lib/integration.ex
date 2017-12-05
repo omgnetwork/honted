@@ -52,7 +52,7 @@ defmodule HonteD.Integration do
   ### HELPER FUNCTIONS
   
   defp wait_for_tendermint_start(tendermint_out) do
-    wait_for_start(tendermint_out, "Started node", 20000)
+    wait_for_start(tendermint_out, "Started node", 20_000)
   end
   
   def wait_for_start(outstream, look_for, timeout) do

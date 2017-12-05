@@ -1,4 +1,7 @@
 defmodule HonteD.Integration.Performance do
+  @moduledoc """
+  Tooling to run HonteD performance tests - orchestration and running tests
+  """
 
   alias HonteD.Integration
   
@@ -22,7 +25,8 @@ defmodule HonteD.Integration.Performance do
   
   def dummy_txs_source(nstreams) do
     for _stream_id <- 1..nstreams do
-      Stream.interval(0)
+      0
+      |> Stream.interval
       # FIXME: useful for debugging, remove after sprint
       # |> Stream.map(fn tx_id -> IO.puts("stream: #{stream_id}, tx: #{tx_id}"); tx_id end)
       |> Stream.map(fn _ -> 
@@ -46,7 +50,7 @@ defmodule HonteD.Integration.Performance do
       |> Enum.map(fn tx -> HonteD.API.submit_transaction_async(tx) end)
     end)
       
-    for task <- fill_tasks, do: Task.await(task, 100000)
+    for task <- fill_tasks, do: Task.await(task, 100_000)
   end
   
   def run_performance_test(txs_source, durationT) do
@@ -55,7 +59,7 @@ defmodule HonteD.Integration.Performance do
     
     for txs_stream <- txs_source, do: Task.async(fn ->
       txs_stream
-      |> Enum.map(fn tx -> API.submit_transaction_async(tx) end)
+      |> Enum.each(fn tx -> API.submit_transaction_async(tx) end)
     end)
     
     Porcelain.Process.await(tm_bench_proc, durationT * 1000 + 1000)

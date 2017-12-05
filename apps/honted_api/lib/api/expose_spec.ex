@@ -48,7 +48,8 @@ defmodule HonteD.API.ExposeSpec do
   end
 
   defp body_ret_pair([{name, _line, args}, output_tuple]) do
-    body(name, args)
+    name
+    |> body(args)
     |> add_return_type(output_tuple)
   end
 
@@ -120,7 +121,9 @@ defmodule HonteD.API.ExposeSpec do
 
   defmacro __before_compile__(env) do
     module = env.module
-    nice_spec = Module.get_attribute(module, :spec)
+    nice_spec =
+      module
+      |> Module.get_attribute(:spec)
       |> Enum.map(&function_spec/1)
       |> Enum.filter(fn(x) -> x != :incomplete_spec end)
       |> Enum.map(fn(map) -> {map[:name], map} end)
