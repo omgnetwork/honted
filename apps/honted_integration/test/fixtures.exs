@@ -4,9 +4,7 @@ defmodule HonteD.Integration.Fixtures do
   alias HonteD.Integration
   
   deffixture homedir() do
-    {dir_path, exit_fn} = Integration.homedir()
-    on_exit exit_fn
-    dir_path
+    Integration.homedir()
   end
   
   deffixture tendermint(homedir, honted) do

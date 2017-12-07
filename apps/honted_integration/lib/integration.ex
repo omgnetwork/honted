@@ -7,10 +7,11 @@ defmodule HonteD.Integration do
   require Logger
   
   def homedir() do
+    Temp.track!
+    
     {:ok, dir_path} = Temp.mkdir("tendermint")
-    {dir_path, fn ->
-      {:ok, _} = File.rm_rf(dir_path)
-    end}
+    
+    dir_path
   end
   
   @doc """
@@ -44,12 +45,23 @@ defmodule HonteD.Integration do
       out: :stream,
     )
     wait_for_tendermint_start(tendermint_out)
-    {:ok, fn -> 
+    
+    # something to give us the possibility to look at blocks being mined
+    Task.async(fn -> show_tendermint_logs(tendermint_out) end)
+    
+    {:ok, fn ->
       Porcelain.Process.stop(tendermint_proc)
     end}
   end
   
   ### HELPER FUNCTIONS
+  
+  defp show_tendermint_logs(tendermint_out) do
+    tendermint_out
+    |> Stream.flat_map(&String.split(&1, "\n")) # necessary because items in stream are >1 line
+    |> Stream.filter(fn line -> String.contains?(line, "Executed block") end)
+    |> Enum.each(&Logger.info/1)
+  end
   
   defp wait_for_tendermint_start(tendermint_out) do
     wait_for_start(tendermint_out, "Started node", 20000)
