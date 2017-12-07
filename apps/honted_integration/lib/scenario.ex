@@ -1,0 +1,122 @@
+defmodule HonteD.Perf.Scenario do
+  @moduledoc """
+  """
+
+  import HonteD.Crypto
+  import HonteD.Transaction
+
+  @start_tokens 1_000_000
+  @amount_that_fails 1_000_000_000_000
+  @normal_amount 1
+
+  defmodule Keys do
+    defstruct [:priv,
+               :pub,
+               :addr,
+              ]
+  end
+
+  defmodule Scenario do
+    defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :receivers, :send_txs]
+  end
+
+  @doc """
+  Define new scenario. Load transactions are generated lazily; scenario is deterministic and
+  very synthetic.
+
+  Each sender corresponds to one token and one issue transaction. Transactions for load phase
+  of the test can be taken from streams in send_txs. Transaction validity is independent from
+  global ordering of transactions.
+  """
+  def new(no_senders, no_receivers, failure_rate \\ 0.1)
+  when
+  0 <= failure_rate and
+  failure_rate < 1 and
+  no_senders > 0 and
+  no_receivers > 0 do
+    # Seed with hardcoded value instead of time-based value
+    # This ensures determinism of the scenario generation process.
+    _ = :rand.seed(:exs1024s, {123, 123534, 345345})
+    issuers = Enum.map 1..no_senders, &generate_keys/1
+    {tokens, create_token_txs} = Enum.unzip(Enum.map(issuers, &create_token/1))
+    holders_senders = Enum.map(1..no_senders, &generate_keys/1)
+    issue_txs = Enum.map(:lists.zip3(issuers, tokens, holders_senders), &issue_token/1)
+    receivers = 1..no_receivers |> Enum.map(&generate_keys/1)
+    streams = prepare_send_streams(holders_senders, tokens, receivers, failure_rate)
+    %Scenario{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
+              holders_senders: holders_senders, issue_txs: issue_txs,
+              receivers: receivers, send_txs: streams
+    }
+  end
+
+  def get_setup(model) do
+    Enum.zip(model.create_token_txs, model.issue_txs) |> Enum.map(&Tuple.to_list/1)
+  end
+
+  def get_senders(model) do
+    model.holders_senders
+  end
+
+  defp prepare_send_streams(holders_senders, tokens, receivers, failure_rate) do
+    seeds = make_n_seeds(:rand.export_seed(), length(holders_senders))
+    args = :lists.zip3(holders_senders, tokens, seeds)
+    for {sender, token, stream_initial_seed} <- args do
+      transaction_generator = fn({nonce, stream_seed}) ->
+        :rand.seed(stream_seed)
+        success = failure_rate < :rand.uniform()
+        receiver = Enum.random(receivers)
+        {:ok, tx} = create_send([nonce: nonce, asset: token, amount: send_amount(success),
+                                 from: sender.addr, to: receiver.addr])
+        {{success, signed_tx(tx, sender)}, {next_nonce(success, nonce), :rand.export_seed()}}
+      end
+      Stream.unfold({0, stream_initial_seed}, transaction_generator)
+    end
+  end
+
+  # All seeds are a function of initial_seed, but they do not overlap in practice
+  def make_n_seeds(initial_seed, n) when n > 0 do
+    1..n
+    |> Enum.reduce([initial_seed], &seed_generator/2)
+    |> Enum.take(n)
+  end
+
+  defp seed_generator(_, [last | _] = acc) do
+    # Jump/1 is hard to use, so seed/1 -> jump/0 -> export_seed/0 instead.
+    :rand.seed(last)
+    :rand.jump()
+    seed = :rand.export_seed()
+    [seed | acc]
+  end
+
+  defp send_amount(false), do: @amount_that_fails
+  defp send_amount(true), do: @normal_amount
+
+  defp next_nonce(true, n), do: n + 1
+  defp next_nonce(false, n), do: n
+
+  defp generate_keys(_) do
+    {:ok, priv} = generate_private_key()
+    {:ok, pub} = generate_public_key(priv)
+    {:ok, addr} = generate_address(pub)
+    %Keys{priv: priv, pub: pub, addr: addr}
+  end
+
+  defp create_token(issuer) do
+    {:ok, tx} = create_create_token(nonce: 0, issuer: issuer.addr)
+    tx = signed_tx(tx, issuer)
+    token_addr = HonteD.Token.create_address(issuer.addr, 0)
+    {token_addr, {true, tx}}
+  end
+
+  defp issue_token({issuer, token_addr, holder}) do
+    {:ok, tx} = create_issue(nonce: 1, asset: token_addr, amount: @start_tokens,
+      dest: holder.addr, issuer: issuer.addr)
+    {true, signed_tx(tx, issuer)}
+  end
+
+  defp signed_tx(tx, acc) do
+    {:ok, signature} = sign(tx, acc.priv)
+    tx <> " " <> signature
+  end
+
+end

@@ -71,7 +71,7 @@ defmodule HonteD.API.Events.Eventer do
   def do_notify(finality_status, event_content, event_height, subs, filters) do
     event_topics = event_topics_for(event_content)
     pids = subscribed(event_topics, subs, filters)
-    _ = Logger.info("do_notify: #{inspect event_topics} #{inspect finality_status}, #{inspect event_content}, pid: #{inspect pids}")
+    _ = Logger.debug("do_notify: #{inspect event_topics} #{inspect finality_status}, #{inspect event_content}, pid: #{inspect pids}")
     for {filter_id, pid} <- pids do
       msg = message(finality_status, event_height, filter_id, event_content)
       send(pid, {:event, msg})
