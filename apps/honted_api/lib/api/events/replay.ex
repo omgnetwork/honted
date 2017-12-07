@@ -24,13 +24,13 @@ defmodule HonteD.API.Events.Replay do
     block
   end
 
-  def spawn(filter_id, tendermint, first, last, topics, pid) do
+  def spawn(filter_id, tendermint, block_range, topics, pid) do
     client = tendermint.client()
     ad_hoc_subscription = BiMultiMap.new([{topics, pid}])
     ad_hoc_filters = BiMultiMap.new([{filter_id, {topics, pid}}])
     {:ok, _} = Task.start(fn() ->
       try do
-        first..last
+        block_range
         |> Stream.map(fn height -> get_block(tendermint, client, height) end)
         |> Enum.map(fn block -> iterate_block(block, ad_hoc_subscription, ad_hoc_filters) end)
       after

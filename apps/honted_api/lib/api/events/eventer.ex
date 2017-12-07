@@ -142,7 +142,7 @@ defmodule HonteD.API.Events.Eventer do
   def handle_call({:new_filter_history, topics, pid, first, last}, _from, state) do
     filter_id = make_filter_id()
     _ = Logger.warn("tendermint module is: #{inspect state.tendermint}")
-    _ = Replay.spawn(filter_id, state.tendermint, first, last, topics, pid)
+    _ = Replay.spawn(filter_id, state.tendermint, first..last, topics, pid)
     {:reply, {:ok, %{history_filter: filter_id}}, state}
   end
 
