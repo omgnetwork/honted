@@ -79,9 +79,9 @@ defmodule HonteD.Integration.Performance do
    - duration: time to run performance test under tm-bench [seconds]
   """
   def run(nstreams, fill_in, duration) do
-    scenario = HonteD.Perf.Scenario.new(nstreams, nstreams * 2)
+    scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
-    setup_tasks = for setup_stream <- HonteD.Perf.Scenario.get_setup(scenario), do: Task.async(fn ->
+    setup_tasks = for setup_stream <- HonteD.Performance.Scenario.get_setup(scenario), do: Task.async(fn ->
           for {_, tx} <- setup_stream, do: API.submit_transaction(tx)
         end)
     _ = Logger.info("Waiting for setup to complete...")

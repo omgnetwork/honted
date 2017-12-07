@@ -1,7 +1,9 @@
-defmodule HonteD.Perf.Scenario do
+defmodule HonteD.Performance.Scenario do
   @moduledoc """
   Generating test scenarios for performance tests - mainly streams of transactions and other useful data
   """
+
+  defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :receivers, :send_txs]
 
   import HonteD.Crypto
   import HonteD.Transaction
@@ -18,10 +20,6 @@ defmodule HonteD.Perf.Scenario do
                :pub,
                :addr,
               ]
-  end
-
-  defmodule Scenario do
-    defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :receivers, :send_txs]
   end
 
   @doc """
@@ -47,9 +45,9 @@ defmodule HonteD.Perf.Scenario do
     issue_txs = Enum.map(:lists.zip3(issuers, tokens, holders_senders), &issue_token/1)
     receivers = 1..no_receivers |> Enum.map(&generate_keys/1)
     streams = prepare_send_streams(holders_senders, tokens, receivers, failure_rate)
-    %Scenario{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
-              holders_senders: holders_senders, issue_txs: issue_txs,
-              receivers: receivers, send_txs: streams
+    %__MODULE__{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
+                holders_senders: holders_senders, issue_txs: issue_txs,
+                receivers: receivers, send_txs: streams
     }
   end
 
