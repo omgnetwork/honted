@@ -1,5 +1,6 @@
 defmodule HonteD.Perf.Scenario do
   @moduledoc """
+  Generating test scenarios for performance tests - mainly streams of transactions and other useful data
   """
 
   import HonteD.Crypto
@@ -10,6 +11,9 @@ defmodule HonteD.Perf.Scenario do
   @normal_amount 1
 
   defmodule Keys do
+    @moduledoc """
+    Convenience struct to handle blockchain identities
+    """
     defstruct [:priv,
                :pub,
                :addr,
@@ -36,7 +40,7 @@ defmodule HonteD.Perf.Scenario do
   no_receivers > 0 do
     # Seed with hardcoded value instead of time-based value
     # This ensures determinism of the scenario generation process.
-    _ = :rand.seed(:exs1024s, {123, 123534, 345345})
+    _ = :rand.seed(:exs1024s, {123, 123_534, 345_345})
     issuers = Enum.map 1..no_senders, &generate_keys/1
     {tokens, create_token_txs} = Enum.unzip(Enum.map(issuers, &create_token/1))
     holders_senders = Enum.map(1..no_senders, &generate_keys/1)
@@ -50,7 +54,9 @@ defmodule HonteD.Perf.Scenario do
   end
 
   def get_setup(model) do
-    Enum.zip(model.create_token_txs, model.issue_txs) |> Enum.map(&Tuple.to_list/1)
+    model.create_token_txs
+    |> Enum.zip(model.issue_txs)
+    |> Enum.map(&Tuple.to_list/1)
   end
 
   def get_senders(model) do

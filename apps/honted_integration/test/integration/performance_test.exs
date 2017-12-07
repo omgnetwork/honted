@@ -13,14 +13,14 @@ defmodule HonteD.Integration.PerformanceTest do
   @moduletag timeout: :infinity
 
   @duration 3 # so that at least one block gets mined :)
-  
+
   @nstreams 100
   @fill_in 200
-  
+
   @tag fixtures: [:tendermint]
   test "performance test should run with fill in", %{} do
     result = Performance.run(@nstreams, @fill_in, @duration)
-    
+
     result
     |> String.contains?("Txs/sec")
     |> assert

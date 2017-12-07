@@ -7,7 +7,7 @@ defmodule HonteD.Integration.Performance do
 
   require Logger
   alias HonteD.{API}
-  
+
   @doc """
   Starts a tm-bench Porcelain process for `duration_T` to listen for events and collect metrics
   """
@@ -28,11 +28,11 @@ defmodule HonteD.Integration.Performance do
 
   defp check_result({:ok, _}, true), do: :ok
   defp check_result({:error, _}, false), do: :ok
-  
+
   # will submit a stream of transacctions to HonteD.API, checking expected result
   defp submit_stream(txs_stream) do
     txs_stream
-    |> Enum.map(fn {expected, tx} -> 
+    |> Enum.map(fn {expected, tx} ->
       tx
       |> HonteD.API.submit_transaction
       |> check_result(expected)
@@ -51,7 +51,7 @@ defmodule HonteD.Integration.Performance do
 
     for task <- fill_tasks, do: Task.await(task, 100_000)
   end
-  
+
   @doc """
   Runs the actual perf test scenario under tm-bench
   """
@@ -71,7 +71,7 @@ defmodule HonteD.Integration.Performance do
     |> Enum.to_list
     |> Enum.join
   end
-  
+
   @doc """
   Assumes a setup done earlier, builds the scenario and runs performance test
    - nstreams: number of streams (processes) sending transactions
@@ -79,13 +79,13 @@ defmodule HonteD.Integration.Performance do
    - duration: time to run performance test under tm-bench [seconds]
   """
   def run(nstreams, fill_in, duration) do
-    scenario = HonteD.Perf.Scenario.new(nstreams, nstreams*2)
+    scenario = HonteD.Perf.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
     setup_tasks = for setup_stream <- HonteD.Perf.Scenario.get_setup(scenario), do: Task.async(fn ->
           for {_, tx} <- setup_stream, do: API.submit_transaction(tx)
         end)
     _ = Logger.info("Waiting for setup to complete...")
-    for task <- setup_tasks, do: Task.await(task, 100000)
+    for task <- setup_tasks, do: Task.await(task, 100_000)
     _ = Logger.info("Setup completed")
 
     txs_source = scenario.send_txs
@@ -101,7 +101,7 @@ defmodule HonteD.Integration.Performance do
     |> Enum.map(fn stream -> Stream.drop(stream, fill_in_per_stream) end)
     |> run_performance_test(duration)
   end
-  
+
   @doc """
   Runs full HonteD node and runs perf test
   """
