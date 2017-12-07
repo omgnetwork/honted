@@ -44,7 +44,7 @@ defmodule HonteD.Integration do
     wait_for_tendermint_start(tendermint_out)
 
     # something to give us the possibility to look at blocks being mined
-    Task.async(fn -> show_tendermint_logs(tendermint_out) end)
+    _ = Task.async(fn -> show_tendermint_logs(tendermint_out) end)
 
     {:ok, fn ->
       Porcelain.Process.stop(tendermint_proc)
