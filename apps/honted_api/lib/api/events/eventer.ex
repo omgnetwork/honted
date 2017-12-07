@@ -47,7 +47,6 @@ defmodule HonteD.API.Events.Eventer do
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
       # Works ONLY for Send transactions
-      # TODO: pull those events from Tendermint
       committed: %{optional(token) => queue},
       height: HonteD.block_height,
       tendermint: module(),
@@ -267,7 +266,6 @@ defmodule HonteD.API.Events.Eventer do
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
   defp event_topics_for(_), do: []
 
-  # FIXME: this maps get should be done for set of all subsets
   defp subscribed(topics, subs, filters) do
     pids = BiMultiMap.get(subs, topics)
     for pid <- pids do
