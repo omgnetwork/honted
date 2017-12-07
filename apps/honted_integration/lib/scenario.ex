@@ -66,7 +66,7 @@ defmodule HonteD.Performance.Scenario do
     args = :lists.zip3(holders_senders, tokens, seeds)
     for {sender, token, stream_initial_seed} <- args do
       transaction_generator = fn({nonce, stream_seed}) ->
-        :rand.seed(stream_seed)
+        _ = :rand.seed(stream_seed)
         success = failure_rate < :rand.uniform()
         receiver = Enum.random(receivers)
         {:ok, tx} = create_send([nonce: nonce, asset: token, amount: send_amount(success),
@@ -86,8 +86,8 @@ defmodule HonteD.Performance.Scenario do
 
   defp seed_generator(_, [last | _] = acc) do
     # Jump/1 is hard to use, so seed/1 -> jump/0 -> export_seed/0 instead.
-    :rand.seed(last)
-    :rand.jump()
+    _ = :rand.seed(last)
+    _ = :rand.jump()
     seed = :rand.export_seed()
     [seed | acc]
   end

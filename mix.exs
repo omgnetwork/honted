@@ -8,6 +8,7 @@ defmodule HonteD.Umbrella.Mixfile do
       deps: deps(),
       dialyzer: [ flags: [:error_handling, :race_conditions, :underspecs, :unknown, :unmatched_returns],
                   plt_add_deps: :transitive,
+                  ignore_warnings: "dialyzer.ignore-warnings"
                 ],
     ]
   end

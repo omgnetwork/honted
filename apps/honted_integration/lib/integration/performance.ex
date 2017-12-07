@@ -92,7 +92,7 @@ defmodule HonteD.Integration.Performance do
     fill_in_per_stream = div(fill_in, nstreams)
 
     _ = Logger.info("Starting fill_in: #{inspect fill_in}")
-    txs_source
+    _ = txs_source
     |> fill_in(fill_in_per_stream)
 
     _ = Logger.info("Fill_in done")
