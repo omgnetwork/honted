@@ -1,4 +1,7 @@
 defmodule HonteD.ABCI.Fixtures do
+  # NOTE: we can't enforce this here, because of the keyword-list-y form of create_x calls
+  # credo:disable-for-this-file Credo.Check.Refactor.PipeChainStart
+
   use ExUnitFixtures.FixtureModule
 
   import HonteD.Transaction
@@ -26,15 +29,14 @@ defmodule HonteD.ABCI.Fixtures do
   deffixture issuer(entities), do: entities.issuer
   deffixture issuer2(entities), do: entities.issuer2
 
-  deffixture asset(issuer) do
-    # FIXME: as soon as that functionality lands, we should use HonteD.API to discover newly created
-    # token addresses
-    # (multiple occurrences!)
-    HonteD.Token.create_address(issuer.addr, 0)
+  deffixture asset(state_with_token, issuer) do
+    %{code: 0, value: [asset]} = query(state_with_token, '/issuers/#{issuer.addr}')
+    asset
   end
 
-  deffixture asset2(issuer2) do
-    HonteD.Token.create_address(issuer2.addr, 0)
+  deffixture asset2(state_bob_has_tokens2, issuer2) do
+    %{code: 0, value: [asset]} = query(state_bob_has_tokens2, '/issuers/#{issuer2.addr}')
+    asset
   end
 
   deffixture state_with_token(empty_state, issuer) do
@@ -60,9 +62,7 @@ defmodule HonteD.ABCI.Fixtures do
     state
   end
 
-  deffixture some_block_hash() do
+  deffixture some_block_hash do
     "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
   end
-
-
 end

@@ -10,17 +10,19 @@ defmodule HonteD.TxCodec do
     with :ok <- valid_size?(line),
          do: do_decode(line)
   end
-  
-  # FIXME: find the correct and informed maximum valid transaction byte-size
+
+  # NOTE: find the correct and informed maximum valid transaction byte-size
   # and test that out properly (by trying out a maximal valid transaction possible - right now it only tests a 0.5KB tx)
   defp valid_size?(line) when byte_size(line) <= 274, do: :ok
   defp valid_size?(_line), do: {:error, :transaction_too_large}
-  
+
+  # NOTE: credo complains about CC here, but this is going away with RLP so why bother
+  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   defp do_decode(line) do
     case String.split(line) do
       [nonce, "CREATE_TOKEN", issuer, signature] when byte_size(signature) == 64 ->
         case Integer.parse(nonce) do
-          {int_nonce, ""} -> {:ok, %Transaction.CreateToken{nonce: int_nonce, 
+          {int_nonce, ""} -> {:ok, %Transaction.CreateToken{nonce: int_nonce,
                                                             issuer: issuer}
                                    |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
@@ -99,7 +101,7 @@ defmodule HonteD.TxCodec do
     {nonce, :allow, allower, allowee, privilege, allow}
     |> _encode
   end
-  
+
   defp _encode(terms) when is_tuple(terms), do: terms |> Tuple.to_list |> _encode
   defp _encode([last_term]), do: _encode(last_term)
   defp _encode([terms_head | terms_tail]) do
@@ -110,7 +112,7 @@ defmodule HonteD.TxCodec do
   defp _encode(term) when is_boolean(term), do: to_string(term)
   defp _encode(term) when is_atom(term), do: String.upcase(to_string(term))
   defp _encode(term) when is_number(term), do: "#{term}"
-  
+
   defp with_signature(tx, signature) do
     %Transaction.SignedTx{raw_tx: tx, signature: signature}
   end

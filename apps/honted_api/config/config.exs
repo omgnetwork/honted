@@ -1,4 +1,4 @@
 use Mix.Config
 
 config :honted_api,
-  tendermint_rpc_port: 46657
+  tendermint_rpc_port: 46_657

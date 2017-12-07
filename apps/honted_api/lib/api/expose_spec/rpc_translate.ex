@@ -1,9 +1,9 @@
 defmodule HonteD.API.ExposeSpec.RPCTranslate do
   @moduledoc """
   Translate an incoming call to a form that can be executed with :erlang.apply/3
-  
+
   The incoming call can originate from the JSONRPC handler or the Websockets handler (or other)
-  
+
   Returns JSONRPC2-like error values if there is a problem.
   """
 
@@ -12,7 +12,6 @@ defmodule HonteD.API.ExposeSpec.RPCTranslate do
   @type spec :: HonteD.API.ExposeSpec.spec()
   @type json_args :: %{required(arg_name) => any}
   @type rpc_error :: {:method_not_found, map} | {:invalid_params, map}
-
 
   @doc """
   `to_fa/3` transforms JSONRPC2 method and params to Elixir's Function and Arguments,

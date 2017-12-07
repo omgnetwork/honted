@@ -8,6 +8,7 @@ defmodule HonteD.Umbrella.Mixfile do
       deps: deps(),
       dialyzer: [ flags: [:error_handling, :race_conditions, :underspecs, :unknown, :unmatched_returns],
                   plt_add_deps: :transitive,
+                  ignore_warnings: "dialyzer.ignore-warnings"
                 ],
     ]
   end
@@ -16,6 +17,7 @@ defmodule HonteD.Umbrella.Mixfile do
     [
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false},
       {:mox, "~> 0.3.1", only: :test},
+      {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
     ]
   end
 end

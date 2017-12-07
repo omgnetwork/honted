@@ -1,10 +1,13 @@
 defmodule HonteD.ABCI.TestHelpers do
+  @moduledoc """
+  Various shared functions used in ABCI tests
+  """
 
   import ExUnit.Assertions
   import HonteD.ABCI
 
   ## HELPER functions
-  def generate_entity() do
+  def generate_entity do
     {:ok, priv} = HonteD.Crypto.generate_private_key
     {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
     {:ok, addr} = HonteD.Crypto.generate_address(pub)
@@ -40,7 +43,7 @@ defmodule HonteD.ABCI.TestHelpers do
   def query(state, key) do
     assert {:reply, {:ResponseQuery, code, 0, _key, value, 'no proof', 0, log}, ^state} =
       handle_call({:RequestQuery, "", key, 0, false}, nil, state)
-      
+
     # NOTE that (by the ABCI standard from abci_server) the query result is a char list and
     #           (by our own standard) a json
     %{code: code, value: value |> to_string |> Poison.decode!, log: log}

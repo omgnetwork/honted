@@ -1,6 +1,9 @@
-defmodule HonteD.Perf.Scenario do
+defmodule HonteD.Performance.Scenario do
   @moduledoc """
+  Generating test scenarios for performance tests - mainly streams of transactions and other useful data
   """
+
+  defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :receivers, :send_txs]
 
   import HonteD.Crypto
   import HonteD.Transaction
@@ -10,14 +13,13 @@ defmodule HonteD.Perf.Scenario do
   @normal_amount 1
 
   defmodule Keys do
+    @moduledoc """
+    Convenience struct to handle blockchain identities
+    """
     defstruct [:priv,
                :pub,
                :addr,
               ]
-  end
-
-  defmodule Scenario do
-    defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :receivers, :send_txs]
   end
 
   @doc """
@@ -36,21 +38,23 @@ defmodule HonteD.Perf.Scenario do
   no_receivers > 0 do
     # Seed with hardcoded value instead of time-based value
     # This ensures determinism of the scenario generation process.
-    _ = :rand.seed(:exs1024s, {123, 123534, 345345})
+    _ = :rand.seed(:exs1024s, {123, 123_534, 345_345})
     issuers = Enum.map 1..no_senders, &generate_keys/1
     {tokens, create_token_txs} = Enum.unzip(Enum.map(issuers, &create_token/1))
     holders_senders = Enum.map(1..no_senders, &generate_keys/1)
     issue_txs = Enum.map(:lists.zip3(issuers, tokens, holders_senders), &issue_token/1)
     receivers = 1..no_receivers |> Enum.map(&generate_keys/1)
     streams = prepare_send_streams(holders_senders, tokens, receivers, failure_rate)
-    %Scenario{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
-              holders_senders: holders_senders, issue_txs: issue_txs,
-              receivers: receivers, send_txs: streams
+    %__MODULE__{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
+                holders_senders: holders_senders, issue_txs: issue_txs,
+                receivers: receivers, send_txs: streams
     }
   end
 
   def get_setup(model) do
-    Enum.zip(model.create_token_txs, model.issue_txs) |> Enum.map(&Tuple.to_list/1)
+    model.create_token_txs
+    |> Enum.zip(model.issue_txs)
+    |> Enum.map(&Tuple.to_list/1)
   end
 
   def get_senders(model) do
@@ -62,7 +66,7 @@ defmodule HonteD.Perf.Scenario do
     args = :lists.zip3(holders_senders, tokens, seeds)
     for {sender, token, stream_initial_seed} <- args do
       transaction_generator = fn({nonce, stream_seed}) ->
-        :rand.seed(stream_seed)
+        _ = :rand.seed(stream_seed)
         success = failure_rate < :rand.uniform()
         receiver = Enum.random(receivers)
         {:ok, tx} = create_send([nonce: nonce, asset: token, amount: send_amount(success),
@@ -82,8 +86,8 @@ defmodule HonteD.Perf.Scenario do
 
   defp seed_generator(_, [last | _] = acc) do
     # Jump/1 is hard to use, so seed/1 -> jump/0 -> export_seed/0 instead.
-    :rand.seed(last)
-    :rand.jump()
+    _ = :rand.seed(last)
+    _ = :rand.jump()
     seed = :rand.export_seed()
     [seed | acc]
   end

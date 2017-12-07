@@ -19,7 +19,7 @@ defmodule HonteD.ABCI.Mixfile do
   def application do
     [
       env: [
-        abci_port: 46658, # our own abci port tendermint connects to
+        abci_port: 46_658, # our own abci port tendermint connects to
       ],
       extra_applications: [:logger],
       applications: [:cowboy],

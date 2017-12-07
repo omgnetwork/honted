@@ -3,7 +3,9 @@ defmodule HonteD.WS.Handler do
   Translates requests flowing from the websocket connection to the auto-exposed API
   """
   require Logger
-  
+
+  alias HonteD.API.ExposeSpec.RPCTranslate
+
   @behaviour :cowboy_websocket_handler
 
   # WS callbacks
@@ -23,7 +25,7 @@ defmodule HonteD.WS.Handler do
   def websocket_handle({:text, content}, req, state) do
     case decode(content) do
       {:ok, decoded_rq} ->
-        id = Map.get(decoded_rq, "id", nil);
+        id = Map.get(decoded_rq, "id", nil)
         try do
           resp = process_request(decoded_rq, state)
           ws_reply(id, resp, req, state)
@@ -83,12 +85,12 @@ defmodule HonteD.WS.Handler do
     %{"type": "rs", "error": %{"code": code, "data": data, "message": msg}}
   end
 
-  defp error_code_and_message(:parse_error), do: {-32700, "Parse error"}
-  defp error_code_and_message(:invalid_request), do: {-32600, "Invalid Request"}
-  defp error_code_and_message(:method_not_found), do: {-32601, "Method not found"}
-  defp error_code_and_message(:invalid_params), do: {-32602, "Invalid params"}
-  defp error_code_and_message(:internal_error), do: {-32603, "Internal error"}
-  defp error_code_and_message(:server_error), do: {-32000, "Server error"}
+  defp error_code_and_message(:parse_error), do: {-32_700, "Parse error"}
+  defp error_code_and_message(:invalid_request), do: {-32_600, "Invalid Request"}
+  defp error_code_and_message(:method_not_found), do: {-32_601, "Method not found"}
+  defp error_code_and_message(:invalid_params), do: {-32_602, "Invalid params"}
+  defp error_code_and_message(:internal_error), do: {-32_603, "Internal error"}
+  defp error_code_and_message(:server_error), do: {-32_000, "Server error"}
 
   defp decode(content) do
     case Poison.decode(content) do
@@ -124,7 +126,7 @@ defmodule HonteD.WS.Handler do
 
   defp process_request(decoded_rq, %{api: target}) do
     with {:rpc, {method, params}} <- parse(decoded_rq),
-         {:ok, fname, args} <- HonteD.API.ExposeSpec.RPCTranslate.to_fa(method, params, target.get_specs(),
+         {:ok, fname, args} <- RPCTranslate.to_fa(method, params, target.get_specs(),
                                                   &substitute_pid_with_self/3),
       do: apply_call(target, fname, args)
   end

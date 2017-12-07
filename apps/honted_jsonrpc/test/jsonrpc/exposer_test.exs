@@ -57,9 +57,9 @@ defmodule HonteD.JSONRPC.ExposerTest do
              "id": 1, "jsonrpc": "2.0"}))
     assert %{"result" => false} =
       f.(~s({"method": "is_even_N", "params": {"x": 1}, "id": 1, "jsonrpc": "2.0"}))
-    assert %{"error" => %{"code" => -32603}} =
+    assert %{"error" => %{"code" => -32_603}} =
       f.(~s({"method": "is_even_N", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))
-    assert %{"error" => %{"code" => -32601,
+    assert %{"error" => %{"code" => -32_601,
              "data" => %{"method" => ":lists.filtermap"},
              "message" => "Method not found"}} =
       f.(~s({"method": ":lists.filtermap", "params": {"x": -1}, "id": 1, "jsonrpc": "2.0"}))

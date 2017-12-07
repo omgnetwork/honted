@@ -11,6 +11,9 @@ defmodule HonteD.API.Events.Eventer do
   alias HonteD.API.Events.Replay, as: Replay
 
   defmodule State do
+    @moduledoc """
+    Internal state of the Eventer genserver - holds the state of processing of the events
+    """
     defstruct [subs: BiMultiMap.new(),
                filters: BiMultiMap.new(),
                pending_filters: [],
@@ -44,7 +47,6 @@ defmodule HonteD.API.Events.Eventer do
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
       # Works ONLY for Send transactions
-      # TODO: pull those events from Tendermint
       committed: %{optional(token) => queue},
       height: HonteD.block_height,
       tendermint: module(),
@@ -68,7 +70,8 @@ defmodule HonteD.API.Events.Eventer do
   def do_notify(finality_status, event_content, event_height, subs, filters) do
     event_topics = event_topics_for(event_content)
     pids = subscribed(event_topics, subs, filters)
-    _ = Logger.debug("do_notify: #{inspect event_topics} #{inspect finality_status}, #{inspect event_content}, pid: #{inspect pids}")
+    _ = Logger.debug(fn -> "do_notify: #{inspect event_topics} #{inspect finality_status}, " <>
+                           "#{inspect event_content}, pid: #{inspect pids}" end)
     for {filter_id, pid} <- pids do
       msg = message(finality_status, event_height, filter_id, event_content)
       send(pid, {:event, msg})
@@ -77,9 +80,7 @@ defmodule HonteD.API.Events.Eventer do
   end
 
   defp message(finality_status, height, filter_id, %HonteD.Transaction.Send{} = event_content)
-  when finality_status in [:committed, :finalized]
-    do
-    # FIXME: consider mappifying the tx: transaction: %{type: :send, payload: Map.from_struct(event_content)}
+  when finality_status in [:committed, :finalized] do
     %{source: filter_id, height: height, finality: finality_status, transaction: event_content}
   end
 
@@ -110,25 +111,24 @@ defmodule HonteD.API.Events.Eventer do
       true ->
         {:noreply, finalize_events(tokens, event.height, state)}
       false ->
-        _ = Logger.debug("Dropped sign-off: #{inspect event}, #{inspect tokens}")
+        _ = Logger.debug(fn -> "Dropped sign-off: #{inspect event}, #{inspect tokens}" end)
         {:noreply, state}
     end
   end
 
   def handle_cast({:event_context, event, context}, state) do
-    _ = Logger.warn("Warning: unhandled event #{inspect event} with context #{inspect context}")
+    _ = Logger.warn(fn -> "Warning: unhandled event #{inspect event} with context #{inspect context}" end)
     {:noreply, state}
   end
 
   def handle_cast({:event, event}, state) do
-    _ = Logger.warn("Warning: unhandled event #{inspect event} without context")
+    _ = Logger.warn(fn -> "Warning: unhandled event #{inspect event} without context" end)
     {:noreply, state}
   end
 
   def handle_cast(msg, state) do
     {:stop, {:unhandled_cast, msg}, state}
   end
-
 
   def handle_call({:new_filter, topics, pid}, _from, state) do
     filter_id = make_filter_id()
@@ -141,7 +141,7 @@ defmodule HonteD.API.Events.Eventer do
   def handle_call({:new_filter_history, topics, pid, first, last}, _from, state) do
     filter_id = make_filter_id()
     _ = Logger.warn("tendermint module is: #{inspect state.tendermint}")
-    _ = Replay.spawn(filter_id, state.tendermint, first, last, topics, pid)
+    _ = Replay.spawn(filter_id, state.tendermint, first..last, topics, pid)
     {:reply, {:ok, %{history_filter: filter_id}}, state}
   end
 
@@ -176,9 +176,8 @@ defmodule HonteD.API.Events.Eventer do
     {:stop, {:unhandled_call, from, msg}, state}
   end
 
-
   def handle_info({:DOWN, _monref, :process, pid, _reason},
-                  state = %{subs: subs, monitors: mons}) do
+                  %{subs: subs, monitors: mons} = state) do
     mons = Map.delete(mons, pid)
     topics = BiMultiMap.get_keys(subs, pid)
     subs = BiMultiMap.delete_value(subs, pid)
@@ -217,7 +216,7 @@ defmodule HonteD.API.Events.Eventer do
              false ->
                state.monitors
              true ->
-               Process.demonitor(state.monitors[pid], [:flush]);
+               Process.demonitor(state.monitors[pid], [:flush])
                Map.delete(state.monitors, pid)
            end
     %{state | subs: subs, monitors: mons, filters: filters}
@@ -264,11 +263,9 @@ defmodule HonteD.API.Events.Eventer do
     event.asset
   end
 
-
   defp event_topics_for(%HonteD.Transaction.Send{to: dest}), do: [dest]
   defp event_topics_for(_), do: []
 
-  # FIXME: this maps get should be done for set of all subsets
   defp subscribed(topics, subs, filters) do
     pids = BiMultiMap.get(subs, topics)
     for pid <- pids do
@@ -277,7 +274,7 @@ defmodule HonteD.API.Events.Eventer do
     end
   end
 
-  defp make_filter_id() do
+  defp make_filter_id do
     make_ref()
     |> :erlang.term_to_binary
     |> HonteD.Crypto.hash

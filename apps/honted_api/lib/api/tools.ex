@@ -2,9 +2,9 @@ defmodule HonteD.API.Tools do
   @moduledoc """
   Shared functionality used by HonteD.API _not to be auto-exposed_
   """
-  
+
   alias HonteD.API.TendermintRPC
-  
+
   @doc """
   Uses a TendermintRPC `client` to get the current nonce for the `from` address. Returns raw Tendermint response
   in case of any failure
@@ -12,14 +12,14 @@ defmodule HonteD.API.Tools do
   def get_nonce(client, from) do
     get_and_decode(client, "/nonces/#{from}")
   end
-  
+
   @doc """
   Uses a TendermintRPC `client` to the issuer for a token
   """
   def get_issuer(client, token) do
     get_and_decode(client, "/tokens/#{token}/issuer")
   end
-  
+
   @doc """
   Uses a TendermintRPC `client` to query anything from the abci and decode to map
   """
@@ -40,7 +40,8 @@ defmodule HonteD.API.Tools do
 
   defp get_tx_status(tx_info, client) do
     with :committed <- get_tx_tendermint_status(tx_info),
-         do: HonteD.TxCodec.decode!(tx_info["tx"])
+         do: tx_info["tx"]
+             |> HonteD.TxCodec.decode!
              |> get_sign_off_status_for_committed(client, tx_info["height"])
   end
 
@@ -72,7 +73,8 @@ defmodule HonteD.API.Tools do
 
     case get_and_decode(client, "/sign_offs/#{issuer}") do
       {:ok, %{"response" => %{"code" => 1}}} ->
-        :committed # FIXME: handle this case in a more appropriate manner
+        # indicates the sign off hasn't been found
+        :committed
       {:ok, %{"height" => sign_off_height, "hash" => sign_off_hash}} ->
         {:ok, real_blockhash} = get_block_hash(sign_off_height, TendermintRPC, client)
         HonteD.Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, real_blockhash)
@@ -85,7 +87,4 @@ defmodule HonteD.API.Tools do
   defp block_hash(block) do
     block["block_meta"]["block_id"]["hash"]
   end
-
-
-
 end

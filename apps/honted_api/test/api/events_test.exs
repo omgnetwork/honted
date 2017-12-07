@@ -5,7 +5,7 @@ defmodule HonteD.API.EventsTest do
   Uses the application's instance of HonteD.API.Events.Eventer
 
   Uses the public HonteD.API for subscription/unsubscription and the public HonteD.API.Events api to emit events
-  
+
   We test the logic of the events here
   """
 

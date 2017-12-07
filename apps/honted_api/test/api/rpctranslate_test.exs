@@ -17,6 +17,4 @@ defmodule HonteD.API.ExposeSpec.RPCTranslateTest do
     params = %{"x" => "2", "y" => "3"}
     assert {:ok, :basic, ["2", "3"]} == HonteD.API.ExposeSpec.RPCTranslate.to_fa(method, params, spec)
   end
-
-
 end

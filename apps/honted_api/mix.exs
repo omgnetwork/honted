@@ -18,7 +18,7 @@ defmodule HonteD.API.Mixfile do
   def application do
     [
       env: [
-        rpc_port: 46657, # tendermint node's rpc port
+        rpc_port: 46_657, # tendermint node's rpc port
       ],
       extra_applications: [:logger],
       mod: {HonteD.API.Application, []}

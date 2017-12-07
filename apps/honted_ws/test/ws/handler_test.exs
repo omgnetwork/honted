@@ -10,11 +10,11 @@ defmodule HonteD.WS.HandlerTest do
 
   defmodule ExampleAPI do
     use HonteD.API.ExposeSpec
-    
+
     @test_event_payload %{"test_event_payload" => "payload"}
-    
-    def test_event_payload(), do: @test_event_payload
-    
+
+    def test_event_payload, do: @test_event_payload
+
     @spec is_even_N(x :: integer) :: {:ok, boolean} | {:error, :badarg}
     def is_even_N(x) when x > 0 and is_integer(x) do
       {:ok, rem(x, 2) == 0}
@@ -58,7 +58,7 @@ defmodule HonteD.WS.HandlerTest do
     state = %{api: ExampleAPI}
     receive do
       msg ->
-        {:reply, {:text, rep}, nil, _} = websocket_info(msg, nil, state);
+        {:reply, {:text, rep}, nil, _} = websocket_info(msg, nil, state)
         {:ok, decoded} = Poison.decode(rep)
         decoded
     after
@@ -82,9 +82,9 @@ defmodule HonteD.WS.HandlerTest do
              "type": "rq", "wsrpc": "1.0"}))
     assert %{"result" => false} =
       call(~s({"method": "is_even_N", "params": {"x": 1}, "type": "rq", "wsrpc": "1.0"}))
-    assert %{"error" => %{"code" => -32603}} =
+    assert %{"error" => %{"code" => -32_603}} =
       call(~s({"method": "is_even_N", "params": {"x": -1}, "type": "rq", "wsrpc": "1.0"}))
-    assert %{"error" => %{"code" => -32601}} =
+    assert %{"error" => %{"code" => -32_601}} =
       call(~s({"method": ":lists.filtermap", "params": {"x": -1}, "type": "rq", "wsrpc": "1.0"}))
   end
 

@@ -1,10 +1,13 @@
 defmodule HonteD.API.TestHelpers do
+  @moduledoc """
+  Varius shared functions for testing the API
+  """
 
-  def address1(), do: "address1"
-  def address2(), do: "address2"
+  def address1, do: "address1"
+  def address2, do: "address2"
 
   def event_send(receiver, fid, token \\ "asset", height \\ 0) do
-    # FIXME: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
+    # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
     tx = %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
     {tx, receivable_for(tx, fid, height)}
@@ -48,7 +51,7 @@ defmodule HonteD.API.TestHelpers do
     end
   end
 
-  def join() do
+  def join do
     join(Process.get(:clients, []))
   end
 
