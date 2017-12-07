@@ -7,6 +7,7 @@ defmodule HonteD.ABCI do
   """
   require Logger
   use GenServer
+  import HonteD.ABCI.Records
 
   alias HonteD.ABCI.State, as: State
 
@@ -30,22 +31,23 @@ defmodule HonteD.ABCI do
     {:ok, %__MODULE__{}}
   end
 
-  def handle_call({:RequestInfo}, _from, abci_app) do
-    {:reply, {
-      :ResponseInfo,
-      'arbitrary information',
-      'version info',
-      0,  # latest block height - always start from zero
-      '', # latest app hash - because we start from zero this _must_ be empty charlist
-    }, abci_app}
+  def handle_call(request_info(version: _), _from, abci_app) do
+  # def handle_call({:RequestInfo, _}, _from, abci_app) do
+    # reply = {:ResponseInfo,
+    #          'arbitrary information',
+    #          'version info',
+    #          0,  # latest block height - always start from zero
+    #          '', # latest app hash - because we start from zero this _must_ be empty charlist
+    # }
+    reply = response_info(data: '', version: '', last_block_height: 0, last_block_app_hash: '')
+    {:reply, reply, abci_app}
   end
 
-  def handle_call({:RequestEndBlock, _block_number}, _from, abci_app) do
-    {:reply, {:ResponseEndBlock, []}, abci_app}
+  def handle_call(request_end_block(height: _height), _from, abci_app) do
+    {:reply, response_end_block(diffs: []), abci_app}
   end
 
-  def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, height, _timestamp, _some_zero_value,
- _block_id, _something1, _something2, _something3, _app_hash}}, _from, abci_app) do
+  def handle_call(request_begin_block(header: header(height: height)), _from, abci_app) do
     HonteD.ABCI.Events.notify(abci_app.consensus_state, %HonteD.API.Events.NewBlock{height: height})
     {:reply, {:ResponseBeginBlock}, abci_app}
   end
