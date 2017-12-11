@@ -4,7 +4,7 @@ defmodule HonteD.API.Transaction.Finality do
   """
 
   @type event_height_pair :: {HonteD.block_height, HonteD.API.Events.event}
-  @type event_queue :: Qex.t(event_height_pair)
+  @type event_queue :: Qex.t(event_height_pair) | Qex.t # not sure why empty Qex is needed here
   @type event_list :: [event_height_pair]
 
   @spec status(tx_height :: HonteD.block_height, HonteD.block_height, binary, binary)

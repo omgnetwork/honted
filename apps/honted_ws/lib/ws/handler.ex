@@ -34,7 +34,7 @@ defmodule HonteD.WS.Handler do
             ws_reply(id, {error, data}, req, state)
         end
       {:error, :decode_error} ->
-        ws_reply(nil, {:error, :decode_error}, req, state)
+        ws_reply(nil, {:invalid_request, {:decode_error, content}}, req, state)
     end
   end
 
