@@ -73,13 +73,6 @@ defmodule HonteD.WS.Handler do
   defp wsrpc_response({:ok, resp}) do
     %{"type": "rs", "result": resp}
   end
-  defp wsrpc_response({:error, error}) do
-    %{"type": "rs", "error": error}
-  end
-  defp wsrpc_response(error) when is_atom(error) do
-    {code, msg} = error_code_and_message(error)
-    %{"type": "rs", "error": %{"code": code, "message": msg}}
-  end
   defp wsrpc_response({error, data}) when is_atom(error) do
     {code, msg} = error_code_and_message(error)
     %{"type": "rs", "error": %{"code": code, "data": data, "message": msg}}

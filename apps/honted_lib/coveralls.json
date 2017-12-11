@@ -1,0 +1,9 @@
+{
+  "skip_files": [
+    "lib/honted.ex",
+    "lib/honted/priv/transaction/validation.ex",
+    "lib/honted/priv/token.ex",
+    "lib/honted/priv/tx_codec.ex",
+    "lib/honted/transaction.ex",
+  ]
+}
