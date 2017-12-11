@@ -3,7 +3,7 @@ defmodule HonteD.API.Tools do
   Shared functionality used by HonteD.API _not to be auto-exposed_
   """
 
-  alias HonteD.API.TendermintRPC
+  alias HonteD.API.{TendermintRPC, Transaction}
 
   @doc """
   Uses a TendermintRPC `client` to get the current nonce for the `from` address. Returns raw Tendermint response
@@ -77,7 +77,7 @@ defmodule HonteD.API.Tools do
         :committed
       {:ok, %{"height" => sign_off_height, "hash" => sign_off_hash}} ->
         {:ok, real_blockhash} = get_block_hash(sign_off_height, TendermintRPC, client)
-        HonteD.Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, real_blockhash)
+        Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, real_blockhash)
     end
   end
   defp get_sign_off_status_for_committed(_, _, _), do: :committed

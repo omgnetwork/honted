@@ -42,4 +42,13 @@ defmodule HonteD.ABCITest do
       |> check_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
     end
   end
+
+  describe "unhandled query clauses" do
+    @tag fixtures: [:empty_state]
+    test "queries to /store are verbosely unimplemented", %{empty_state: state} do
+      # NOTE: this will naturally go away, if we decide to implement /store
+      assert {:reply, {:ResponseQuery, 1, _, _, _, _, _, 'query to /store not implemented'}, ^state} =
+        handle_call({:RequestQuery, '', '/store', 0, :false}, nil, state)
+    end
+  end
 end

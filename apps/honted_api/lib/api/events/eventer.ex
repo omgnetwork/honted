@@ -9,6 +9,7 @@ defmodule HonteD.API.Events.Eventer do
   require Logger
 
   alias HonteD.API.Events.Replay, as: Replay
+  alias HonteD.API.Transaction
 
   defmodule State do
     @moduledoc """
@@ -32,8 +33,6 @@ defmodule HonteD.API.Events.Eventer do
     """
     @type filters :: BiMultiMap.t(HonteD.filter_id, {[topic], pid})
     @typep topic :: HonteD.address
-    @typep event :: HonteD.Transaction.t
-    @typep queue :: Qex.t({HonteD.block_height, event})
     @typep token :: HonteD.token
 
     @type t :: %State{
@@ -47,7 +46,7 @@ defmodule HonteD.API.Events.Eventer do
       # Events that are waiting to be finalized.
       # Assumes one source of finality for each of the tokens.
       # Works ONLY for Send transactions
-      committed: %{optional(token) => queue},
+      committed: %{optional(token) => Transaction.Finality.event_queue},
       height: HonteD.block_height,
       tendermint: module(),
     }
@@ -245,10 +244,7 @@ defmodule HonteD.API.Events.Eventer do
       # should take a queue and split it into a list of finalized events and
       # a queue with the rest of {height, event}'s
       (nil) -> {[], nil}
-      (queue) ->
-        {finalized_tuples, rest} =
-          HonteD.Transaction.Finality.split_finalized_events(queue, signed_off_height)
-        {finalized_tuples, Qex.new(rest)}
+      (queue) -> Transaction.Finality.split_finalized_events(queue, signed_off_height)
     end
     Map.get_and_update(committed, token, split_queue_by_finalized_status)
   end
@@ -256,7 +252,7 @@ defmodule HonteD.API.Events.Eventer do
   def check_valid_signoff?(%HonteD.Transaction.SignOff{} = event, tendermint_module) do
     client = tendermint_module.client()
     with {:ok, blockhash} <- HonteD.API.Tools.get_block_hash(event.height, tendermint_module, client),
-      do: HonteD.Transaction.Finality.valid_signoff?(event.hash, blockhash)
+      do: Transaction.Finality.valid_signoff?(event.hash, blockhash)
   end
 
   defp get_token(%HonteD.Transaction.Send{} = event) do

@@ -108,6 +108,17 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'incorrect_issuer') |> same?(state)
     end
 
+    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
+    test "can issue twice", %{alice: alice, issuer: issuer, state_with_token: state, asset: asset} do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} =
+        create_issue(nonce: 2, asset: asset, amount: 4, dest: alice.addr, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(9)
+    end
+
     @tag fixtures: [:issuer, :alice, :empty_state]
     test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state} do
       %{state: state} =
