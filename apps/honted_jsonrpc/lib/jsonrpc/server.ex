@@ -1,6 +1,8 @@
 defmodule HonteD.JSONRPC.Server.Handler do
   @moduledoc """
   Exposes HonteD.API via jsonrpc 2.0 over HTTP. It leverages the generic HonteD.JSONRPC.Exposer convenience module
+
+  Only handles the integration with the JSONRPC2 package
   """
   use JSONRPC2.Server.Handler
 

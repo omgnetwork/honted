@@ -9,6 +9,10 @@ defmodule HonteD.WS.HandlerTest do
   @timeout 100
 
   defmodule ExampleAPI do
+    @moduledoc """
+    Just an API-like module to expose
+    """
+
     use HonteD.API.ExposeSpec
 
     @test_event_payload %{"test_event_payload" => "payload"}
