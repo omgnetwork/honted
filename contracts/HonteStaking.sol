@@ -64,29 +64,27 @@ contract HonteStaking {
     uint256 lowestValidatorAmount = 2**255;
     uint256 lowestValidatorPosition = 0;
     for(uint256 i = 0; i < maxNumberOfValidators; i++) {
-      // If a validator spot is empty exit the loop and join at that position
-      if (validatorSets[currentEpoch][i].owner == 0x0) {
+      // If a validator spot is empty exit the loop and join at that position or
+      // if the joiner is already an existing validator in the set
+      if (validatorSets[currentEpoch][i].owner == 0x0 || validatorSets[currentEpoch][i].owner == msg.sender) {
         lowestValidatorPosition = i;
         break;
       }
       // Tracks the minimum stake and save its position
-      if (validatorSets[currentEpoch][i].stake < lowestValidatorAmount) {
+      else if (validatorSets[currentEpoch][i].stake < lowestValidatorAmount) {
         lowestValidatorPosition = i;
         lowestValidatorAmount = validatorSets[currentEpoch][i].stake;
       }
     }
     // Checks that the joiners stake is higher than the lowest current validators deposit
     require(lowestValidatorAmount < deposits[msg.sender]);
-    address validatorAddress = validatorSets[currentEpoch][lowestValidatorPosition].owner;
-    // Creates/updates a withdraw for the displaced validator
-    withdrawals[validatorAddress].amount = withdrawals[validatorAddress].amount.add(validatorSets[currentEpoch][lowestValidatorPosition].stake);
-    withdrawals[validatorAddress].withdrawableAt = nextEpochBlockNumber.add(epochLength);
     // Creates the new validator from a joiner
-    validatorSets[currentEpoch][lowestValidatorPosition] = validator({
-      stake: deposits[msg.sender],
-      tendermintAddress: _tendermintAddress,
-      owner: msg.sender
-    });
+    validatorSets[currentEpoch][lowestValidatorPosition].stake = validatorSets[currentEpoch][lowestValidatorPosition].stake.add(deposits[msg.sender]);
+    validatorSets[currentEpoch][lowestValidatorPosition].tendermintAddress = _tendermintAddress;
+    validatorSets[currentEpoch][lowestValidatorPosition].owner = msg.sender;
+    withdrawals[msg.sender].amount = deposits[msg.sender];
+    withdrawals[msg.sender].withdrawableAt = nextEpochBlockNumber.add(epochLength);
+    // Delete the deposit
     delete deposits[msg.sender];
   }
 
