@@ -141,13 +141,13 @@ def test_cant_join_outside_join_window(chain, token, staking, accounts):
     maturity_margin = staking.call().maturityMargin()
     jump_to_block(chain, epoch_length-maturity_margin+1)
     address = accounts[1]
-    initial = staking.call().deposits(address)
+    initial = staking.call().deposits(address, 0)
     amount = utils.denoms.ether
     chain.wait.for_receipt(
         token.transact({'from': address}).approve(staking.address, amount))
     chain.wait.for_receipt(
         staking.transact({'from': address}).deposit(amount))
-    assert initial + amount == staking.call().deposits(address)
+    assert initial + amount == staking.call().deposits(address, 0)
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
             staking.transact({'from': address}).join(address))
