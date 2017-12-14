@@ -5,6 +5,7 @@ import ethereum
 from ethereum import tester, utils
 import pytest
 from populus.wait import Wait
+from ethereum.tester import TransactionFailed
 
 from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
 
@@ -82,8 +83,8 @@ def test_deposit_and_immediate_withdraw(chain, token, staking, accounts):
     do_deposit(chain, token, staking, accounts[1], utils.denoms.ether)
     do_withdraw(chain, token, staking, accounts[1])
     
-def test_cant_withdraw_zero(token, staking, accounts):
-    do_deposit(token, staking, accounts[1], utils.denoms.ether)
+def test_cant_withdraw_zero(chain, token, staking, accounts):
+    do_deposit(chain, token, staking, accounts[1], utils.denoms.ether)
     
     # someone else can't withdraw
     with pytest.raises(TransactionFailed):
