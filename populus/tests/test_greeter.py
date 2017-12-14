@@ -1,9 +1,11 @@
 import json
+import sys
 
 import ethereum
 from ethereum import tester, utils
 import pytest
 from populus.wait import Wait
+from ethereum.tester import TransactionFailed
 
 from ethereum.tester import TransactionFailed
 
@@ -45,9 +47,20 @@ def jump_to_block(chain, block_no):
     chain.rpc_methods.evm_mine(block_no - current_block)
     assert chain.web3.eth.blockNumber == block_no
 
-#def validators(staking, ):
-#    
-#
+def get_validators(staking, epoch):
+    result = []
+    for i in range(0, sys.maxsize**10):
+        validator = staking.call().validatorSets(epoch, i)
+        stake = validator[0]
+        tendermintAddress = validator[1]
+        owner = validator[2]
+        if owner == zero_address():
+            break
+        result.append((validator, tendermintAddress, owner))
+    return result
+
+def zero_address():
+    return '0x0000000000000000000000000000000000000000'
 
 def do_deposit(chain, token, staking, address, amount):
     initial = staking.call().deposits(address)
@@ -57,7 +70,7 @@ def do_deposit(chain, token, staking, address, amount):
         staking.transact({'from': address}).deposit(amount))
     assert initial + amount == staking.call().deposits(address)
 
-def do_withdraw(token, staking, address):
+def do_withdraw(chain, token, staking, address):
     free_tokens = token.call().balanceOf(address)
     amount, _ = staking.call().withdrawals(address)
     staking.transact({'from': address}).withdraw()
@@ -66,21 +79,21 @@ def do_withdraw(token, staking, address):
     assert amount + free_tokens == token.call().balanceOf(address)
 
 def test_empty_validators(chain, staking):
-    assert [] == staking.call().validatorSets(0, 0)
+    assert [] == get_validators(staking, 0)
 
 def test_deposit_and_immediate_withdraw(chain, token, staking, accounts):
     do_deposit(chain, token, staking, accounts[1], utils.denoms.ether)
-    do_withdraw(token, staking, accounts[1])
+    do_withdraw(chain, token, staking, accounts[1])
     
-def test_cant_withdraw_zero(token, staking, accounts):
-    do_deposit(token, staking, accounts[1], utils.denoms.ether)
+def test_cant_withdraw_zero(chain, token, staking, accounts):
+    do_deposit(chain, token, staking, accounts[1], utils.denoms.ether)
     
     # someone else can't withdraw
     with pytest.raises(TransactionFailed):
         staking.transact({'from': accounts[2]}).withdraw()
         
     # if I withdrew, I can't withdraw more
-    do_withdraw(token, staking, accounts[1])
+    do_withdraw(chain, token, staking, accounts[1])
     with pytest.raises(TransactionFailed):
         staking.transact({'from': accounts[1]}).withdraw()
 
@@ -121,7 +134,7 @@ def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token)
     unbonding_period_end = staking.call().startBlock() + 3 * staking.call().epochLength()
     jump_to_block(chain, unbonding_period_end)
     # now withdraw should work
-    do_withdraw(token, staking, addr)
+    do_withdraw(chain, token, staking, addr)
     
 def test_cant_join_outside_join_window(chain, token, staking, accounts):
     epoch_length = staking.call().epochLength()
