@@ -178,7 +178,7 @@ def test_cant_enter_if_too_small(chain, staking, token, accounts):
     chain.wait.for_receipt(
         staking.transact({'from': address}).deposit(amount))
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': address}).join()
+        staking.transact({'from': address}).join(address)
     
 def test_deposits_accumulate_for_join(chain, staking, token, accounts):
     addr = accounts[1]
