@@ -151,10 +151,11 @@ def test_cant_join_outside_join_window(chain, token, staking, accounts):
             staking.transact({'from': address}).join(address))
     
 def test_deposit_join_many_validators(chain, staking, token, accounts):
-    for addr in accounts:
-        do_deposit(token, staking, addr, utils.denoms.ether)
+    max = staking.call().maxNumberOfValidators()
+    for addr in accounts[:max]:
+        do_deposit(chain, token, staking, addr, utils.denoms.ether)
         chain.wait.for_receipt(
-            staking.transact({'from': addr}).join())
+            staking.transact({'from': addr}).join(addr))
     
 def test_ejects_smallest_validators(chain, staking, token, accounts):
     ejected = staking.call().maxNumberOfValidators() < length(accounts)
