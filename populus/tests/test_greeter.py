@@ -5,6 +5,8 @@ from ethereum import tester, utils
 import pytest
 from populus.wait import Wait
 
+from ethereum.tester import TransactionFailed
+
 from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
 
 def deploy(web3, ContractClass):
@@ -48,19 +50,20 @@ def jump_to_block(chain, block_no):
 #
 
 def do_deposit(chain, token, staking, address, amount):
-    # initial = staking.call({'from': address}).deposited(amount)
+    initial = staking.call().deposits(address)
     chain.wait.for_receipt(
         token.transact({'from': address}).approve(staking.address, amount))
     chain.wait.for_receipt(
         staking.transact({'from': address}).deposit(amount))
-    # assert initial + amount == staking.call({'from': address}).deposited(amount)
+    assert initial + amount == staking.call().deposits(address)
 
 def do_withdraw(token, staking, address):
     free_tokens = token.call().balanceOf(address)
-    amount = staking.call().deposits(address)
+    amount, _ = staking.call().withdrawals(address)
     staking.transact({'from': address}).withdraw()
-    assert 0 == staking.call({'from': address}).deposited(amount)
-    assert amount+free_tokens == token.call().balanceOf(address)
+    new_amount, _ = staking.call().withdrawals(address)
+    assert 0 == new_amount
+    assert amount + free_tokens == token.call().balanceOf(address)
 
 def test_empty_validators(chain, staking):
     assert [] == staking.call().validatorSets(0, 0)
@@ -84,35 +87,34 @@ def test_cant_withdraw_zero(token, staking, accounts):
 def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token):
     addr = accounts[1]
     do_deposit(chain, token, staking, addr, utils.denoms.ether)
-    staking.transact({'from': addr}).join()
+    print(staking.call().startBlock())
+    print(chain.web3.eth.blockNumber)
+    print(staking.call().getCurrentEpoch())
+    print(staking.call().getNextEpochBlockNumber())
+    print(staking.call().getNewValidatorPosition(0))
+    staking.transact({'from': addr}).join(addr)
     # not a validator yet
-    assert [] == staking.call().validators(chain.web3.eth.blockNumber)
-    
     # can't withdraw after joining
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            staking.trasact({'from': addr}).withdraw())
+            staking.transact({'from': addr}).withdraw())
             
     # can't withdraw while validating
     # become a validator (time passes)
     validating_epoch_start = staking.call().startBlock() + staking.call().epochLength()
     jump_to_block(chain, validating_epoch_start)
-    # check if you are a validator
-    assert [] != staking.call().validators(chain.web3.eth.blockNumber)
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            staking.trasact({'from': addr}).withdraw())    
+            staking.transact({'from': addr}).withdraw())    
             
     # can't withdraw after validating, but before unbonding
     # wait until the end of the epoch
     validating_epoch_end = staking.call().startBlock() + 2 * staking.call().epochLength()
     jump_to_block(chain, validating_epoch_end)
-    # make sure you are no longer a validator
-    assert [] == staking.call().validators(chain.web3.eth.blockNumber)
     # fail while attempting to withdraw token which is still bonded
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            staking.trasact({'from': addr}).withdraw())
+            staking.transact({'from': addr}).withdraw())
     
     # withdraw after unbonding
     # wait until the unbonding period

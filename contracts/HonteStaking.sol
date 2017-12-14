@@ -31,13 +31,14 @@ contract HonteStaking {
 
   mapping (address => uint256) public deposits;
   mapping (uint256 => mapping(uint256 => validator)) public validatorSets;
-  mapping (address => withdrawal) withdrawals;
+  mapping (address => withdrawal) public withdrawals;
 
-  uint256 startBlock;
+  uint256 public startBlock;
   ERC20   token;
-  uint256 epochLength;
-  uint256 maturityMargin;
-  uint256 maxNumberOfValidators;
+  uint256 public epochLength;
+  uint256 public unbondingPeriod;
+  uint256 public maturityMargin;
+  uint256 public maxNumberOfValidators;
   uint256 lastLowestDeposit;
 
   /*
@@ -50,6 +51,7 @@ contract HonteStaking {
     startBlock            = block.number;
     token                 = ERC20(_tokenAddress);
     epochLength           = _epochLength;
+    unbondingPeriod       = _epochLength;
     maturityMargin        = _maturityMargin;
     maxNumberOfValidators = _maxNumberOfValidators;
   }
@@ -82,24 +84,31 @@ contract HonteStaking {
     //
     require(block.number < nextEpochBlockNumber.sub(maturityMargin));
 
-    uint256 lowestValidatorPosition = getNewValidatorPosition(currentEpoch);
+    uint256 newValidatorPosition  = getNewValidatorPosition(currentEpoch);
+    uint256 ejectedValidtorAmount = validatorSets[currentEpoch][newValidatorPosition].stake;
+
+    // Checks that the joiners stake is higher than the lowest current validators deposit
+    //
+    // FIXME: will throw if msg.sender is continueing
+    // FIXME: even so, this shouldn't be here, but outside
+    require(ejectedValidtorAmount < deposits[msg.sender]);
 
     // Creates/updates new validator from a joiner
     //
-    if (validatorSets[currentEpoch][lowestValidatorPosition].owner == msg.sender) {
-      validatorSets[currentEpoch][lowestValidatorPosition].stake = validatorSets[currentEpoch][lowestValidatorPosition].stake.add(deposits[msg.sender]);
+    if (validatorSets[currentEpoch][newValidatorPosition].owner == msg.sender) {
+      validatorSets[currentEpoch][newValidatorPosition].stake = validatorSets[currentEpoch][newValidatorPosition].stake.add(deposits[msg.sender]);
     } else {
-      validatorSets[currentEpoch][lowestValidatorPosition].owner = msg.sender;
-      validatorSets[currentEpoch][lowestValidatorPosition].stake = deposits[msg.sender];
+      validatorSets[currentEpoch][newValidatorPosition].owner = msg.sender;
+      validatorSets[currentEpoch][newValidatorPosition].stake = deposits[msg.sender];
       // FIXME: handle withdrawal for the ejectee (either continuing or not)
       // FIXME: consider changing withdrawable_at to subaccounts for epochs
     }
-    validatorSets[currentEpoch][lowestValidatorPosition].tendermintAddress = _tendermintAddress;
+    validatorSets[currentEpoch][newValidatorPosition].tendermintAddress = _tendermintAddress;
 
     // Creates/updates withdraw
     //
     withdrawals[msg.sender].amount         = withdrawals[msg.sender].amount.add(deposits[msg.sender]);
-    withdrawals[msg.sender].withdrawableAt = nextEpochBlockNumber.add(epochLength);
+    withdrawals[msg.sender].withdrawableAt = nextEpochBlockNumber.add(epochLength).add(unbondingPeriod);
 
     // Delete the deposit
     //
@@ -147,7 +156,7 @@ contract HonteStaking {
    */
 
   function getNewValidatorPosition(uint256 currentEpoch)
-    private
+    public
     view
     returns(uint256)
   {
@@ -155,27 +164,20 @@ contract HonteStaking {
     uint256 lowestValidatorPosition = 0;
 
     for(uint256 i = 0; i < maxNumberOfValidators; i++) {
-      lowestValidatorPosition = i;
-
       // If a validator spot is empty exit the loop and join at that position or
       // if the joiner is already an existing validator in the set
       //
       if (validatorSets[currentEpoch][i].owner == 0x0 || validatorSets[currentEpoch][i].owner == msg.sender) {
-        break;
+        return i;
       }
 
       // Tracks the minimum stake and save its position
       //
       else if (validatorSets[currentEpoch][i].stake < lowestValidatorAmount) {
-        lowestValidatorAmount = validatorSets[currentEpoch][i].stake;
+        lowestValidatorPosition = i;
+        lowestValidatorAmount = validatorSets[currentEpoch][lowestValidatorPosition].stake;
       }
     }
-
-    // Checks that the joiners stake is higher than the lowest current validators deposit
-    //
-    // FIXME: will throw if msg.sender is continueing
-    // FIXME: even so, this shouldn't be here, but outside
-    require(lowestValidatorAmount < deposits[msg.sender]);
 
     return lowestValidatorPosition;
   }
