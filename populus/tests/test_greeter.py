@@ -1,4 +1,5 @@
 import json
+import sys
 
 import ethereum
 from ethereum import tester, utils
@@ -43,9 +44,20 @@ def jump_to_block(chain, block_no):
     chain.rpc_methods.evm_mine(block_no - current_block)
     assert chain.web3.eth.blockNumber == block_no
 
-#def validators(staking, ):
-#    
-#
+def get_validators(staking, epoch):
+    result = []
+    for i in range(0, sys.maxsize**10):
+        validator = staking.call().validatorSets(epoch, i)
+        stake = validator[0]
+        tendermintAddress = validator[1]
+        owner = validator[2]
+        if owner == zero_address():
+            break
+        result.append((validator, tendermintAddress, owner))
+    return result
+
+def zero_address():
+    return '0x0000000000000000000000000000000000000000'
 
 def do_deposit(chain, token, staking, address, amount):
     # initial = staking.call({'from': address}).deposited(amount)
@@ -63,7 +75,7 @@ def do_withdraw(token, staking, address):
     assert amount+free_tokens == token.call().balanceOf(address)
 
 def test_empty_validators(chain, staking):
-    assert [] == staking.call().validatorSets(0, 0)
+    assert [] == get_validators(staking, 0)
 
 def test_deposit_and_immediate_withdraw(chain, token, staking, accounts):
     do_deposit(chain, token, staking, accounts[1], utils.denoms.ether)
