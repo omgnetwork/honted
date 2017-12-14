@@ -138,26 +138,36 @@ def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token)
     
 def test_cant_join_outside_join_window(chain, token, staking, accounts):
     epoch_length = staking.call().epochLength()
-    maturity_margin = staking.call().maturiyMargin()
+    maturity_margin = staking.call().maturityMargin()
     jump_to_block(chain, epoch_length-maturity_margin+1)
+    address = accounts[1]
+    initial = staking.call().deposits(address)
+    amount = utils.denoms.ether
+    chain.wait.for_receipt(
+        token.transact({'from': address}).approve(staking.address, amount))
+    chain.wait.for_receipt(
+        staking.transact({'from': address}).deposit(amount))
+    assert initial + amount == staking.call().deposits(address)
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            do_deposit(token, staking, accounts[1], utils.denoms.ether))
+            staking.transact({'from': address}).join(address))
     
 def test_deposit_join_many_validators(chain, staking, token, accounts):
-    for addr in accounts:
-        do_deposit(token, staking, addr, utils.denoms.ether)
+    max = staking.call().maxNumberOfValidators()
+    for addr in accounts[:max]:
+        do_deposit(chain, token, staking, addr, utils.denoms.ether)
         chain.wait.for_receipt(
-            staking.transact({'from': addr}).join())
+            staking.transact({'from': addr}).join(addr))
     
 def test_ejects_smallest_validators(chain, staking, token, accounts):
-    ejected = staking.call().maxNumberOfValidators() < length(accounts)
+    ejected = staking.call().maxNumberOfValidators() < len(accounts)
     assert ejected > 0
     for idx, addr in enumerate(accounts):
-        do_deposit(token, staking, addr, idx * utils.denoms.finney)
+        print("join ", idx, addr)
+        do_deposit(chain, token, staking, addr, (idx+1) * utils.denoms.finney)
         chain.wait.for_receipt(
-            staking.transact({'from': addr}).join())
-    validators = staking.call().validators()
+            staking.transact({'from': addr}).join(addr))
+    validators = get_validators(staking, 0)
     for addr in accounts[:ejected]:
         assert addr not in validators
     
@@ -170,7 +180,7 @@ def test_cant_enter_if_too_small(chain, staking, token, accounts):
     chain.wait.for_receipt(
         staking.transact({'from': address}).deposit(amount))
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': address}).join()
+        staking.transact({'from': address}).join(address)
     
 def test_deposits_accumulate_for_join(chain, staking, token, accounts):
     addr = accounts[1]
