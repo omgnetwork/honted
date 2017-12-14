@@ -30,7 +30,7 @@ contract HonteStaking {
   }
 
   mapping (address => uint256) public deposits;
-  mapping (uint256 => validator[]) public validatorSets;
+  mapping (uint256 => mapping(uint256 => validator)) public validatorSets;
   mapping (address => withdrawal) withdrawals;
 
   uint256 startBlock;
@@ -58,6 +58,8 @@ contract HonteStaking {
     public
   {
     require(amount <= token.allowance(msg.sender, address(this)));
+    
+    // FIXME: not worth it? besides you should include the current validating stake here as well...
     require(deposits[msg.sender].add(amount) > lastLowestDeposit);
 
     token.transferFrom(msg.sender, address(this), amount);
@@ -89,6 +91,8 @@ contract HonteStaking {
     } else {
       validatorSets[currentEpoch][lowestValidatorPosition].owner = msg.sender;
       validatorSets[currentEpoch][lowestValidatorPosition].stake = deposits[msg.sender];
+      // FIXME: handle withdrawal for the ejectee (either continuing or not)
+      // FIXME: consider changing withdrawable_at to subaccounts for epochs
     }
     validatorSets[currentEpoch][lowestValidatorPosition].tendermintAddress = _tendermintAddress;
 
@@ -169,6 +173,8 @@ contract HonteStaking {
 
     // Checks that the joiners stake is higher than the lowest current validators deposit
     //
+    // FIXME: will throw if msg.sender is continueing
+    // FIXME: even so, this shouldn't be here, but outside
     require(lowestValidatorAmount < deposits[msg.sender]);
 
     return lowestValidatorPosition;

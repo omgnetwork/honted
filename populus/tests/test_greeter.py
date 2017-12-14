@@ -33,7 +33,7 @@ def staking(token, chain, accounts):
     #args = [token.address, max_validators]
     staking, _ = chain.provider.get_or_deploy_contract('HonteStaking',
                                                        deploy_transaction={'from': owner},
-                                                       deploy_args=[])
+                                                       deploy_args=[20, 2, token.address, 5])
     return staking
 
 def jump_to_block(chain, block_no):
@@ -42,6 +42,10 @@ def jump_to_block(chain, block_no):
     assert current_block < block_no
     chain.rpc_methods.evm_mine(block_no - current_block)
     assert chain.web3.eth.blockNumber == block_no
+
+#def validators(staking, ):
+#    
+#
 
 def do_deposit(chain, token, staking, address, amount):
     # initial = staking.call({'from': address}).deposited(amount)
@@ -53,16 +57,16 @@ def do_deposit(chain, token, staking, address, amount):
 
 def do_withdraw(token, staking, address):
     free_tokens = token.call().balanceOf(address)
-    amount = staking.call({'from': address}).deposited(amount)
+    amount = staking.call().deposits(address)
     staking.transact({'from': address}).withdraw()
     assert 0 == staking.call({'from': address}).deposited(amount)
     assert amount+free_tokens == token.call().balanceOf(address)
 
 def test_empty_validators(chain, staking):
-    assert [] == staking.call().validators(chain.web3.eth.blockNumber)
+    assert [] == staking.call().validatorSets(0, 0)
 
-def test_deposit_and_immediate_withdraw(token, staking, accounts):
-    do_deposit(token, staking, accounts[1], utils.denoms.ether)
+def test_deposit_and_immediate_withdraw(chain, token, staking, accounts):
+    do_deposit(chain, token, staking, accounts[1], utils.denoms.ether)
     do_withdraw(token, staking, accounts[1])
     
 def test_cant_withdraw_zero(token, staking, accounts):
@@ -176,4 +180,11 @@ def test_can_withdraw_from_old_epoch():
     
 def test_can_lookup_validators_from_the_past():
     pass
+    
+def test_correct_duplicate_join_of_a_single_validator():
+    pass
+    
+def test_validator_can_continue_with_a_small_addition_to_stake():
+    pass
+    
     

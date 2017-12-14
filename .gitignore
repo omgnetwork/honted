@@ -22,3 +22,5 @@ erl_crash.dump
 /populus/\.cache/
 
 *.pyc
+
+populus/build/
