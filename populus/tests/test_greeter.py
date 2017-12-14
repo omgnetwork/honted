@@ -56,7 +56,7 @@ def get_validators(staking, epoch):
         owner = validator[2]
         if owner == zero_address():
             break
-        result.append((validator, tendermintAddress, owner))
+        result.append((stake, tendermintAddress, owner))
     return result
 
 def zero_address():
