@@ -194,11 +194,15 @@ def test_deposits_accumulate_for_join(chain, staking, token, accounts):
     stake, _, owner = validators[0]
     assert stake == 2*utils.denoms.finney
     assert owner == addr
-    
-    
-def test_deposits_accumulate_for_withdraw():
-    pass
-    
+
+def test_deposits_accumulate_for_withdraw(chain, staking, token, accounts):
+    addr = accounts[1]
+    do_deposit(chain, token, staking, addr, utils.denoms.finney)
+    do_deposit(chain, token, staking, addr, utils.denoms.finney)
+    current = token.call().balanceOf(addr)
+    do_withdraw(chain, token, staking, addr)
+    assert current + 2*utils.denoms.finney == token.call().balanceOf(addr)
+
 def test_join_does_continue_in_validating_epoch():
     pass
 
