@@ -158,13 +158,14 @@ def test_deposit_join_many_validators(chain, staking, token, accounts):
             staking.transact({'from': addr}).join(addr))
     
 def test_ejects_smallest_validators(chain, staking, token, accounts):
-    ejected = staking.call().maxNumberOfValidators() < length(accounts)
+    ejected = staking.call().maxNumberOfValidators() < len(accounts)
     assert ejected > 0
     for idx, addr in enumerate(accounts):
-        do_deposit(token, staking, addr, idx * utils.denoms.finney)
+        print("join ", idx, addr)
+        do_deposit(chain, token, staking, addr, (idx+1) * utils.denoms.finney)
         chain.wait.for_receipt(
-            staking.transact({'from': addr}).join())
-    validators = staking.call().validators()
+            staking.transact({'from': addr}).join(addr))
+    validators = get_validators(staking, 0)
     for addr in accounts[:ejected]:
         assert addr not in validators
     
