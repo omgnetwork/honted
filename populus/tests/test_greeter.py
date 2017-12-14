@@ -51,12 +51,10 @@ def get_validators(staking, epoch):
     result = []
     for i in range(0, sys.maxsize**10):
         validator = staking.call().validatorSets(epoch, i)
-        stake = validator[0]
-        tendermintAddress = validator[1]
         owner = validator[2]
         if owner == zero_address():
             break
-        result.append((stake, tendermintAddress, owner))
+        result.append(tuple(validator))
     return result
 
 def zero_address():
