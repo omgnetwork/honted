@@ -172,11 +172,16 @@ def test_cant_enter_if_too_small(chain, staking, token, accounts):
     
 def test_deposits_accumulate_for_join(chain, staking, token, accounts):
     addr = accounts[1]
-    do_deposit(token, staking, addr, utils.denoms.finney)
-    do_deposit(token, staking, addr, utils.denoms.finney)
-    # chain.wait.for_receipt(
-    #    staking.transact({'from': addr}).join()
-    #assert [(_, 2*utils.denoms.finney)]
+    do_deposit(chain, token, staking, addr, utils.denoms.finney)
+    do_deposit(chain, token, staking, addr, utils.denoms.finney)
+    chain.wait.for_receipt(
+       staking.transact({'from': addr}).join(addr))
+    validators = get_validators(staking, 0)
+    print(validators)
+    assert len(validators) == 1
+    stake, _, owner = validators[0]
+    assert stake == 2*utils.denoms.finney
+    assert owner == addr
     
     
 def test_deposits_accumulate_for_withdraw():
