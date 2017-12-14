@@ -61,19 +61,18 @@ def zero_address():
     return '0x0000000000000000000000000000000000000000'
 
 def do_deposit(chain, token, staking, address, amount):
-    initial = staking.call().deposits(address)
+    initial = staking.call().deposits(address, 0)
     chain.wait.for_receipt(
         token.transact({'from': address}).approve(staking.address, amount))
     chain.wait.for_receipt(
         staking.transact({'from': address}).deposit(amount))
-    assert initial + amount == staking.call().deposits(address)
+    assert initial + amount == staking.call().deposits(address, 0)
 
-def do_withdraw(chain, token, staking, address):
+def do_withdraw(chain, token, staking, address, epoch = 0):
     free_tokens = token.call().balanceOf(address)
-    amount, _ = staking.call().withdrawals(address)
-    staking.transact({'from': address}).withdraw()
-    new_amount, _ = staking.call().withdrawals(address)
-    assert 0 == new_amount
+    amount = staking.call().deposits(address, epoch)
+    staking.transact({'from': address}).withdraw(epoch)
+    assert 0 == staking.call().deposits(address, epoch)
     assert amount + free_tokens == token.call().balanceOf(address)
 
 def test_empty_validators(chain, staking):
@@ -88,12 +87,12 @@ def test_cant_withdraw_zero(chain, token, staking, accounts):
     
     # someone else can't withdraw
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': accounts[2]}).withdraw()
+        staking.transact({'from': accounts[2]}).withdraw(0)
         
     # if I withdrew, I can't withdraw more
     do_withdraw(chain, token, staking, accounts[1])
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': accounts[1]}).withdraw()
+        staking.transact({'from': accounts[1]}).withdraw(0)
 
 def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token):
     addr = accounts[1]
@@ -106,33 +105,36 @@ def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token)
     staking.transact({'from': addr}).join(addr)
     # not a validator yet
     # can't withdraw after joining
-    with pytest.raises(TransactionFailed):
-        chain.wait.for_receipt(
-            staking.transact({'from': addr}).withdraw())
+    for epoch in range(0, staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod()):
+        with pytest.raises(TransactionFailed):
+            chain.wait.for_receipt(
+                staking.transact({'from': addr}).withdraw(epoch))
             
     # can't withdraw while validating
     # become a validator (time passes)
     validating_epoch_start = staking.call().startBlock() + staking.call().epochLength()
     jump_to_block(chain, validating_epoch_start)
-    with pytest.raises(TransactionFailed):
-        chain.wait.for_receipt(
-            staking.transact({'from': addr}).withdraw())    
+    for epoch in range(0, staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod()):
+        with pytest.raises(TransactionFailed):
+            chain.wait.for_receipt(
+                staking.transact({'from': addr}).withdraw(epoch))
             
     # can't withdraw after validating, but before unbonding
     # wait until the end of the epoch
     validating_epoch_end = staking.call().startBlock() + 2 * staking.call().epochLength()
     jump_to_block(chain, validating_epoch_end)
     # fail while attempting to withdraw token which is still bonded
-    with pytest.raises(TransactionFailed):
-        chain.wait.for_receipt(
-            staking.transact({'from': addr}).withdraw())
+    for epoch in range(0, staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod()):
+        with pytest.raises(TransactionFailed):
+            chain.wait.for_receipt(
+                staking.transact({'from': addr}).withdraw(epoch))
     
     # withdraw after unbonding
     # wait until the unbonding period
     unbonding_period_end = staking.call().startBlock() + 3 * staking.call().epochLength()
     jump_to_block(chain, unbonding_period_end)
     # now withdraw should work
-    do_withdraw(chain, token, staking, addr)
+    do_withdraw(chain, token, staking, addr, staking.call().getCurrentEpoch())
     
 def test_cant_join_outside_join_window(chain, token, staking, accounts):
     epoch_length = staking.call().epochLength()

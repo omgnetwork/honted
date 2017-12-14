@@ -11,7 +11,7 @@ contract HonteStaking {
    */
 
   event Deposit(address indexed depositor, uint256 amount);
-  event Join(address indexed joiner, uint256 amount);
+  event Join(address indexed joiner, uint256 indexed epoch, uint256 amount);
   event Withdraw(address indexed withdrawer, uint256 amount);
 
   /*
@@ -24,14 +24,9 @@ contract HonteStaking {
     address owner;
   }
 
-  struct withdrawal {
-    uint256 amount;
-    uint256 withdrawableAt;
-  }
-
-  mapping (address => uint256) public deposits;
+  // a double mapping staker_address => epoch_number => amount deposited/withdrawable in epoch_number
+  mapping (address => mapping(uint256 => uint256)) public deposits;
   mapping (uint256 => mapping(uint256 => validator)) public validatorSets;
-  mapping (address => withdrawal) public withdrawals;
 
   uint256 public startBlock;
   ERC20   token;
@@ -51,7 +46,7 @@ contract HonteStaking {
     startBlock            = block.number;
     token                 = ERC20(_tokenAddress);
     epochLength           = _epochLength;
-    unbondingPeriod       = _epochLength;
+    unbondingPeriod       = 1;
     maturityMargin        = _maturityMargin;
     maxNumberOfValidators = _maxNumberOfValidators;
   }
@@ -62,17 +57,13 @@ contract HonteStaking {
     require(amount <= token.allowance(msg.sender, address(this)));
     
     // FIXME: not worth it? besides you should include the current validating stake here as well...
-    require(deposits[msg.sender].add(amount) > lastLowestDeposit);
+    // commented because it's hard to fix and probably will be removed
+    /* require(deposits[msg.sender].add(amount) > lastLowestDeposit); */
 
     token.transferFrom(msg.sender, address(this), amount);
-    deposits[msg.sender] = deposits[msg.sender].add(amount);
+    deposits[msg.sender][0] = deposits[msg.sender][0].add(amount);
 
     Deposit(msg.sender, amount);
-  }
-
-  function deposited(address owner)
-      view public returns (uint256) {
-      return deposits[owner];
   }
 
   function join(address _tendermintAddress)
@@ -83,54 +74,60 @@ contract HonteStaking {
     require(_tendermintAddress != 0x0);
 
     uint256 currentEpoch         = getCurrentEpoch();
+    uint256 nextEpoch            = currentEpoch.add(1);
     uint256 nextEpochBlockNumber = getNextEpochBlockNumber();
 
     // Checks to make sure that the next epochs validators set isn't locked yet
     //
     require(block.number < nextEpochBlockNumber.sub(maturityMargin));
 
-    uint256 newValidatorPosition  = getNewValidatorPosition(currentEpoch);
-    uint256 ejectedValidtorAmount = validatorSets[currentEpoch][newValidatorPosition].stake;
+    uint256 newValidatorPosition  = getNewValidatorPosition(nextEpoch);
+    uint256 ejectedValidtorAmount = validatorSets[nextEpoch][newValidatorPosition].stake;
 
     // Checks that the joiners stake is higher than the lowest current validators deposit
     //
     // FIXME: will throw if msg.sender is continueing
-    // FIXME: even so, this shouldn't be here, but outside
-    require(ejectedValidtorAmount < deposits[msg.sender]);
+    require(ejectedValidtorAmount < deposits[msg.sender][0]);
 
     // Creates/updates new validator from a joiner
     //
-    if (validatorSets[currentEpoch][newValidatorPosition].owner == msg.sender) {
-      validatorSets[currentEpoch][newValidatorPosition].stake = validatorSets[currentEpoch][newValidatorPosition].stake.add(deposits[msg.sender]);
+    if (validatorSets[nextEpoch][newValidatorPosition].owner == msg.sender) {
+      validatorSets[nextEpoch][newValidatorPosition].stake = validatorSets[currentEpoch][newValidatorPosition].stake.add(deposits[msg.sender][0]);
     } else {
-      validatorSets[currentEpoch][newValidatorPosition].owner = msg.sender;
-      validatorSets[currentEpoch][newValidatorPosition].stake = deposits[msg.sender];
+      validatorSets[nextEpoch][newValidatorPosition].owner = msg.sender;
+      validatorSets[nextEpoch][newValidatorPosition].stake = deposits[msg.sender][0];
       // FIXME: handle withdrawal for the ejectee (either continuing or not)
       // FIXME: consider changing withdrawable_at to subaccounts for epochs
     }
-    validatorSets[currentEpoch][newValidatorPosition].tendermintAddress = _tendermintAddress;
+    validatorSets[nextEpoch][newValidatorPosition].tendermintAddress = _tendermintAddress;
 
     // Creates/updates withdraw
     //
-    withdrawals[msg.sender].amount         = withdrawals[msg.sender].amount.add(deposits[msg.sender]);
-    withdrawals[msg.sender].withdrawableAt = nextEpochBlockNumber.add(epochLength).add(unbondingPeriod);
+    moveDeposit(msg.sender, 0, nextEpoch.add(1).add(unbondingPeriod));
 
-    // Delete the deposit
-    //
-    delete deposits[msg.sender];
-
-    Join(msg.sender, withdrawals[msg.sender].amount);
+    Join(msg.sender, nextEpoch, validatorSets[nextEpoch][newValidatorPosition].stake);
+  }
+  
+  function moveDeposit(address owner, uint256 fromEpoch, uint256 toEpoch)
+    private
+  {
+     deposits[owner][toEpoch]   = deposits[owner][toEpoch].add(deposits[owner][fromEpoch]);
+     deposits[owner][fromEpoch] = 0;
   }
 
-  function withdraw()
+  function withdraw(uint256 epoch)
     public
   {
-    require(withdrawals[msg.sender].withdrawableAt <= block.number);
+    require(epoch <= getCurrentEpoch());
+    
+    uint256 amount = deposits[msg.sender][epoch];
 
-    token.transfer(msg.sender, withdrawals[msg.sender].amount);
-    delete withdrawals[msg.sender];
+    require(amount != 0);
 
-    Withdraw(msg.sender, withdrawals[msg.sender].amount);
+    delete deposits[msg.sender][epoch];
+    token.transfer(msg.sender, amount);
+
+    Withdraw(msg.sender, amount);
   }
 
   /*
@@ -173,6 +170,7 @@ contract HonteStaking {
       // if the joiner is already an existing validator in the set
       //
       if (validatorSets[currentEpoch][i].owner == 0x0 || validatorSets[currentEpoch][i].owner == msg.sender) {
+        // FIXME: careful, can self-eject now if I overwrite my own stake
         return i;
       }
 
