@@ -103,7 +103,7 @@ def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token)
     # can't withdraw after joining
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            staking.trasact({'from': addr}).withdraw())
+            staking.transact({'from': addr}).withdraw())
             
     # can't withdraw while validating
     # become a validator (time passes)
@@ -113,7 +113,7 @@ def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token)
     assert [] != staking.call().validators(chain.web3.eth.blockNumber)
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            staking.trasact({'from': addr}).withdraw())    
+            staking.transact({'from': addr}).withdraw())    
             
     # can't withdraw after validating, but before unbonding
     # wait until the end of the epoch
@@ -124,7 +124,7 @@ def test_deposit_join_withdraw_single_validator(chain, accounts, staking, token)
     # fail while attempting to withdraw token which is still bonded
     with pytest.raises(TransactionFailed):
         chain.wait.for_receipt(
-            staking.trasact({'from': addr}).withdraw())
+            staking.transact({'from': addr}).withdraw())
     
     # withdraw after unbonding
     # wait until the unbonding period
