@@ -68,6 +68,11 @@ contract HonteStaking {
     Deposit(msg.sender, amount);
   }
 
+  function deposited(address owner)
+      view public returns (uint256) {
+      return deposits[owner];
+  }
+
   function join(address _tendermintAddress)
     public
   {
