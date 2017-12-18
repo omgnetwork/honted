@@ -45,7 +45,7 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestCommit}, _from, state) do
     {:reply, {
       :ResponseCommit,
-      0,
+      code(:ok),
       (state |> State.hash |> to_charlist),
       'commit log: yo!'
     }, state}
@@ -56,9 +56,10 @@ defmodule HonteD.ABCI do
          {:ok, _} <- generic_handle_tx(state, decoded)
     do
       # no change to state! we don't allow to build upon uncommited transactions
-      {:reply, {:ResponseCheckTx, 0, '', ''}, state}
+      {:reply, {:ResponseCheckTx, code(:ok), '', ''}, state}
     else
-      {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
+      {:error, error} ->
+        {:reply, {:ResponseCheckTx, code(error), '', to_charlist(error)}, state}
     end
   end
 
@@ -68,14 +69,15 @@ defmodule HonteD.ABCI do
     {:ok, decoded} = HonteD.TxCodec.decode(tx)
     {:ok, state} = generic_handle_tx(state, decoded)
     HonteD.ABCI.Events.notify(state, decoded.raw_tx)
-    {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
+    {:reply, {:ResponseDeliverTx, code(:ok), '', ''}, state}
   end
 
   @doc """
   Not implemented: we don't yet support tendermint's standard queries to /store
   """
   def handle_call({:RequestQuery, _data, '/store', 0, :false}, _from, state) do
-    {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'query to /store not implemented'}, state}
+    {:reply, {:ResponseQuery, code(:not_implemented), 0, '', '', 'no proof', 0,
+              'query to /store not implemented'}, state}
   end
 
   @doc """
@@ -84,7 +86,8 @@ defmodule HonteD.ABCI do
   def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, state) do
     key = "nonces" <> to_string(address)
     value = Map.get(state, key, 0)
-    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, ''}, state}
+    {:reply, {:ResponseQuery, code(:ok), 0, to_charlist(key), encode_query_response(value),
+              'no proof', 0, ''}, state}
   end
 
   @doc """
@@ -113,7 +116,7 @@ defmodule HonteD.ABCI do
   Dissallow queries with non-empty-string data field for now
   """
   def handle_call({:RequestQuery, _data, _path, _height, _prove}, _from, state) do
-    {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'unrecognized query'}, state}
+    {:reply, {:ResponseQuery, code(:not_implemented), 0, '', '', 'no proof', 0, 'unrecognized query'}, state}
   end
 
   def handle_call({:RequestInitChain, [{:Validator, _somebytes, _someint}]} = request, from, state) do
@@ -138,7 +141,12 @@ defmodule HonteD.ABCI do
     state |> State.get(key) |> handle_get
   end
 
-  defp handle_get({:ok, value}), do: {0, value, ''}
-  # NOTE: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-  defp handle_get(nil), do: {1, "", 'not_found'}
+  defp handle_get({:ok, value}), do: {code(:ok), value, ''}
+  defp handle_get(nil), do: {code(:not_found), "", 'not_found'}
+
+  # NOTE: Define our own mapping from our error atoms to codes in range [1,...].
+  #       See https://github.com/tendermint/abci/pull/145 and related.
+  defp code(:ok), do: 0
+  defp code(_), do: 1
+
 end
