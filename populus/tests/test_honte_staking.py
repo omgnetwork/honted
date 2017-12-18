@@ -23,9 +23,9 @@ def token(chain, accounts):
     contract_class = chain.web3.eth.contract(abi=json.loads(OMGTOKEN_CONTRACT_ABI),
                                              bytecode=OMGTOKEN_CONTRACT_BYTECODE)
     token = deploy(chain.web3, contract_class)
-    for addr in accounts:
+    for validator in accounts:
         chain.wait.for_receipt(
-            token.transact({'from': owner}).mint(addr, LARGE_AMOUNT))
+            token.transact({'from': owner}).mint(validator, LARGE_AMOUNT))
     chain.wait.for_receipt(
         token.transact({'from': owner}).finishMinting())
     return token
@@ -47,7 +47,7 @@ def staking(token, chain, accounts):
 def jump_to_block(chain, to_block_no):
     current_block = chain.web3.eth.blockNumber
     assert current_block < to_block_no
-    chain.rpc_methods.evm_mine(to_block_no - current_block)
+    chain.web3.testing.mine(to_block_no - current_block)
     assert chain.web3.eth.blockNumber == to_block_no
 
 def get_validators(staking, epoch):
@@ -62,6 +62,7 @@ def get_validators(staking, epoch):
 
 @pytest.fixture()
 def do_deposit(chain, token, staking):
+    # successful deposit (two steps!)
     def _ret(address, amount):
         initial = staking.call().deposits(address, 0)
         chain.wait.for_receipt(
@@ -73,6 +74,7 @@ def do_deposit(chain, token, staking):
 
 @pytest.fixture()
 def do_withdraw(chain, token, staking):
+    # successful withdrawal
     def _ret(address, epoch = 0):
         free_tokens = token.call().balanceOf(address)
         amount = staking.call().deposits(address, epoch)
@@ -101,19 +103,19 @@ def test_cant_withdraw_zero(staking, do_deposit, do_withdraw, accounts):
         staking.transact({'from': accounts[1]}).withdraw(0)
 
 def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, staking, token, accounts):
-    addr = accounts[1]
-    do_deposit(addr, LARGE_AMOUNT)
+    validator = accounts[1]
+    do_deposit(validator, LARGE_AMOUNT)
     print(staking.call().startBlock())
     print(chain.web3.eth.blockNumber)
     print(staking.call().getCurrentEpoch())
     print(staking.call().getNextEpochBlockNumber())
     print(staking.call().getNewValidatorPosition(0))
-    staking.transact({'from': addr}).join(addr)
+    staking.transact({'from': validator}).join(validator)
     # not a validator yet
     # can't withdraw after joining
     for epoch in range(0, staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod()):
         with pytest.raises(TransactionFailed):
-            staking.transact({'from': addr}).withdraw(epoch)
+            staking.transact({'from': validator}).withdraw(epoch)
 
     # can't withdraw while validating
     # become a validator (time passes)
@@ -121,7 +123,7 @@ def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, 
     jump_to_block(chain, validating_epoch_start)
     for epoch in range(0, staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod()):
         with pytest.raises(TransactionFailed):
-            staking.transact({'from': addr}).withdraw(epoch)
+            staking.transact({'from': validator}).withdraw(epoch)
 
     # can't withdraw after validating, but before unbonding
     # wait until the end of the epoch
@@ -130,14 +132,14 @@ def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, 
     # fail while attempting to withdraw token which is still bonded
     for epoch in range(0, staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod()):
         with pytest.raises(TransactionFailed):
-            staking.transact({'from': addr}).withdraw(epoch)
+            staking.transact({'from': validator}).withdraw(epoch)
 
     # withdraw after unbonding
     # wait until the unbonding period
     unbonding_period_end = staking.call().startBlock() + 3 * staking.call().epochLength()
     jump_to_block(chain, unbonding_period_end)
     # now withdraw should work
-    do_withdraw(addr, staking.call().getCurrentEpoch())
+    do_withdraw(validator, staking.call().getCurrentEpoch())
 
 def test_cant_join_outside_join_window(do_deposit, do_withdraw, chain, staking, accounts):
     start_block = staking.call().startBlock()
@@ -151,54 +153,58 @@ def test_cant_join_outside_join_window(do_deposit, do_withdraw, chain, staking, 
 
 def test_deposit_join_many_validators(do_deposit, chain, staking, token, accounts):
     max = staking.call().maxNumberOfValidators()
-    for addr in accounts[:max]:
-        do_deposit(addr, LARGE_AMOUNT)
+    for validator in accounts[:max]:
+        do_deposit(validator, LARGE_AMOUNT)
         chain.wait.for_receipt(
-            staking.transact({'from': addr}).join(addr))
+            staking.transact({'from': validator}).join(validator))
 
 def test_ejects_smallest_validators(do_deposit, chain, staking, token, accounts):
     ejected = staking.call().maxNumberOfValidators() < len(accounts)
     assert ejected > 0
-    for idx, addr in enumerate(accounts):
-        print("join ", idx, addr)
-        do_deposit(addr, (idx+1) * utils.denoms.finney)
+    for idx, validator in enumerate(accounts):
+        print("join ", idx, validator)
+        do_deposit(validator, (idx + 1) * utils.denoms.finney)
         chain.wait.for_receipt(
-            staking.transact({'from': addr}).join(addr))
+            staking.transact({'from': validator}).join(validator))
     validators = get_validators(staking, 0)
-    for addr in accounts[:ejected]:
-        assert addr not in validators
+    for validator in accounts[:ejected]:
+        assert validator not in validators
 
-def test_cant_enter_if_too_small(chain, staking, token, accounts):
-    address = accounts[1]
-    # too small must be defined to be at least 1 wei
-    amount = utils.denoms.wei
-    chain.wait.for_receipt(
-        token.transact({'from': address}).approve(staking.address, amount))
-    chain.wait.for_receipt(
-        staking.transact({'from': address}).deposit(amount))
+def test_cant_enter_if_too_small_to_eject(do_deposit, staking, token, accounts):
+    max_validators = staking.call().maxNumberOfValidators()
+
+    # larger players
+    for idx_validator in range(max_validators):
+        validator = accounts[idx_validator]
+        do_deposit(validator, LARGE_AMOUNT)
+        staking.transact({'from': validator}).join(validator)
+
+    small_validator = accounts[max_validators]
+    small_amount = utils.denoms.wei
+    do_deposit(small_validator, small_amount)
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': address}).join(address)
+        staking.transact({'from': small_validator}).join(small_validator)
 
 def test_deposits_accumulate_for_join(chain, do_deposit, staking, token, accounts):
-    addr = accounts[1]
-    do_deposit(addr, utils.denoms.finney)
-    do_deposit(addr, utils.denoms.finney)
+    validator = accounts[1]
+    do_deposit(validator, utils.denoms.finney)
+    do_deposit(validator, utils.denoms.finney)
     chain.wait.for_receipt(
-       staking.transact({'from': addr}).join(addr))
+       staking.transact({'from': validator}).join(validator))
     validators = get_validators(staking, 0)
     print(validators)
     assert len(validators) == 1
     stake, _, owner = validators[0]
     assert stake == 2*utils.denoms.finney
-    assert owner == addr
+    assert owner == validator
 
 def test_deposits_accumulate_for_withdraw(do_deposit, do_withdraw, token, accounts):
-    addr = accounts[1]
-    do_deposit(addr, utils.denoms.finney)
-    do_deposit(addr, utils.denoms.finney)
-    current = token.call().balanceOf(addr)
-    do_withdraw(addr)
-    assert current + 2*utils.denoms.finney == token.call().balanceOf(addr)
+    validator = accounts[1]
+    do_deposit(validator, utils.denoms.finney)
+    do_deposit(validator, utils.denoms.finney)
+    current = token.call().balanceOf(validator)
+    do_withdraw(validator)
+    assert current + 2*utils.denoms.finney == token.call().balanceOf(validator)
 
 def test_join_does_continue_in_validating_epoch():
     pass

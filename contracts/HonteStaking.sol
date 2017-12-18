@@ -55,7 +55,7 @@ contract HonteStaking {
     public
   {
     require(amount <= token.allowance(msg.sender, address(this)));
-    
+
     // FIXME: not worth it? besides you should include the current validating stake here as well...
     // commented because it's hard to fix and probably will be removed
     /* require(deposits[msg.sender].add(amount) > lastLowestDeposit); */
@@ -107,7 +107,7 @@ contract HonteStaking {
 
     Join(msg.sender, nextEpoch, validatorSets[nextEpoch][newValidatorPosition].stake);
   }
-  
+
   function moveDeposit(address owner, uint256 fromEpoch, uint256 toEpoch)
     private
   {
@@ -119,7 +119,7 @@ contract HonteStaking {
     public
   {
     require(epoch <= getCurrentEpoch());
-    
+
     uint256 amount = deposits[msg.sender][epoch];
 
     require(amount != 0);
