@@ -157,7 +157,7 @@ contract HonteStaking {
    *  Private functions
    */
 
-  function getNewValidatorPosition(uint256 currentEpoch)
+  function getNewValidatorPosition(uint256 epoch)
     public
     view
     returns(uint256)
@@ -169,16 +169,16 @@ contract HonteStaking {
       // If a validator spot is empty exit the loop and join at that position or
       // if the joiner is already an existing validator in the set
       //
-      if (validatorSets[currentEpoch][i].owner == 0x0 || validatorSets[currentEpoch][i].owner == msg.sender) {
+      if (validatorSets[epoch][i].owner == 0x0 || validatorSets[epoch][i].owner == msg.sender) {
         // FIXME: careful, can self-eject now if I overwrite my own stake
         return i;
       }
 
       // Tracks the minimum stake and save its position
       //
-      else if (validatorSets[currentEpoch][i].stake < lowestValidatorAmount) {
+      else if (validatorSets[epoch][i].stake < lowestValidatorAmount) {
         lowestValidatorPosition = i;
-        lowestValidatorAmount = validatorSets[currentEpoch][lowestValidatorPosition].stake;
+        lowestValidatorAmount = validatorSets[epoch][lowestValidatorPosition].stake;
       }
     }
 

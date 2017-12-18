@@ -7,6 +7,8 @@ import pytest
 from populus.wait import Wait
 
 LARGE_AMOUNT = utils.denoms.ether
+MEDIUM_AMOUNT = 10000
+SMALL_AMOUNT = 10
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
@@ -33,7 +35,7 @@ def token(chain, accounts):
 @pytest.fixture()
 def staking(token, chain, accounts):
     owner = accounts[0]
-    epoch_length = 20
+    epoch_length = 30
     maturity_margin = 2
     max_validators = 5
     staking, _ = chain.provider.get_or_deploy_contract('HonteStaking',
@@ -159,16 +161,31 @@ def test_deposit_join_many_validators(do_deposit, chain, staking, token, account
             staking.transact({'from': validator}).join(validator))
 
 def test_ejects_smallest_validators(do_deposit, chain, staking, token, accounts):
-    ejected = staking.call().maxNumberOfValidators() < len(accounts)
-    assert ejected > 0
-    for idx, validator in enumerate(accounts):
-        print("join ", idx, validator)
-        do_deposit(validator, (idx + 1) * utils.denoms.finney)
+    max_validators = staking.call().maxNumberOfValidators()
+    prior_validators = accounts[0:max_validators]
+    smallest_validator = accounts[2]
+    for idx, validator in enumerate(prior_validators):
+        if validator != smallest_validator:
+            do_deposit(validator, (idx + 1) * MEDIUM_AMOUNT)
+        else:
+            do_deposit(validator, SMALL_AMOUNT)
+
         chain.wait.for_receipt(
             staking.transact({'from': validator}).join(validator))
-    validators = get_validators(staking, 0)
-    for validator in accounts[:ejected]:
-        assert validator not in validators
+
+    # ejecting
+    new_validator = accounts[max_validators]
+    new_amount = (max_validators + 1) * MEDIUM_AMOUNT
+    do_deposit(new_validator, new_amount)
+
+    chain.wait.for_receipt(
+        staking.transact({'from': new_validator}).join(new_validator))
+
+    validators = get_validators(staking, 1)
+    validators_addresses = [validator[1] for validator in validators]  # just the addresses
+    assert len(validators) == max_validators
+    assert smallest_validator not in validators_addresses
+    assert (new_amount, new_validator, new_validator) in validators
 
 def test_cant_enter_if_too_small_to_eject(do_deposit, staking, token, accounts):
     max_validators = staking.call().maxNumberOfValidators()
@@ -191,11 +208,10 @@ def test_deposits_accumulate_for_join(chain, do_deposit, staking, token, account
     do_deposit(validator, utils.denoms.finney)
     chain.wait.for_receipt(
        staking.transact({'from': validator}).join(validator))
-    validators = get_validators(staking, 0)
-    print(validators)
+    validators = get_validators(staking, 1)
     assert len(validators) == 1
     stake, _, owner = validators[0]
-    assert stake == 2*utils.denoms.finney
+    assert stake == 2 * utils.denoms.finney
     assert owner == validator
 
 def test_deposits_accumulate_for_withdraw(do_deposit, do_withdraw, token, accounts):
