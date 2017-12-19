@@ -1,17 +1,18 @@
 import json
 import sys
 
-from ethereum import tester, utils
+from ethereum import utils
 from ethereum.tester import TransactionFailed
 import pytest
 from populus.wait import Wait
+
+from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
 
 LARGE_AMOUNT = utils.denoms.ether
 MEDIUM_AMOUNT = 10000
 SMALL_AMOUNT = 10
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
 
 def deploy(web3, ContractClass):
     deploy_tx = ContractClass.deploy()
@@ -66,8 +67,10 @@ def get_validators(staking, epoch):
 
 @pytest.fixture()
 def do(chain, token, staking):
+
     # special class that operates on the deployed contracts from the fixtures
     class Doer:
+
         # successful deposit (two steps!)
         def deposit(self, address, amount):
             initial = staking.call().deposits(address, 0)
@@ -77,13 +80,27 @@ def do(chain, token, staking):
                 staking.transact({'from': address}).deposit(amount))
             assert initial + amount == staking.call().deposits(address, 0)
         # successful withdrawal
-        def withdraw(self, address, epoch = 0):
+
+        def withdraw(self, address, epoch=0):
             free_tokens = token.call().balanceOf(address)
             amount = staking.call().deposits(address, epoch)
             staking.transact({'from': address}).withdraw(epoch)
             assert 0 == staking.call().deposits(address, epoch)
             assert amount + free_tokens == token.call().balanceOf(address)
+
     return Doer()
+
+@pytest.fixture
+def lots_of_staking_past(do, chain, staking, accounts):
+    max_validators = staking.call().maxNumberOfValidators()
+    validators = accounts[0:max_validators]
+
+    # several epochs with stakers one after another
+    for _ in range(5):
+        for validator in validators:
+            do.deposit(validator, MEDIUM_AMOUNT)
+            chain.wait.for_receipt(staking.transact({'from': validator}).join(validator))
+        jump_to_block(chain, staking.call().getNextEpochBlockNumber())
 
 def test_empty_validators(chain, staking):
     assert [] == get_validators(staking, 0)
@@ -206,8 +223,7 @@ def test_deposits_accumulate_for_join(chain, do, staking, token, accounts):
     validator = accounts[1]
     do.deposit(validator, utils.denoms.finney)
     do.deposit(validator, utils.denoms.finney)
-    chain.wait.for_receipt(
-       staking.transact({'from': validator}).join(validator))
+    chain.wait.for_receipt(staking.transact({'from': validator}).join(validator))
     validators = get_validators(staking, 1)
     assert len(validators) == 1
     stake, _, owner = validators[0]
@@ -220,19 +236,7 @@ def test_deposits_accumulate_for_withdraw(do, token, accounts):
     do.deposit(validator, utils.denoms.finney)
     current = token.call().balanceOf(validator)
     do.withdraw(validator)
-    assert current + 2*utils.denoms.finney == token.call().balanceOf(validator)
-
-@pytest.fixture
-def lots_of_staking_past(do, chain, staking, accounts):
-    max_validators = staking.call().maxNumberOfValidators()
-    validators = accounts[0:max_validators]
-
-    # several epochs with stakers one after another
-    for _ in range(5):
-        for validator in validators:
-            do.deposit(validator, MEDIUM_AMOUNT)
-            chain.wait.for_receipt(staking.transact({'from': validator}).join(validator))
-        jump_to_block(chain, staking.call().getNextEpochBlockNumber())
+    assert current + 2 * utils.denoms.finney == token.call().balanceOf(validator)
 
 def test_can_withdraw_from_old_epoch(do, lots_of_staking_past, chain, staking, token, accounts):
     validator = accounts[1]
