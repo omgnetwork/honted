@@ -35,9 +35,9 @@ def token(chain, accounts):
 @pytest.fixture()
 def staking(token, chain, accounts):
     owner = accounts[0]
-    epoch_length = 30
-    maturity_margin = 2
-    max_validators = 5
+    epoch_length = 40
+    maturity_margin = 5
+    max_validators = 4
     staking, _ = chain.provider.get_or_deploy_contract('HonteStaking',
                                                        deploy_transaction={'from': owner},
                                                        deploy_args=[epoch_length,
@@ -49,8 +49,10 @@ def staking(token, chain, accounts):
 def jump_to_block(chain, to_block_no):
     current_block = chain.web3.eth.blockNumber
     assert current_block < to_block_no
-    chain.web3.testing.mine(to_block_no - current_block)
-    assert chain.web3.eth.blockNumber == to_block_no
+    # the "-1" is here, because it will mine until `to_block_no - 1` which will make `to_block_no` the current block
+    # that the next transaction will be "in"
+    chain.web3.testing.mine(to_block_no - current_block - 1)
+    assert chain.web3.eth.blockNumber == to_block_no - 1
 
 def get_validators(staking, epoch):
     result = []
@@ -107,11 +109,6 @@ def test_cant_withdraw_zero(staking, do_deposit, do_withdraw, accounts):
 def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, staking, token, accounts):
     validator = accounts[1]
     do_deposit(validator, LARGE_AMOUNT)
-    print(staking.call().startBlock())
-    print(chain.web3.eth.blockNumber)
-    print(staking.call().getCurrentEpoch())
-    print(staking.call().getNextEpochBlockNumber())
-    print(staking.call().getNewValidatorPosition(0))
     staking.transact({'from': validator}).join(validator)
     # not a validator yet
     # can't withdraw after joining
@@ -143,15 +140,20 @@ def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, 
     # now withdraw should work
     do_withdraw(validator, staking.call().getCurrentEpoch())
 
-def test_cant_join_outside_join_window(do_deposit, do_withdraw, chain, staking, accounts):
+def test_cant_join_outside_join_window(do_deposit, chain, staking, accounts):
+    address = accounts[1]
+    do_deposit(address, LARGE_AMOUNT)
     start_block = staking.call().startBlock()
     epoch_length = staking.call().epochLength()
     maturity_margin = staking.call().maturityMargin()
-    jump_to_block(chain, start_block + epoch_length - maturity_margin + 1)
-    address = accounts[1]
-    do_deposit(address, LARGE_AMOUNT)
-    with pytest.raises(TransactionFailed):
-        staking.transact({'from': address}).join(address)
+
+    for margin_block in range(maturity_margin):
+        jump_to_block(chain, start_block + epoch_length - maturity_margin + margin_block)
+        with pytest.raises(TransactionFailed):
+            staking.transact({'from': address}).join(address)
+    # can join right after
+    jump_to_block(chain, start_block + epoch_length + 1)
+    staking.transact({'from': address}).join(address)
 
 def test_deposit_join_many_validators(do_deposit, chain, staking, token, accounts):
     max = staking.call().maxNumberOfValidators()

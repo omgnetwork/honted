@@ -139,7 +139,8 @@ contract HonteStaking {
     view
     returns(uint256)
   {
-    return block.number.sub(startBlock).div(epochLength);
+    uint256 blocksSinceStart = block.number.sub(startBlock);
+    return blocksSinceStart.div(epochLength);
   }
 
   function getNextEpochBlockNumber()
@@ -147,10 +148,9 @@ contract HonteStaking {
     view
     returns(uint256)
   {
-    // uint256 currentEpoch   = block.number.sub(startBlock).div(epochLength);
-    // uint256 nextEpoch      = currentEpoch.add(1);
-    // uint256 nextEpochBlock = startblock.add(nextEpoch.mul(epochLength));
-    return startBlock.add((block.number.sub(startBlock).div(epochLength).add(1)).mul(epochLength));
+    uint256 nextEpoch      = getCurrentEpoch().add(1);
+    uint256 nextEpochBlock = startBlock.add(nextEpoch.mul(epochLength));
+    return nextEpochBlock;
   }
 
   /*
