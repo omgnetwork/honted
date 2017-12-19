@@ -224,16 +224,51 @@ def test_deposits_accumulate_for_withdraw(do_deposit, do_withdraw, token, accoun
     do_withdraw(validator)
     assert current + 2*utils.denoms.finney == token.call().balanceOf(validator)
 
+@pytest.fixture
+def lots_of_staking_past(do_deposit, chain, staking, accounts):
+    max_validators = staking.call().maxNumberOfValidators()
+    validators = accounts[0:max_validators]
+
+    # several epochs with stakers one after another
+    for _ in range(5):
+        for validator in validators:
+            do_deposit(validator, MEDIUM_AMOUNT)
+            chain.wait.for_receipt(staking.transact({'from': validator}).join(validator))
+        jump_to_block(chain, staking.call().getNextEpochBlockNumber())
+
+def test_can_withdraw_from_old_epoch(do_deposit, do_withdraw, lots_of_staking_past, chain, staking, token, accounts):
+    validator = accounts[1]
+    do_deposit(validator, MEDIUM_AMOUNT)
+    staking.transact({'from': validator}).join(validator)
+    withdraw_epoch = staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod() + 1
+    much_later = staking.call().startBlock() + 30 * staking.call().epochLength()
+    jump_to_block(chain, much_later)
+    # now withdraw should still work
+    do_withdraw(validator, withdraw_epoch)
+
+def test_can_lookup_validators_from_the_past(do_deposit, do_withdraw, lots_of_staking_past, chain, staking, token,
+                                             accounts):
+    much_later = staking.call().startBlock() + 30 * staking.call().epochLength()
+    jump_to_block(chain, much_later)
+    # now old stakes should still be reachable
+    for epoch in range(5):
+        validators = get_validators(staking, epoch + 1)  # +1 because we were _joining_ in epochs 0 through 4
+        assert len(validators) == staking.call().maxNumberOfValidators()
+        for idx, validator in enumerate(validators):
+            assert validator[0] == MEDIUM_AMOUNT
+            assert validator[1] == accounts[idx]
+            assert validator[2] == accounts[idx]
+
+def test_can_withdraw_accumulated_old_deposits():
+    pass
+
 def test_join_does_continue_in_validating_epoch():
     pass
 
+def test_cant_continue_in_unbonding_epoch():
+    pass
+
 def test_eject_continueing_withdraws_work():
-    pass
-
-def test_can_withdraw_from_old_epoch():
-    pass
-
-def test_can_lookup_validators_from_the_past():
     pass
 
 def test_correct_duplicate_join_of_a_single_validator():
