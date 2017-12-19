@@ -82,28 +82,43 @@ contract HonteStaking {
     require(block.number < nextEpochBlockNumber.sub(maturityMargin));
 
     uint256 newValidatorPosition  = getNewValidatorPosition(nextEpoch);
-    uint256 ejectedValidtorAmount = validatorSets[nextEpoch][newValidatorPosition].stake;
-
-    // Checks that the joiners stake is higher than the lowest current validators deposit
-    //
-    // FIXME: will throw if msg.sender is continueing
-    require(ejectedValidtorAmount < deposits[msg.sender][0]);
 
     // Creates/updates new validator from a joiner
     //
     if (validatorSets[nextEpoch][newValidatorPosition].owner == msg.sender) {
-      validatorSets[nextEpoch][newValidatorPosition].stake = validatorSets[currentEpoch][newValidatorPosition].stake.add(deposits[msg.sender][0]);
+      // this isn't ejecting - joiner is already present in the next epoch's validator set
+      // we just update the stake
+      validatorSets[nextEpoch][newValidatorPosition].stake = validatorSets[nextEpoch][newValidatorPosition].stake.add(deposits[msg.sender][0]);
     } else {
+      // ejecting or adding a fresh entry
+
+      uint256 alreadyStaked = 0;
+      for (uint256 i = 0; i < maxNumberOfValidators; i++) {
+        if (validatorSets[currentEpoch][i].owner == msg.sender) {
+          alreadyStaked = validatorSets[currentEpoch][i].stake;
+          break;
+        }
+      }
+
+      uint256 sumToStake = deposits[msg.sender][0].add(alreadyStaked);
+
+      // Checks that the joiners stake is higher than the lowest current validators deposit
+      //
+      uint256 ejectedValidatorAmount = validatorSets[nextEpoch][newValidatorPosition].stake;
+      require(ejectedValidatorAmount < sumToStake);
       validatorSets[nextEpoch][newValidatorPosition].owner = msg.sender;
-      validatorSets[nextEpoch][newValidatorPosition].stake = deposits[msg.sender][0];
+      validatorSets[nextEpoch][newValidatorPosition].stake = sumToStake;
       // FIXME: handle withdrawal for the ejectee (either continuing or not)
-      // FIXME: consider changing withdrawable_at to subaccounts for epochs
     }
+
+    // want to give the possibility of updating the tendermint address regardless
     validatorSets[nextEpoch][newValidatorPosition].tendermintAddress = _tendermintAddress;
 
-    // Creates/updates withdraw
+    // Creates/updates withdraw - combines the fresh deposit with the currently validating stake
     //
-    moveDeposit(msg.sender, 0, nextEpoch.add(1).add(unbondingPeriod));
+    uint256 unbondingEpoch = nextEpoch.add(1).add(unbondingPeriod);
+    moveDeposit(msg.sender, 0, unbondingEpoch);
+    moveDeposit(msg.sender, unbondingEpoch - 1, unbondingEpoch);
 
     Join(msg.sender, nextEpoch, validatorSets[nextEpoch][newValidatorPosition].stake);
   }

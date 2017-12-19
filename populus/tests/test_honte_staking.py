@@ -213,7 +213,7 @@ def test_ejects_smallest_validators(do, chain, staking, token, accounts):
     do.join(new_validator)
 
     validators = get_validators(staking, 1)
-    validators_addresses = [validator[1] for validator in validators]  # just the addresses
+    validators_addresses = [validator[2] for validator in validators]  # just the addresses
     assert len(validators) == max_validators
     assert smallest_validator not in validators_addresses
     assert (new_amount, new_validator, new_validator) in validators
@@ -271,20 +271,44 @@ def test_can_lookup_validators_from_the_past(do, lots_of_staking_past, chain, st
         validators = get_validators(staking, epoch + 1)  # +1 because we were _joining_ in epochs 0 through 4
         assert len(validators) == staking.call().maxNumberOfValidators()
         for idx, validator in enumerate(validators):
-            assert validator[0] == MEDIUM_AMOUNT
+            assert validator[0] == MEDIUM_AMOUNT * (epoch + 1)
             assert validator[1] == accounts[idx]
             assert validator[2] == accounts[idx]
 
-def test_can_withdraw_accumulated_old_deposits():
+def test_join_does_continue_in_validating_epoch(do, chain, staking, accounts):
+    validator = accounts[0]
+    do.deposit(validator, MEDIUM_AMOUNT)
+    do.join(validator)
+    jump_to_block(chain, staking.call().getNextEpochBlockNumber())
+    do.join(validator)
+
+    assert get_validators(staking, 1) == get_validators(staking, 2)
+
+def test_can_bump_stake_in_continuing(do, chain, staking, accounts):
+    validator = accounts[0]
+    do.deposit(validator, MEDIUM_AMOUNT)
+    do.join(validator)
+    jump_to_block(chain, staking.call().getNextEpochBlockNumber())
+    do.deposit(validator, SMALL_AMOUNT)
+    do.join(validator)
+
+    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, validator, validator)]
+    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT + SMALL_AMOUNT, validator, validator)]
+
+def test_cant_continue_in_unbonding_epoch(do, chain, staking, accounts):
+    validator = accounts[0]
+    do.deposit(validator, MEDIUM_AMOUNT)
+    do.join(validator)
+    bonding_start = staking.call().getNextEpochBlockNumber() + staking.call().epochLength()
+    for block in range(staking.call().unbondingPeriod() * staking.call().epochLength()):
+        jump_to_block(chain, bonding_start + block)
+        with pytest.raises(TransactionFailed):
+            staking.transact({'from': validator}).join(validator)
+
+def test_can_withdraw_after_successful_continuation():
     pass
 
-def test_join_does_continue_in_validating_epoch():
-    pass
-
-def test_cant_continue_in_unbonding_epoch():
-    pass
-
-def test_eject_continueing_withdraws_work():
+def test_can_withdraw_after_ejected_in_continuation():
     pass
 
 def test_correct_duplicate_join_of_a_single_validator():
