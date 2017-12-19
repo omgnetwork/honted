@@ -65,50 +65,48 @@ def get_validators(staking, epoch):
     return result
 
 @pytest.fixture()
-def do_deposit(chain, token, staking):
-    # successful deposit (two steps!)
-    def _ret(address, amount):
-        initial = staking.call().deposits(address, 0)
-        chain.wait.for_receipt(
-            token.transact({'from': address}).approve(staking.address, amount))
-        chain.wait.for_receipt(
-            staking.transact({'from': address}).deposit(amount))
-        assert initial + amount == staking.call().deposits(address, 0)
-    return _ret
-
-@pytest.fixture()
-def do_withdraw(chain, token, staking):
-    # successful withdrawal
-    def _ret(address, epoch = 0):
-        free_tokens = token.call().balanceOf(address)
-        amount = staking.call().deposits(address, epoch)
-        staking.transact({'from': address}).withdraw(epoch)
-        assert 0 == staking.call().deposits(address, epoch)
-        assert amount + free_tokens == token.call().balanceOf(address)
-    return _ret
+def do(chain, token, staking):
+    # special class that operates on the deployed contracts from the fixtures
+    class Doer:
+        # successful deposit (two steps!)
+        def deposit(self, address, amount):
+            initial = staking.call().deposits(address, 0)
+            chain.wait.for_receipt(
+                token.transact({'from': address}).approve(staking.address, amount))
+            chain.wait.for_receipt(
+                staking.transact({'from': address}).deposit(amount))
+            assert initial + amount == staking.call().deposits(address, 0)
+        # successful withdrawal
+        def withdraw(self, address, epoch = 0):
+            free_tokens = token.call().balanceOf(address)
+            amount = staking.call().deposits(address, epoch)
+            staking.transact({'from': address}).withdraw(epoch)
+            assert 0 == staking.call().deposits(address, epoch)
+            assert amount + free_tokens == token.call().balanceOf(address)
+    return Doer()
 
 def test_empty_validators(chain, staking):
     assert [] == get_validators(staking, 0)
 
-def test_deposit_and_immediate_withdraw(do_deposit, do_withdraw, accounts):
-    do_deposit(accounts[1], LARGE_AMOUNT)
-    do_withdraw(accounts[1])
+def test_deposit_and_immediate_withdraw(do, accounts):
+    do.deposit(accounts[1], LARGE_AMOUNT)
+    do.withdraw(accounts[1])
 
-def test_cant_withdraw_zero(staking, do_deposit, do_withdraw, accounts):
-    do_deposit(accounts[1], LARGE_AMOUNT)
+def test_cant_withdraw_zero(staking, do, accounts):
+    do.deposit(accounts[1], LARGE_AMOUNT)
 
     # someone else can't withdraw
     with pytest.raises(TransactionFailed):
         staking.transact({'from': accounts[2]}).withdraw(0)
 
     # if I withdrew, I can't withdraw more
-    do_withdraw(accounts[1])
+    do.withdraw(accounts[1])
     with pytest.raises(TransactionFailed):
         staking.transact({'from': accounts[1]}).withdraw(0)
 
-def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, staking, token, accounts):
+def test_deposit_join_withdraw_single_validator(do, chain, staking, token, accounts):
     validator = accounts[1]
-    do_deposit(validator, LARGE_AMOUNT)
+    do.deposit(validator, LARGE_AMOUNT)
     staking.transact({'from': validator}).join(validator)
     # not a validator yet
     # can't withdraw after joining
@@ -138,11 +136,11 @@ def test_deposit_join_withdraw_single_validator(do_deposit, do_withdraw, chain, 
     unbonding_period_end = staking.call().startBlock() + 3 * staking.call().epochLength()
     jump_to_block(chain, unbonding_period_end)
     # now withdraw should work
-    do_withdraw(validator, staking.call().getCurrentEpoch())
+    do.withdraw(validator, staking.call().getCurrentEpoch())
 
-def test_cant_join_outside_join_window(do_deposit, chain, staking, accounts):
+def test_cant_join_outside_join_window(do, chain, staking, accounts):
     address = accounts[1]
-    do_deposit(address, LARGE_AMOUNT)
+    do.deposit(address, LARGE_AMOUNT)
     start_block = staking.call().startBlock()
     epoch_length = staking.call().epochLength()
     maturity_margin = staking.call().maturityMargin()
@@ -155,22 +153,22 @@ def test_cant_join_outside_join_window(do_deposit, chain, staking, accounts):
     jump_to_block(chain, start_block + epoch_length + 1)
     staking.transact({'from': address}).join(address)
 
-def test_deposit_join_many_validators(do_deposit, chain, staking, token, accounts):
+def test_deposit_join_many_validators(do, chain, staking, token, accounts):
     max = staking.call().maxNumberOfValidators()
     for validator in accounts[:max]:
-        do_deposit(validator, LARGE_AMOUNT)
+        do.deposit(validator, LARGE_AMOUNT)
         chain.wait.for_receipt(
             staking.transact({'from': validator}).join(validator))
 
-def test_ejects_smallest_validators(do_deposit, chain, staking, token, accounts):
+def test_ejects_smallest_validators(do, chain, staking, token, accounts):
     max_validators = staking.call().maxNumberOfValidators()
     prior_validators = accounts[0:max_validators]
     smallest_validator = accounts[2]
     for idx, validator in enumerate(prior_validators):
         if validator != smallest_validator:
-            do_deposit(validator, (idx + 1) * MEDIUM_AMOUNT)
+            do.deposit(validator, (idx + 1) * MEDIUM_AMOUNT)
         else:
-            do_deposit(validator, SMALL_AMOUNT)
+            do.deposit(validator, SMALL_AMOUNT)
 
         chain.wait.for_receipt(
             staking.transact({'from': validator}).join(validator))
@@ -178,7 +176,7 @@ def test_ejects_smallest_validators(do_deposit, chain, staking, token, accounts)
     # ejecting
     new_validator = accounts[max_validators]
     new_amount = (max_validators + 1) * MEDIUM_AMOUNT
-    do_deposit(new_validator, new_amount)
+    do.deposit(new_validator, new_amount)
 
     chain.wait.for_receipt(
         staking.transact({'from': new_validator}).join(new_validator))
@@ -189,25 +187,25 @@ def test_ejects_smallest_validators(do_deposit, chain, staking, token, accounts)
     assert smallest_validator not in validators_addresses
     assert (new_amount, new_validator, new_validator) in validators
 
-def test_cant_enter_if_too_small_to_eject(do_deposit, staking, token, accounts):
+def test_cant_enter_if_too_small_to_eject(do, staking, token, accounts):
     max_validators = staking.call().maxNumberOfValidators()
 
     # larger players
     for idx_validator in range(max_validators):
         validator = accounts[idx_validator]
-        do_deposit(validator, LARGE_AMOUNT)
+        do.deposit(validator, LARGE_AMOUNT)
         staking.transact({'from': validator}).join(validator)
 
     small_validator = accounts[max_validators]
     small_amount = utils.denoms.wei
-    do_deposit(small_validator, small_amount)
+    do.deposit(small_validator, small_amount)
     with pytest.raises(TransactionFailed):
         staking.transact({'from': small_validator}).join(small_validator)
 
-def test_deposits_accumulate_for_join(chain, do_deposit, staking, token, accounts):
+def test_deposits_accumulate_for_join(chain, do, staking, token, accounts):
     validator = accounts[1]
-    do_deposit(validator, utils.denoms.finney)
-    do_deposit(validator, utils.denoms.finney)
+    do.deposit(validator, utils.denoms.finney)
+    do.deposit(validator, utils.denoms.finney)
     chain.wait.for_receipt(
        staking.transact({'from': validator}).join(validator))
     validators = get_validators(staking, 1)
@@ -216,37 +214,37 @@ def test_deposits_accumulate_for_join(chain, do_deposit, staking, token, account
     assert stake == 2 * utils.denoms.finney
     assert owner == validator
 
-def test_deposits_accumulate_for_withdraw(do_deposit, do_withdraw, token, accounts):
+def test_deposits_accumulate_for_withdraw(do, token, accounts):
     validator = accounts[1]
-    do_deposit(validator, utils.denoms.finney)
-    do_deposit(validator, utils.denoms.finney)
+    do.deposit(validator, utils.denoms.finney)
+    do.deposit(validator, utils.denoms.finney)
     current = token.call().balanceOf(validator)
-    do_withdraw(validator)
+    do.withdraw(validator)
     assert current + 2*utils.denoms.finney == token.call().balanceOf(validator)
 
 @pytest.fixture
-def lots_of_staking_past(do_deposit, chain, staking, accounts):
+def lots_of_staking_past(do, chain, staking, accounts):
     max_validators = staking.call().maxNumberOfValidators()
     validators = accounts[0:max_validators]
 
     # several epochs with stakers one after another
     for _ in range(5):
         for validator in validators:
-            do_deposit(validator, MEDIUM_AMOUNT)
+            do.deposit(validator, MEDIUM_AMOUNT)
             chain.wait.for_receipt(staking.transact({'from': validator}).join(validator))
         jump_to_block(chain, staking.call().getNextEpochBlockNumber())
 
-def test_can_withdraw_from_old_epoch(do_deposit, do_withdraw, lots_of_staking_past, chain, staking, token, accounts):
+def test_can_withdraw_from_old_epoch(do, lots_of_staking_past, chain, staking, token, accounts):
     validator = accounts[1]
-    do_deposit(validator, MEDIUM_AMOUNT)
+    do.deposit(validator, MEDIUM_AMOUNT)
     staking.transact({'from': validator}).join(validator)
     withdraw_epoch = staking.call().getCurrentEpoch() + 1 + staking.call().unbondingPeriod() + 1
     much_later = staking.call().startBlock() + 30 * staking.call().epochLength()
     jump_to_block(chain, much_later)
     # now withdraw should still work
-    do_withdraw(validator, withdraw_epoch)
+    do.withdraw(validator, withdraw_epoch)
 
-def test_can_lookup_validators_from_the_past(do_deposit, do_withdraw, lots_of_staking_past, chain, staking, token,
+def test_can_lookup_validators_from_the_past(do, lots_of_staking_past, chain, staking, token,
                                              accounts):
     much_later = staking.call().startBlock() + 30 * staking.call().epochLength()
     jump_to_block(chain, much_later)
