@@ -12,7 +12,7 @@ contract HonteStaking {
 
   event Deposit(address indexed depositor, uint256 amount);
   event Join(address indexed joiner, uint256 indexed epoch, uint256 amount);
-  event Ejected(address indexed ejected, uint256 ejectingAmount);
+  event Eject(address indexed ejected, uint256 ejectingAmount);
   event Withdraw(address indexed withdrawer, uint256 amount);
 
   /*
@@ -284,7 +284,7 @@ contract HonteStaking {
 
     if (ejectedValidator != 0x0) {
       // fire alert that someone got ejected
-      Ejected(ejectedValidator, sumToStake);
+      Eject(ejectedValidator, sumToStake);
 
       // Free ejected validators deposit
       if (ejectedValidatorWasContinuing) {

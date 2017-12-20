@@ -85,18 +85,36 @@ def do(chain, token, staking):
 
         # successful deposit (two steps!)
         def deposit(self, address, amount):
+            deposit_filter = staking.on('Deposit')
+            deposit_filter.get()  # flush
+
             initial = staking.call().deposits(address, 0)
             chain.wait.for_receipt(
                 token.transact({'from': address}).approve(staking.address, amount))
             chain.wait.for_receipt(
                 staking.transact({'from': address}).deposit(amount))
+
+            deposit_events = deposit_filter.get()
+            assert len(deposit_events) == 1
+            assert deposit_events[0]['args']['depositor'] == address
+            assert deposit_events[0]['args']['amount'] == amount
+
             assert initial + amount == staking.call().deposits(address, 0)
 
         # successful withdrawal
         def withdraw(self, address, epoch=0, expected_sum=None):
+            withdraw_filter = staking.on('Withdraw')
+            withdraw_filter.get()  # flush
+
             free_tokens = token.call().balanceOf(address)
             amount = staking.call().deposits(address, epoch)
             staking.transact({'from': address}).withdraw(epoch)
+
+            withdraw_events = withdraw_filter.get()
+            assert len(withdraw_events) == 1
+            assert withdraw_events[0]['args']['withdrawer'] == address
+            assert withdraw_events[0]['args']['amount'] == amount
+
             assert 0 == staking.call().deposits(address, epoch)
             assert amount + free_tokens == token.call().balanceOf(address)
             if expected_sum is not None:
@@ -107,13 +125,26 @@ def do(chain, token, staking):
             if tendermint_address is None:
                 tendermint_address = address
 
+            join_filter = staking.on('Join')
+            join_filter.get()  # flush
+
             next_epoch = staking.call().getCurrentEpoch() + 1
             staking.transact({'from': address}).join(tendermint_address)
+
+            join_events = join_filter.get()
+            assert len(join_events) == 1
+            assert join_events[0]['args']['joiner'] == address
+            assert join_events[0]['args']['epoch'] == next_epoch
+
             assert address in [validator[2] for validator in get_validators(staking, next_epoch)]
             assert tendermint_address in [validator[1] for validator in get_validators(staking, next_epoch)]
             assert staking.call().deposits(address, 0) == 0  # sucked in all the fresh deposit
             withdraw_epoch = next_epoch + 1 + staking.call().unbondingPeriod()
-            assert staking.call().deposits(address, withdraw_epoch) > 0  # actual value depends on conditions
+
+            resulting_deposit = staking.call().deposits(address, withdraw_epoch)
+
+            assert resulting_deposit > 0  # actual value depends on conditions
+            assert join_events[0]['args']['amount'] == resulting_deposit
 
     return Doer()
 
@@ -466,3 +497,24 @@ def test_cant_join_with_bad_tendermint_address(do, chain, staking, accounts):
 
     # sanity - correct staking works
     do.join(validator, tendermint_address=validator)
+
+@pytest.mark.parametrize("epoch_length,maturity_margin,max_validators", [
+    (20, 1, 1),
+])
+def test_ejection_event(do, chain, staking, accounts):
+    validator1, validator2 = accounts[1:3]
+    do.deposit(validator1, MEDIUM_AMOUNT)
+    do.join(validator1)
+    # 2 ejects 1
+    ejecting_amount = 2 * MEDIUM_AMOUNT
+    do.deposit(validator2, ejecting_amount)
+
+    filter = staking.on('Eject')
+    filter.get()  # flush
+
+    do.join(validator2)
+
+    events = filter.get()
+    assert len(events) == 1
+    assert events[0]['args']['ejected'] == validator1
+    assert events[0]['args']['ejectingAmount'] == ejecting_amount
