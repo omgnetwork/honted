@@ -22,11 +22,23 @@ contract HonteStaking {
     uint256 stake;
     address tendermintAddress;
     address owner;
+    bool isContinuing;
   }
 
   // a double mapping staker_address => epoch_number => amount deposited/withdrawable in epoch_number
   mapping (address => mapping(uint256 => uint256)) public deposits;
-  mapping (uint256 => mapping(uint256 => validator)) public validatorSets;
+  mapping (uint256 => mapping(uint256 => validator)) private validatorSets;
+
+  // manual overide of default `validatorSets` getter to hide private field
+  function getValidatorSets(uint256 epoch, uint256 validatorIdx)
+    public
+    view
+    returns (uint256 stake, address tendermintAddress, address owner)
+  {
+    stake = validatorSets[epoch][validatorIdx].stake;
+    tendermintAddress = validatorSets[epoch][validatorIdx].tendermintAddress;
+    owner = validatorSets[epoch][validatorIdx].owner;
+  }
 
   uint256 public startBlock;
   ERC20   token;
@@ -34,7 +46,6 @@ contract HonteStaking {
   uint256 public unbondingPeriod;
   uint256 public maturityMargin;
   uint256 public maxNumberOfValidators;
-  uint256 lastLowestDeposit;
 
   /*
    *  Public functions
@@ -56,10 +67,6 @@ contract HonteStaking {
   {
     require(amount <= token.allowance(msg.sender, address(this)));
 
-    // FIXME: not worth it? besides you should include the current validating stake here as well...
-    // commented because it's hard to fix and probably will be removed
-    /* require(deposits[msg.sender].add(amount) > lastLowestDeposit); */
-
     token.transferFrom(msg.sender, address(this), amount);
     deposits[msg.sender][0] = deposits[msg.sender][0].add(amount);
 
@@ -75,6 +82,7 @@ contract HonteStaking {
 
     uint256 currentEpoch         = getCurrentEpoch();
     uint256 nextEpoch            = currentEpoch.add(1);
+    uint256 unbondingEpoch       = nextEpoch.add(1).add(unbondingPeriod);
     uint256 nextEpochBlockNumber = getNextEpochBlockNumber();
 
     // Checks to make sure that the next epochs validators set isn't locked yet
@@ -82,6 +90,7 @@ contract HonteStaking {
     require(block.number < nextEpochBlockNumber.sub(maturityMargin));
 
     uint256 newValidatorPosition  = getNewValidatorPosition(nextEpoch);
+    require(newValidatorPosition < maxNumberOfValidators);
 
     // Creates/updates new validator from a joiner
     //
@@ -93,9 +102,11 @@ contract HonteStaking {
       // ejecting or adding a fresh entry
 
       uint256 alreadyStaked = 0;
+      bool isContinuingJoin = false;
       for (uint256 i = 0; i < maxNumberOfValidators; i++) {
         if (validatorSets[currentEpoch][i].owner == msg.sender) {
           alreadyStaked = validatorSets[currentEpoch][i].stake;
+          isContinuingJoin = true;
           break;
         }
       }
@@ -104,11 +115,22 @@ contract HonteStaking {
 
       // Checks that the joiners stake is higher than the lowest current validators deposit
       //
+      address ejectedValidator = validatorSets[nextEpoch][newValidatorPosition].owner;
       uint256 ejectedValidatorAmount = validatorSets[nextEpoch][newValidatorPosition].stake;
+      bool ejectedValidatorWasContinuing = validatorSets[nextEpoch][newValidatorPosition].isContinuing;
       require(ejectedValidatorAmount < sumToStake);
       validatorSets[nextEpoch][newValidatorPosition].owner = msg.sender;
       validatorSets[nextEpoch][newValidatorPosition].stake = sumToStake;
-      // FIXME: handle withdrawal for the ejectee (either continuing or not)
+      validatorSets[nextEpoch][newValidatorPosition].isContinuing = isContinuingJoin;
+
+      // Free ejected validators deposit
+      if (ejectedValidator != 0x0) {
+        if (ejectedValidatorWasContinuing) {
+          moveDeposit(ejectedValidator, unbondingEpoch, unbondingEpoch - 1);
+        } else {
+          moveDeposit(ejectedValidator, unbondingEpoch, 0);
+        }
+      }
     }
 
     // want to give the possibility of updating the tendermint address regardless
@@ -116,7 +138,6 @@ contract HonteStaking {
 
     // Creates/updates withdraw - combines the fresh deposit with the currently validating stake
     //
-    uint256 unbondingEpoch = nextEpoch.add(1).add(unbondingPeriod);
     moveDeposit(msg.sender, 0, unbondingEpoch);
     moveDeposit(msg.sender, unbondingEpoch - 1, unbondingEpoch);
 
@@ -185,7 +206,6 @@ contract HonteStaking {
       // if the joiner is already an existing validator in the set
       //
       if (validatorSets[epoch][i].owner == 0x0 || validatorSets[epoch][i].owner == msg.sender) {
-        // FIXME: careful, can self-eject now if I overwrite my own stake
         return i;
       }
 
