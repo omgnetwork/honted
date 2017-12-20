@@ -1,7 +1,11 @@
-defmodule HonteD.Transaction.Finality do
+defmodule HonteD.API.Transaction.Finality do
   @moduledoc """
   Transaction finality logic.
   """
+
+  @type event_height_pair :: {HonteD.block_height, HonteD.API.Events.event}
+  @type event_queue :: Qex.t(event_height_pair) | Qex.t # not sure why empty Qex is needed here
+  @type event_list :: [event_height_pair]
 
   @spec status(tx_height :: HonteD.block_height, HonteD.block_height, binary, binary)
     :: :finalized | :committed | :committed_unknown
@@ -14,12 +18,17 @@ defmodule HonteD.Transaction.Finality do
     end
   end
 
-  @spec split_finalized_events(Qex.t({HonteD.block_height, any}), HonteD.block_height)
-  :: {[{HonteD.block_height, any}], [{HonteD.block_height, any}]}
+  @spec split_finalized_events(event_queue, HonteD.block_height)
+    :: {event_list, event_queue}
   def split_finalized_events(queue, signed_off_height) do
     # for a given token will pop the events committed earlier, that are before the signed_off_height
     is_older = fn({h, _event}) -> height_signed_off?(h, signed_off_height) end
-    Enum.split_while(queue, is_older)
+
+    {finalized_tuples, rest} =
+      queue
+      |> Enum.split_while(is_older)
+
+    {finalized_tuples, Qex.new(rest)}
   end
 
   @spec valid_signoff?(HonteD.block_hash, HonteD.block_hash) :: boolean

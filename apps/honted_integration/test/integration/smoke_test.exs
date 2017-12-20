@@ -198,14 +198,14 @@ defmodule HonteD.Integration.SmokeTest do
         "to" => ^bob
       },
       "finality" => "committed",
-      "height" => _,
+      "height" => committed_at_height,
       "source" => ^filter_id,
     } = TestWebsocket.recv!(websocket)
     assert {
       :ok,
       %{
         :status => :committed,
-        "height" => _,
+        "height" => ^committed_at_height,
         "index" => _,
         "proof" => _,
         "tx" => decoded_tx,
@@ -287,7 +287,7 @@ defmodule HonteD.Integration.SmokeTest do
       },
       "finality" => "committed",
       "source" => ^filter_id,
-      "height" => 4
+      "height" => ^committed_at_height
     } = TestWebsocket.recv!(websocket)
   end
 

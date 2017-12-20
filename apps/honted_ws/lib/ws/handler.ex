@@ -34,7 +34,7 @@ defmodule HonteD.WS.Handler do
             ws_reply(id, {error, data}, req, state)
         end
       {:error, :decode_error} ->
-        ws_reply(nil, {:error, :decode_error}, req, state)
+        ws_reply(nil, {:invalid_request, {:decode_error, content}}, req, state)
     end
   end
 
@@ -72,13 +72,6 @@ defmodule HonteD.WS.Handler do
 
   defp wsrpc_response({:ok, resp}) do
     %{"type": "rs", "result": resp}
-  end
-  defp wsrpc_response({:error, error}) do
-    %{"type": "rs", "error": error}
-  end
-  defp wsrpc_response(error) when is_atom(error) do
-    {code, msg} = error_code_and_message(error)
-    %{"type": "rs", "error": %{"code": code, "message": msg}}
   end
   defp wsrpc_response({error, data}) when is_atom(error) do
     {code, msg} = error_code_and_message(error)

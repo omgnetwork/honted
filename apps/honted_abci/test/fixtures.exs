@@ -42,6 +42,7 @@ defmodule HonteD.ABCI.Fixtures do
   deffixture state_with_token(empty_state, issuer) do
     %{code: 0, state: state} =
       create_create_token(nonce: 0, issuer: issuer.addr) |> sign(issuer.priv) |> deliver_tx(empty_state)
+    %{state: state} = commit(state)
     state
   end
 
@@ -49,6 +50,7 @@ defmodule HonteD.ABCI.Fixtures do
     %{code: 0, state: state} =
       create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
       |> sign(issuer.priv) |> deliver_tx(state_with_token)
+    %{state: state} = commit(state)
     state
   end
 
@@ -59,6 +61,7 @@ defmodule HonteD.ABCI.Fixtures do
     %{code: 0, state: state} =
       create_issue(nonce: 1, asset: asset2, amount: 5, dest: bob.addr, issuer: issuer2.addr)
       |> sign(issuer2.priv) |> deliver_tx(state)
+    %{state: state} = commit(state)
     state
   end
 

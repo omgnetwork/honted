@@ -10,6 +10,14 @@ defmodule HonteD.ABCI do
 
   alias HonteD.ABCI.State, as: State
 
+  @doc """
+  Tracks state which is controlled by consensus and also tracks local (mempool related, transient) state.
+  Local state is being overwritten by consensus state on every commit.
+  """
+  defstruct [consensus_state: State.empty(),
+             local_state: State.empty(),
+            ]
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, :ok, opts)
   end
@@ -19,83 +27,86 @@ defmodule HonteD.ABCI do
   end
 
   def init(:ok) do
-    {:ok, State.empty()}
+    {:ok, %__MODULE__{}}
   end
 
-  def handle_call({:RequestInfo}, _from, state) do
+  def handle_call({:RequestInfo}, _from, abci_app) do
     {:reply, {
       :ResponseInfo,
       'arbitrary information',
       'version info',
       0,  # latest block height - always start from zero
       '', # latest app hash - because we start from zero this _must_ be empty charlist
-    }, state}
+    }, abci_app}
   end
 
-  def handle_call({:RequestEndBlock, _block_number}, _from, state) do
-    {:reply, {:ResponseEndBlock, []}, state}
+  def handle_call({:RequestEndBlock, _block_number}, _from, abci_app) do
+    {:reply, {:ResponseEndBlock, []}, abci_app}
   end
 
   def handle_call({:RequestBeginBlock, _hash, {:Header, _chain_id, height, _timestamp, _some_zero_value,
- _block_id, _something1, _something2, _something3, _app_hash}}, _from, state) do
-    HonteD.ABCI.Events.notify(state, %HonteD.API.Events.NewBlock{height: height})
-    {:reply, {:ResponseBeginBlock}, state}
+ _block_id, _something1, _something2, _something3, _app_hash}}, _from, abci_app) do
+    HonteD.ABCI.Events.notify(abci_app.consensus_state, %HonteD.API.Events.NewBlock{height: height})
+    {:reply, {:ResponseBeginBlock}, abci_app}
   end
 
-  def handle_call({:RequestCommit}, _from, state) do
+  def handle_call({:RequestCommit}, _from, abci_app) do
     {:reply, {
       :ResponseCommit,
-      0,
-      (state |> State.hash |> to_charlist),
+      code(:ok),
+      (abci_app.consensus_state |> State.hash |> to_charlist),
       'commit log: yo!'
-    }, state}
+    }, %{abci_app | local_state: abci_app.consensus_state}}
   end
 
-  def handle_call({:RequestCheckTx, tx}, _from, state) do
+  def handle_call({:RequestCheckTx, tx}, _from, abci_app) do
     with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
-         {:ok, _} <- generic_handle_tx(state, decoded)
+         {:ok, new_local_state} <- generic_handle_tx(abci_app.local_state, decoded)
     do
       # no change to state! we don't allow to build upon uncommited transactions
-      {:reply, {:ResponseCheckTx, 0, '', ''}, state}
+      {:reply, {:ResponseCheckTx, code(:ok), '', ''}, %{abci_app | local_state: new_local_state}}
     else
-      {:error, error} -> {:reply, {:ResponseCheckTx, 1, '', to_charlist(error)}, state}
+      {:error, error} ->
+        {:reply, {:ResponseCheckTx, code(error), '', to_charlist(error)}, abci_app}
     end
   end
 
-  def handle_call({:RequestDeliverTx, tx}, _from, state) do
+  def handle_call({:RequestDeliverTx, tx}, _from, abci_app) do
     # NOTE: yes, we want to crash on invalid transactions, lol
     # there's a chore to fix that
     {:ok, decoded} = HonteD.TxCodec.decode(tx)
-    {:ok, state} = generic_handle_tx(state, decoded)
-    HonteD.ABCI.Events.notify(state, decoded.raw_tx)
-    {:reply, {:ResponseDeliverTx, 0, '', ''}, state}
+    {:ok, new_consensus_state} = generic_handle_tx(abci_app.consensus_state, decoded)
+    HonteD.ABCI.Events.notify(new_consensus_state, decoded.raw_tx)
+    {:reply, {:ResponseDeliverTx, code(:ok), '', ''}, %{abci_app | consensus_state: new_consensus_state}}
   end
 
   @doc """
   Not implemented: we don't yet support tendermint's standard queries to /store
   """
-  def handle_call({:RequestQuery, _data, '/store', 0, :false}, _from, state) do
-    {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'query to /store not implemented'}, state}
+  def handle_call({:RequestQuery, _data, '/store', 0, :false}, _from, abci_app) do
+    {:reply, {:ResponseQuery, code(:not_implemented), 0, '', '', 'no proof', 0,
+              'query to /store not implemented'}, abci_app}
   end
 
   @doc """
   Specific query for nonces which provides zero for unknown senders
   """
-  def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, state) do
+  def handle_call({:RequestQuery, "", '/nonces' ++ address, 0, :false}, _from, abci_app) do
     key = "nonces" <> to_string(address)
-    value = Map.get(state, key, 0)
-    {:reply, {:ResponseQuery, 0, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, ''}, state}
+    value = Map.get(abci_app.consensus_state, key, 0)
+    {:reply, {:ResponseQuery, code(:ok), 0, to_charlist(key), encode_query_response(value),
+              'no proof', 0, ''}, abci_app}
   end
 
   @doc """
   Specialized query for issued tokens for an issuer
   """
-  def handle_call({:RequestQuery, "", '/issuers/' ++ address, 0, :false}, _from, state) do
+  def handle_call({:RequestQuery, "", '/issuers/' ++ address, 0, :false}, _from, abci_app) do
     key = "issuers/" <> to_string(address)
-    {code, value, log} = handle_get(State.issued_tokens(state, address))
+    {code, value, log} = handle_get(State.issued_tokens(abci_app.consensus_state, address))
     return = {:ResponseQuery, code, 0, to_charlist(key),
               encode_query_response(value), 'no proof', 0, log}
-    {:reply, return, state}
+    {:reply, return, abci_app}
   end
 
   @doc """
@@ -103,22 +114,23 @@ defmodule HonteD.ABCI do
 
   TODO: interface querying the state out, so that state remains implementation detail
   """
-  def handle_call({:RequestQuery, "", path, 0, :false}, _from, state) do
+  def handle_call({:RequestQuery, "", path, 0, :false}, _from, abci_app) do
     "/" <> key = to_string(path)
-    {code, value, log} = lookup(state, key)
-    {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log}, state}
+    {code, value, log} = lookup(abci_app.consensus_state, key)
+    {:reply, {:ResponseQuery, code, 0, to_charlist(key), encode_query_response(value), 'no proof', 0, log},
+     abci_app}
   end
 
   @doc """
   Dissallow queries with non-empty-string data field for now
   """
-  def handle_call({:RequestQuery, _data, _path, _height, _prove}, _from, state) do
-    {:reply, {:ResponseQuery, 1, 0, '', '', 'no proof', 0, 'unrecognized query'}, state}
+  def handle_call({:RequestQuery, _data, _path, _height, _prove}, _from, abci_app) do
+    {:reply, {:ResponseQuery, code(:not_implemented), 0, '', '', 'no proof', 0, 'unrecognized query'}, abci_app}
   end
 
-  def handle_call({:RequestInitChain, [{:Validator, _somebytes, _someint}]} = request, from, state) do
+  def handle_call({:RequestInitChain, [{:Validator, _somebytes, _someint}]} = request, from, abci_app) do
     _ = Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
-    {:reply, {}, state}
+    {:reply, {}, abci_app}
   end
 
   ### END GenServer
@@ -138,7 +150,12 @@ defmodule HonteD.ABCI do
     state |> State.get(key) |> handle_get
   end
 
-  defp handle_get({:ok, value}), do: {0, value, ''}
-  # NOTE: Error code value of 1 is arbitrary. Check Tendermint docs for appropriate value.
-  defp handle_get(nil), do: {1, "", 'not_found'}
+  defp handle_get({:ok, value}), do: {code(:ok), value, ''}
+  defp handle_get(nil), do: {code(:not_found), "", 'not_found'}
+
+  # NOTE: Define our own mapping from our error atoms to codes in range [1,...].
+  #       See https://github.com/tendermint/abci/pull/145 and related.
+  defp code(:ok), do: 0
+  defp code(_), do: 1
+
 end

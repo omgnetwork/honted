@@ -30,6 +30,13 @@ defmodule HonteD.ABCI.TestHelpers do
     %{code: code, data: data, log: log, state: state}
   end
 
+  def commit(%{state: state}), do: commit(state)
+  def commit(state) do
+    assert {:reply, {:ResponseCommit, 0, data, log}, state} =
+      handle_call({:RequestCommit}, nil, state)
+    %{code: 0, data: data, log: log, state: state}
+  end
+
   def success?(response) do
     assert %{code: 0, data: '', log: ''} = response
     response
@@ -61,5 +68,6 @@ defmodule HonteD.ABCI.TestHelpers do
 
   def same?(response, expected_state) do
     assert %{state: ^expected_state} = response
+    response
   end
 end

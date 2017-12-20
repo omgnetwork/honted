@@ -5,6 +5,9 @@ defmodule HonteD.ABCI.StateTest do
   # NOTE: we can't enforce this here, because of the keyword-list-y form of create_x calls
   # credo:disable-for-this-file Credo.Check.Refactor.PipeChainStart
 
+  # NOTE: It is better to be consistent and to test using only deliverTx and not checkTx here
+  # unfortunately not possible until deliverTx is crashing on bad input.
+
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
@@ -18,7 +21,7 @@ defmodule HonteD.ABCI.StateTest do
     test "checking create_token transactions", %{empty_state: state, issuer: issuer} do
       # correct
       create_create_token(nonce: 0, issuer: issuer.addr)
-      |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(issuer.priv) |> check_tx(state) |> success?
 
       # malformed
       sign("0 CREATE_TOKE #{issuer.addr}", issuer.priv)
@@ -42,7 +45,7 @@ defmodule HonteD.ABCI.StateTest do
     @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
     test "checking issue transactions", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
       create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
-      |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(issuer.priv) |> check_tx(state) |> success?
 
       # malformed
       sign("1 ISSU #{asset} 5 #{alice.addr} #{issuer.addr}", issuer.priv)
@@ -50,6 +53,8 @@ defmodule HonteD.ABCI.StateTest do
       sign("1 ISSUE #{asset} 4.0 #{alice.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
       sign("1 ISSUE #{asset} 4.1 #{alice.addr} #{issuer.addr}", issuer.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      sign("1 ISSUE #{asset} 4,1 #{alice.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
       sign("1 ISSUE #{asset} 5 4 #{alice.addr} #{issuer.addr}", issuer.priv)
       |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
@@ -108,6 +113,17 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'incorrect_issuer') |> same?(state)
     end
 
+    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
+    test "can issue twice", %{alice: alice, issuer: issuer, state_with_token: state, asset: asset} do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+      %{state: state} =
+        create_issue(nonce: 2, asset: asset, amount: 4, dest: alice.addr, issuer: issuer.addr)
+        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(9)
+    end
+
     @tag fixtures: [:issuer, :alice, :empty_state]
     test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state} do
       %{state: state} =
@@ -148,7 +164,7 @@ defmodule HonteD.ABCI.StateTest do
       that_fits = round(:math.pow(2, 256)) - 1
       %{state: state} =
         create_issue(nonce: 1, asset: asset, amount: that_fits, dest: alice.addr, issuer: issuer.addr)
-        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+        |> sign(issuer.priv) |> deliver_tx(state) |> success? |> commit
 
       create_issue(nonce: 2, asset: asset, amount: 1, dest: alice.addr, issuer: issuer.addr)
       |> sign(issuer.priv) |> check_tx(state) |> fail?(1, 'amount_way_too_large') |> same?(state)
@@ -212,6 +228,7 @@ defmodule HonteD.ABCI.StateTest do
   describe "well formedness of send transactions" do
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
     test "checking send transactions", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
+      # correct
       create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
       |> sign(alice.priv) |> check_tx(state) |> success?
 
@@ -244,14 +261,14 @@ defmodule HonteD.ABCI.StateTest do
 
       %{state: state} =
         create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        |> sign(alice.priv) |> deliver_tx(state) |> success? |> commit
 
       create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
       create_send(nonce: 2, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce') |> same?(state)
       create_send(nonce: 1, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
-      |> sign(alice.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(alice.priv) |> check_tx(state) |> success?
     end
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset, :some_block_hash]
@@ -259,7 +276,7 @@ defmodule HonteD.ABCI.StateTest do
     %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset, some_block_hash: hash} do
       %{state: state} =
         create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        |> sign(alice.priv) |> deliver_tx(state) |> success? |> commit
 
       # check transactions other than send
       create_create_token(nonce: 0, issuer: alice.addr)
@@ -354,7 +371,7 @@ defmodule HonteD.ABCI.StateTest do
     @tag fixtures: [:issuer, :empty_state, :some_block_hash]
     test "checking sign off transactions", %{empty_state: state, issuer: issuer, some_block_hash: hash} do
       create_sign_off(nonce: 0, height: 1, hash: hash, sender: issuer.addr)
-      |> sign(issuer.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(issuer.priv) |> check_tx(state) |> success?
 
       # malformed
       sign("0 SIGN_OF 1 #{hash} #{issuer.addr} #{issuer.addr}", issuer.priv)
@@ -414,7 +431,7 @@ defmodule HonteD.ABCI.StateTest do
       some_previous_height = 50
       %{state: state} =
         create_sign_off(nonce: 0, height: some_height, hash: hash, sender: bob.addr)
-        |> sign(bob.priv) |> deliver_tx(state) |> success?
+        |> sign(bob.priv) |> deliver_tx(state) |> success? |> commit
 
       create_sign_off(nonce: 1, height: some_previous_height, hash: String.reverse(hash), sender: bob.addr)
       |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'sign_off_not_incremental') |> same?(state)
@@ -430,14 +447,14 @@ defmodule HonteD.ABCI.StateTest do
 
       %{state: state} =
         create_allow(nonce: 0, allower: alice.addr, allowee: bob.addr, privilege: "signoff", allow: true)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        |> sign(alice.priv) |> deliver_tx(state) |> success? |> commit
 
       create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
-      |> sign(bob.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(bob.priv) |> check_tx(state) |> success?
 
       %{state: state} =
         create_allow(nonce: 1, allower: alice.addr, allowee: bob.addr, privilege: "signoff", allow: false)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        |> sign(alice.priv) |> deliver_tx(state) |> success? |> commit
 
       create_sign_off(nonce: 0, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
       |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_delegation') |> same?(state)
@@ -448,7 +465,7 @@ defmodule HonteD.ABCI.StateTest do
     %{empty_state: state, alice: alice, bob: bob, some_block_hash: hash} do
       %{state: state} =
         create_allow(nonce: 0, allower: bob.addr, allowee: alice.addr, privilege: "signoff", allow: true)
-        |> sign(bob.priv) |> deliver_tx(state) |> success?
+        |> sign(bob.priv) |> deliver_tx(state) |> success? |> commit
 
       create_sign_off(nonce: 1, height: 100, hash: hash, sender: bob.addr, signoffer: alice.addr)
       |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_delegation') |> same?(state)
@@ -470,17 +487,17 @@ defmodule HonteD.ABCI.StateTest do
     %{empty_state: state, alice: alice, some_block_hash: hash} do
       %{state: state} =
         create_allow(nonce: 0, allower: alice.addr, allowee: alice.addr, privilege: "signoff", allow: false)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        |> sign(alice.priv) |> deliver_tx(state) |> success? |> commit
 
       create_sign_off(nonce: 1, height: 100, hash: hash, sender: alice.addr)
-      |> sign(alice.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(alice.priv) |> check_tx(state) |> success?
 
       %{state: state} =
         create_allow(nonce: 1, allower: alice.addr, allowee: alice.addr, privilege: "signoff", allow: true)
-        |> sign(alice.priv) |> deliver_tx(state) |> success?
+        |> sign(alice.priv) |> deliver_tx(state) |> success? |> commit
 
       create_sign_off(nonce: 2, height: 100, hash: hash, sender: alice.addr)
-      |> sign(alice.priv) |> check_tx(state) |> success? |> same?(state)
+      |> sign(alice.priv) |> check_tx(state) |> success?
     end
 
     @tag fixtures: [:bob, :empty_state, :some_block_hash]
