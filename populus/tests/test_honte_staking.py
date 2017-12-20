@@ -466,3 +466,9 @@ def test_cant_join_with_bad_tendermint_address(do, chain, staking, accounts):
 
     # sanity - correct staking works
     do.join(validator, tendermint_address=validator)
+
+def test_cant_join_with_zero_stake():
+    pass
+
+def test_max_consumed_gas_on_join_is_safe():
+    pass
