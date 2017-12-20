@@ -149,9 +149,9 @@ contract HonteStaking {
    *  Constant functions
    */
 
-   /** @dev Manual overide of default `validatorSets` getter to hide private field isContinuing
+   /** @dev Manual override of default `validatorSets` getter to hide private field isContinuing
      * @param epoch the validating epoch queried
-     * @param validatorIdx the index of the querried validator slot (must be in 0:maxNumberOfValidators)
+     * @param validatorIdx the index of the queried validator slot (must be in 0:maxNumberOfValidators)
      * @return stake returned validator's stake in smallest token denomination
      * @return tendermintAddress the validators public address of the tendermint validator
      * @return owner the validators address on ethereum, 0x0 if the slot is empty

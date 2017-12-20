@@ -108,7 +108,9 @@ def do(chain, token, staking):
 
             free_tokens = token.call().balanceOf(address)
             amount = staking.call().deposits(address, epoch)
-            staking.transact({'from': address}).withdraw(epoch)
+
+            chain.wait.for_receipt(
+                staking.transact({'from': address}).withdraw(epoch))
 
             withdraw_events = withdraw_filter.get()
             assert len(withdraw_events) == 1
@@ -129,7 +131,8 @@ def do(chain, token, staking):
             join_filter.get()  # flush
 
             next_epoch = staking.call().getCurrentEpoch() + 1
-            staking.transact({'from': address}).join(tendermint_address)
+            chain.wait.for_receipt(
+                staking.transact({'from': address}).join(tendermint_address))
 
             join_events = join_filter.get()
             assert len(join_events) == 1
@@ -519,8 +522,10 @@ def test_ejection_event(do, chain, staking, accounts):
     assert events[0]['args']['ejected'] == validator1
     assert events[0]['args']['ejectingAmount'] == ejecting_amount
 
-def test_cant_join_with_zero_stake():
-    pass
+def test_cant_join_with_zero_stake(do, chain, staking, accounts):
+    validator = accounts[1]
+    with pytest.raises(TransactionFailed):
+        staking.transact({'from': validator}).join(validator)
 
 def test_max_consumed_gas_on_join_is_safe():
     pass
