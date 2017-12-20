@@ -68,7 +68,7 @@ def jump_to_block(chain, to_block_no):
 def get_validators(staking, epoch):
     result = []
     for i in range(0, sys.maxsize**10):
-        validator = staking.call().getValidatorSets(epoch, i)
+        validator = staking.call().getValidator(epoch, i)
         owner = validator[2]
         if owner == ZERO_ADDRESS:
             break
@@ -456,3 +456,13 @@ def test_cant_eject_with_equal_deposit(do, chain, staking, accounts):
     do.deposit(validator3, MEDIUM_AMOUNT)
     with pytest.raises(TransactionFailed):
         staking.transact({'from': validator3}).join(validator3)
+
+def test_cant_join_with_bad_tendermint_address(do, chain, staking, accounts):
+    validator = accounts[1]
+    do.deposit(validator, SMALL_AMOUNT)
+
+    with pytest.raises(TransactionFailed):
+        staking.transact({'from': validator}).join(ZERO_ADDRESS)
+
+    # sanity - correct staking works
+    do.join(validator, tendermint_address=validator)

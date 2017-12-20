@@ -12,6 +12,7 @@ contract HonteStaking {
 
   event Deposit(address indexed depositor, uint256 amount);
   event Join(address indexed joiner, uint256 indexed epoch, uint256 amount);
+  event Ejected(address indexed ejected, uint256 ejectingAmount);
   event Withdraw(address indexed withdrawer, uint256 amount);
 
   /*
@@ -25,33 +26,33 @@ contract HonteStaking {
     bool isContinuing;
   }
 
-  // a double mapping staker_address => epoch_number => amount deposited/withdrawable in epoch_number
+  // a double mapping staker_address => epoch_number => amount deposited/withdrawable in epoch_number for staker
   mapping (address => mapping(uint256 => uint256)) public deposits;
   mapping (uint256 => mapping(uint256 => validator)) private validatorSets;
 
-  // manual overide of default `validatorSets` getter to hide private field
-  function getValidatorSets(uint256 epoch, uint256 validatorIdx)
-    public
-    view
-    returns (uint256 stake, address tendermintAddress, address owner)
-  {
-    stake = validatorSets[epoch][validatorIdx].stake;
-    tendermintAddress = validatorSets[epoch][validatorIdx].tendermintAddress;
-    owner = validatorSets[epoch][validatorIdx].owner;
-  }
-
-  uint256 public startBlock;
   ERC20   token;
+
   uint256 public epochLength;
-  uint256 public unbondingPeriod;
   uint256 public maturityMargin;
   uint256 public maxNumberOfValidators;
+
+  uint256 public startBlock;
+  uint256 public unbondingPeriod;
 
   /*
    *  Public functions
    */
 
-  function HonteStaking(uint256 _epochLength, uint256 _maturityMargin, address _tokenAddress, uint256 _maxNumberOfValidators)
+  /** @dev Instantiates a staking contract. Sets starting block of first epoch to current block number
+   * @param _epochLength length of a single epoch in blocks
+   * @param _maturityMargin length of the maturity margin in blocks - period when one can't join the next epoch anymore
+   * @param _tokenAddress address of the staking token
+   * @param _maxNumberOfValidators maximum number of validators allowed, i.e. only top stakers become validators
+   */
+  function HonteStaking(uint256 _epochLength,
+                        uint256 _maturityMargin,
+                        address _tokenAddress,
+                        uint256 _maxNumberOfValidators)
     public
   {
     startBlock            = block.number;
@@ -62,35 +63,41 @@ contract HonteStaking {
     maxNumberOfValidators = _maxNumberOfValidators;
   }
 
+  /** @dev Will place a (withdrawable until join) deposit. Withdraw this using a `withdraw(0)` transaction
+    * @param amount amount to deposit in smallest token's denomination
+    */
   function deposit(uint256 amount)
     public
   {
     require(amount <= token.allowance(msg.sender, address(this)));
 
     token.transferFrom(msg.sender, address(this), amount);
-    deposits[msg.sender][0] = deposits[msg.sender][0].add(amount);
+    registerNewDeposit(amount);
 
     Deposit(msg.sender, amount);
   }
 
-  function join(address _tendermintAddress)
+  /** @dev Will attempt to join the next epoch for validation using fresh deposit and current stake (if available)
+    * @param tendermintAddress the public address of the tendermint validator and receiver of fees earned
+    */
+  function join(address tendermintAddress)
     public
   {
-    // Checks to make sure the tendermint address isn't null
+    // Checks to make sure the tendermint address isn't null which could be an easy error
     //
-    require(_tendermintAddress != 0x0);
+    require(tendermintAddress != 0x0);
 
     uint256 currentEpoch         = getCurrentEpoch();
     uint256 nextEpoch            = currentEpoch.add(1);
     uint256 unbondingEpoch       = nextEpoch.add(1).add(unbondingPeriod);
-    uint256 nextEpochBlockNumber = getNextEpochBlockNumber();
 
     // Checks to make sure that the next epochs validators set isn't locked yet
     //
-    require(block.number < nextEpochBlockNumber.sub(maturityMargin));
+    require(notInMaturityMargin());
 
     uint256 newValidatorPosition  = getNewValidatorPosition(nextEpoch);
-    require(newValidatorPosition < maxNumberOfValidators);
+    // Sanity checks if an impossible condition doesn't happen (overflowing the allowed size of validators)
+    assert(newValidatorPosition < maxNumberOfValidators);
 
     // Creates/updates new validator from a joiner
     //
@@ -99,42 +106,18 @@ contract HonteStaking {
       // we just update the stake
       validatorSets[nextEpoch][newValidatorPosition].stake = validatorSets[nextEpoch][newValidatorPosition].stake.add(deposits[msg.sender][0]);
     } else {
-      // ejecting or adding a fresh entry
+      // ejecting (possibly an empty slot)
 
-      uint256 alreadyStaked = 0;
-      bool isContinuingJoin = false;
-      for (uint256 i = 0; i < maxNumberOfValidators; i++) {
-        if (validatorSets[currentEpoch][i].owner == msg.sender) {
-          alreadyStaked = validatorSets[currentEpoch][i].stake;
-          isContinuingJoin = true;
-          break;
-        }
-      }
-
-      uint256 sumToStake = deposits[msg.sender][0].add(alreadyStaked);
-
-      // Checks that the joiners stake is higher than the lowest current validators deposit
-      //
-      address ejectedValidator = validatorSets[nextEpoch][newValidatorPosition].owner;
-      uint256 ejectedValidatorAmount = validatorSets[nextEpoch][newValidatorPosition].stake;
-      bool ejectedValidatorWasContinuing = validatorSets[nextEpoch][newValidatorPosition].isContinuing;
-      require(ejectedValidatorAmount < sumToStake);
-      validatorSets[nextEpoch][newValidatorPosition].owner = msg.sender;
-      validatorSets[nextEpoch][newValidatorPosition].stake = sumToStake;
-      validatorSets[nextEpoch][newValidatorPosition].isContinuing = isContinuingJoin;
-
-      // Free ejected validators deposit
-      if (ejectedValidator != 0x0) {
-        if (ejectedValidatorWasContinuing) {
-          moveDeposit(ejectedValidator, unbondingEpoch, unbondingEpoch - 1);
-        } else {
-          moveDeposit(ejectedValidator, unbondingEpoch, 0);
-        }
-      }
+      // ejecting validator has already staked this much...
+      uint256 currentStake = currentStakeOfJoiner(currentEpoch);
+      // ejected validator will be...
+      validator storage modifiedValidatorEntry = validatorSets[nextEpoch][newValidatorPosition];
+      // do it!
+      ejectAndJoin(modifiedValidatorEntry, currentStake, unbondingEpoch);
     }
 
     // want to give the possibility of updating the tendermint address regardless
-    validatorSets[nextEpoch][newValidatorPosition].tendermintAddress = _tendermintAddress;
+    validatorSets[nextEpoch][newValidatorPosition].tendermintAddress = tendermintAddress;
 
     // Creates/updates withdraw - combines the fresh deposit with the currently validating stake
     //
@@ -144,17 +127,13 @@ contract HonteStaking {
     Join(msg.sender, nextEpoch, validatorSets[nextEpoch][newValidatorPosition].stake);
   }
 
-  function moveDeposit(address owner, uint256 fromEpoch, uint256 toEpoch)
-    private
-  {
-     deposits[owner][toEpoch]   = deposits[owner][toEpoch].add(deposits[owner][fromEpoch]);
-     deposits[owner][fromEpoch] = 0;
-  }
-
+  /** @dev Withdraws the deposit withdrawable after a certain epoch, i.e. withdraws from a certain "withdraw slot"
+    * @param epoch the epoch where one expects a withdrawable deposit to be present for withdrawal
+    */
   function withdraw(uint256 epoch)
     public
   {
-    require(epoch <= getCurrentEpoch());
+    require(hasStarted(epoch));
 
     uint256 amount = deposits[msg.sender][epoch];
 
@@ -170,6 +149,28 @@ contract HonteStaking {
    *  Constant functions
    */
 
+   /** @dev Manual overide of default `validatorSets` getter to hide private field isContinuing
+     * @param epoch the validating epoch queried
+     * @param validatorIdx the index of the querried validator slot (must be in 0:maxNumberOfValidators)
+     * @return stake returned validator's stake in smallest token denomination
+     * @return tendermintAddress the validators public address of the tendermint validator
+     * @return owner the validators address on ethereum, 0x0 if the slot is empty
+     */
+   function getValidator(uint256 epoch, uint256 validatorIdx)
+     public
+     view
+     returns (uint256 stake, address tendermintAddress, address owner)
+   {
+     validator memory queriedValidator = validatorSets[epoch][validatorIdx];
+
+     stake = queriedValidator.stake;
+     tendermintAddress = queriedValidator.tendermintAddress;
+     owner = queriedValidator.owner;
+   }
+
+  /** @dev Gets current epoch based on current mined block number and parameters of the staking contract
+    * @return 0-based Index of the current epoch
+    */
   function getCurrentEpoch()
     public
     view
@@ -179,24 +180,34 @@ contract HonteStaking {
     return blocksSinceStart.div(epochLength);
   }
 
+  /** @dev Gets the block number where the next epoch starts, respective to the currently mined block height
+    * @return first block of the next epoch
+    */
   function getNextEpochBlockNumber()
     public
     view
     returns(uint256)
   {
     uint256 nextEpoch      = getCurrentEpoch().add(1);
-    uint256 nextEpochBlock = startBlock.add(nextEpoch.mul(epochLength));
-    return nextEpochBlock;
+    return startBlock.add(nextEpoch.mul(epochLength));
   }
 
   /*
    *  Private functions
    */
 
-  function getNewValidatorPosition(uint256 epoch)
-    public
+  function hasStarted(uint256 epoch)
+    private
     view
-    returns(uint256)
+    returns (bool)
+  {
+    return epoch <= getCurrentEpoch();
+  }
+
+  function getNewValidatorPosition(uint256 epoch)
+    private
+    view
+    returns (uint256)
   {
     uint256 lowestValidatorAmount   = 2**255;
     uint256 lowestValidatorPosition = 0;
@@ -219,4 +230,76 @@ contract HonteStaking {
 
     return lowestValidatorPosition;
   }
+
+  function registerNewDeposit(uint256 amount)
+    private
+  {
+    deposits[msg.sender][0] = deposits[msg.sender][0].add(amount);
+  }
+
+  function notInMaturityMargin()
+    private
+    view
+    returns (bool)
+  {
+    uint256 nextEpochBlockNumber = getNextEpochBlockNumber();
+    return block.number < nextEpochBlockNumber.sub(maturityMargin);
+  }
+
+  function currentStakeOfJoiner(uint256 currentEpoch)
+    private
+    view
+    returns (uint256 alreadyStaked)
+  {
+    alreadyStaked = 0;
+    for (uint256 i = 0; i < maxNumberOfValidators; i++) {
+      if (validatorSets[currentEpoch][i].owner == msg.sender) {
+        alreadyStaked = validatorSets[currentEpoch][i].stake;
+        break;
+      }
+    }
+  }
+
+  function ejectAndJoin(validator storage modifiedValidatorEntry,
+                        uint256 currentStake,
+                        uint256 unbondingEpoch)
+    private
+  {
+    // If there has already been a stake for the joiner, it is a continuing join
+    bool joinerIsContinuing = currentStake > 0;
+
+    uint256 sumToStake = deposits[msg.sender][0].add(currentStake);
+    address ejectedValidator = modifiedValidatorEntry.owner;
+    uint256 ejectedValidatorAmount = modifiedValidatorEntry.stake;
+    bool ejectedValidatorWasContinuing = modifiedValidatorEntry.isContinuing;
+
+    // Checks that the joiners stake is higher than the lowest current validators deposit
+    //
+    require(ejectedValidatorAmount < sumToStake);
+
+    // Ejects and overwrites (possibly an empty slot)
+    modifiedValidatorEntry.owner = msg.sender;
+    modifiedValidatorEntry.stake = sumToStake;
+    modifiedValidatorEntry.isContinuing = joinerIsContinuing;
+
+    if (ejectedValidator != 0x0) {
+      // fire alert that someone got ejected
+      Ejected(ejectedValidator, sumToStake);
+
+      // Free ejected validators deposit
+      if (ejectedValidatorWasContinuing) {
+        moveDeposit(ejectedValidator, unbondingEpoch, unbondingEpoch - 1);
+      } else {
+        moveDeposit(ejectedValidator, unbondingEpoch, 0);
+      }
+    }
+  }
+
+  function moveDeposit(address owner, uint256 fromEpoch, uint256 toEpoch)
+    private
+  {
+     deposits[owner][toEpoch]   = deposits[owner][toEpoch].add(deposits[owner][fromEpoch]);
+     deposits[owner][fromEpoch] = 0;
+  }
+
 }
