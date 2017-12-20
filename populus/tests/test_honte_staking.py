@@ -8,10 +8,14 @@ from populus.wait import Wait
 
 from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
 
+HUGE_AMOUNT = 10**36
 LARGE_AMOUNT = utils.denoms.ether
 MEDIUM_AMOUNT = 10000
 SMALL_AMOUNT = 10
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+MAX_REASONABLE_VALIDATORS = 100
+MAX_RESONABLE_GAS_LIMIT = 1000000
 
 #### HELPERS AND FIXTURES
 
@@ -29,7 +33,7 @@ def token(chain, accounts):
     token = deploy(chain.web3, contract_class)
     for validator in accounts:
         chain.wait.for_receipt(
-            token.transact({'from': owner}).mint(validator, LARGE_AMOUNT))
+            token.transact({'from': owner}).mint(validator, HUGE_AMOUNT))
     chain.wait.for_receipt(
         token.transact({'from': owner}).finishMinting())
     return token
@@ -527,5 +531,72 @@ def test_cant_join_with_zero_stake(do, chain, staking, accounts):
     with pytest.raises(TransactionFailed):
         staking.transact({'from': validator}).join(validator)
 
-def test_max_consumed_gas_on_join_is_safe():
-    pass
+@pytest.mark.parametrize("epoch_length,maturity_margin,max_validators", [
+    (MAX_REASONABLE_VALIDATORS * 6, 1, MAX_REASONABLE_VALIDATORS),
+])
+def test_max_consumed_gas_on_join_is_safe(do, chain, staking, token):
+    max_validators = staking.call().maxNumberOfValidators()
+
+    # create a lot of accounts to join and eject a lot
+    num_accounts = max_validators + 1
+    for idx in range(num_accounts - len(chain.web3.eth.accounts)):
+        new_account = chain.web3.personal.newAccount("password")
+        chain.web3.personal.unlockAccount(new_account, "password")
+
+    accounts = chain.web3.eth.accounts
+
+    # these are going to be the "main" validators
+    validators = accounts[:-1]
+
+    # credit everyone with some ether and staking token
+    for validator in accounts:
+        chain.web3.eth.sendTransaction({'to': validator,
+                                        'value': utils.denoms.ether})
+        chain.wait.for_receipt(
+            token.transact({'from': accounts[0]}).transfer(validator, LARGE_AMOUNT))
+        assert token.call().balanceOf(validator) >= SMALL_AMOUNT
+
+    # used to hold results
+    gas_used_deposit = []
+    gas_used_join1 = []
+    gas_used_join2 = []
+    gas_used_join3 = []
+
+    # first deposits and joins
+    for validator in validators:
+        chain.wait.for_receipt(
+            token.transact({'from': validator, 'gas': 4000000}).approve(staking.address, SMALL_AMOUNT))
+        gas_used_deposit.append(chain.wait.for_receipt(
+            staking.transact({'from': validator, 'gas': 4000000}).deposit(SMALL_AMOUNT))['gasUsed'])
+        gas_used_join1.append(chain.wait.for_receipt(
+            staking.transact({'from': validator, 'gas': 4000000}).join(validator))['gasUsed'])
+
+    jump_to_block(chain, staking.call().getNextEpochBlockNumber())
+
+    # continue
+    for validator in validators:
+        gas_used_join2.append(chain.wait.for_receipt(
+            staking.transact({'from': validator, 'gas': 4000000}).join(validator))['gasUsed'])
+
+    # ejects
+    # first ejection by a stray validator
+    chain.wait.for_receipt(
+        token.transact({'from': accounts[-1], 'gas': 4000000}).approve(staking.address, MEDIUM_AMOUNT))
+    chain.wait.for_receipt(
+        staking.transact({'from': accounts[-1], 'gas': 4000000}).deposit(MEDIUM_AMOUNT))
+    chain.wait.for_receipt(
+        staking.transact({'from': accounts[-1], 'gas': 4000000}).join(accounts[-1]))
+
+    # everyone ejects everyone
+    for idx, validator in enumerate(validators):
+        amount = (idx + 1) * MEDIUM_AMOUNT
+        chain.wait.for_receipt(
+            token.transact({'from': validator, 'gas': 4000000}).approve(staking.address, amount))
+        chain.wait.for_receipt(
+            staking.transact({'from': validator, 'gas': 4000000}).deposit(amount))
+        gas_used_join3.append(chain.wait.for_receipt(
+            staking.transact({'from': validator, 'gas': 4000000}).join(validator))['gasUsed'])
+
+    # check if gas usage was within reason
+    results = list(zip(gas_used_deposit, gas_used_join1, gas_used_join2, gas_used_join3))
+    assert max(max(results, key=lambda x:x[1])) < MAX_RESONABLE_GAS_LIMIT
