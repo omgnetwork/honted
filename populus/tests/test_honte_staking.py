@@ -518,3 +518,9 @@ def test_ejection_event(do, chain, staking, accounts):
     assert len(events) == 1
     assert events[0]['args']['ejected'] == validator1
     assert events[0]['args']['ejectingAmount'] == ejecting_amount
+
+def test_cant_join_with_zero_stake():
+    pass
+
+def test_max_consumed_gas_on_join_is_safe():
+    pass
