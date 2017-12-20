@@ -39,6 +39,9 @@ contract HonteStaking {
   uint256 public startBlock;
   uint256 public unbondingPeriod;
 
+  // imposed to steer cleer of validators overloading tendermint or too gas-costly joins
+  uint256 constant safetyLimitForValidators = 100;
+
   /*
    *  Public functions
    */
@@ -55,6 +58,13 @@ contract HonteStaking {
                         uint256 _maxNumberOfValidators)
     public
   {
+    // safety checks
+    require(_maxNumberOfValidators > 0);
+    require(_maxNumberOfValidators <= safetyLimitForValidators);
+    require(_epochLength > _maturityMargin);
+    require(_maturityMargin > 0);
+    require(_tokenAddress != 0x0);
+
     startBlock            = block.number;
     token                 = ERC20(_tokenAddress);
     epochLength           = _epochLength;

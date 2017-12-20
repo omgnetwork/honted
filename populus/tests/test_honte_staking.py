@@ -17,7 +17,7 @@ ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 MAX_REASONABLE_VALIDATORS = 100
 MAX_RESONABLE_GAS_LIMIT = 1000000
 
-#### HELPERS AND FIXTURES
+# HELPERS AND FIXTURES
 
 def deploy(web3, ContractClass):
     deploy_tx = ContractClass.deploy()
@@ -50,15 +50,18 @@ def maturity_margin():
 def max_validators():
     return 4
 
-@pytest.fixture()
-def staking(token, chain, accounts, epoch_length, maturity_margin, max_validators):
+def deploy_staking(token_address, chain, owner, epoch_length, maturity_margin, max_validators):
     staking, _ = chain.provider.get_or_deploy_contract('HonteStaking',
-                                                       deploy_transaction={'from': accounts[0]},
+                                                       deploy_transaction={'from': owner},
                                                        deploy_args=[epoch_length,
                                                                     maturity_margin,
-                                                                    token.address,
+                                                                    token_address,
                                                                     max_validators])
     return staking
+
+@pytest.fixture()
+def staking(token, chain, accounts, epoch_length, maturity_margin, max_validators):
+    return deploy_staking(token.address, chain, accounts[0], epoch_length, maturity_margin, max_validators)
 
 
 def jump_to_block(chain, to_block_no):
@@ -168,7 +171,7 @@ def lots_of_staking_past(do, chain, staking, accounts):
             do.join(validator)
         jump_to_block(chain, staking.call().getNextEpochBlockNumber())
 
-#### TESTS
+# TESTS
 
 def test_empty_validators(chain, staking):
     assert [] == get_validators(staking, 0)
@@ -599,4 +602,16 @@ def test_max_consumed_gas_on_join_is_safe(do, chain, staking, token):
 
     # check if gas usage was within reason
     results = list(zip(gas_used_deposit, gas_used_join1, gas_used_join2, gas_used_join3))
-    assert max(max(results, key=lambda x:x[1])) < MAX_RESONABLE_GAS_LIMIT
+    assert max(max(results, key=lambda x: x[1])) < MAX_RESONABLE_GAS_LIMIT
+
+def test_unreasonable_deploy_args(chain, token, accounts):
+    with pytest.raises(TransactionFailed):
+        deploy_staking(token.address, chain, accounts[0], 10, 0, 4)
+    with pytest.raises(TransactionFailed):
+        deploy_staking(token.address, chain, accounts[0], 1, 2, 4)
+    with pytest.raises(TransactionFailed):
+        deploy_staking(token.address, chain, accounts[0], 10, 2, MAX_REASONABLE_VALIDATORS + 1)
+    with pytest.raises(TransactionFailed):
+        deploy_staking(token.address, chain, accounts[0], 10, 2, 0)
+    with pytest.raises(TransactionFailed):
+        deploy_staking(ZERO_ADDRESS, chain, accounts[0], 10, 2, 4)
