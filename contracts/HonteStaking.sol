@@ -308,6 +308,7 @@ contract HonteStaking {
   function moveDeposit(address owner, uint256 fromEpoch, uint256 toEpoch)
     private
   {
+    assert(fromEpoch != toEpoch); // futureproofing: would fail and is currently impossible
     uint256 movedAmount = deposits[owner][fromEpoch];
     // `if` to prevent an expensive no-op
     if (movedAmount > 0) {
