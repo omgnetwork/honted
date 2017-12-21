@@ -1,0 +1,4 @@
+populus==2.1.0
+cytoolz==0.8.2
+pytest-xdist
+flake8

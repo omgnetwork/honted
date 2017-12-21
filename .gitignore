@@ -21,3 +21,10 @@ erl_crash.dump
 
 # app-specific coverage results go to their respective apps
 /apps/*/cover/
+
+# smart contract testing stuff
+/populus/\.cache/
+
+*.pyc
+
+populus/build/
