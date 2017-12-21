@@ -541,6 +541,17 @@ def test_ejection_event(do, chain, staking, accounts):
     assert events[0]['args']['ejected'] == validator1
     assert events[0]['args']['ejectingAmount'] == ejecting_amount
 
+def test_no_ejection_event_without_ejection(do, chain, staking, accounts):
+    filter = staking.on('Eject')
+    filter.get()  # flush
+
+    validator = accounts[1]
+    do.deposit(validator, MEDIUM_AMOUNT)
+    do.join(validator)
+
+    events = filter.get()
+    assert len(events) == 0
+
 def test_cant_join_with_zero_stake(do, chain, staking, accounts):
     validator = accounts[1]
     with pytest.raises(TransactionFailed):
