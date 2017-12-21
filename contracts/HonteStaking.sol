@@ -308,8 +308,12 @@ contract HonteStaking {
   function moveDeposit(address owner, uint256 fromEpoch, uint256 toEpoch)
     private
   {
-     deposits[owner][toEpoch]   = deposits[owner][toEpoch].add(deposits[owner][fromEpoch]);
-     deposits[owner][fromEpoch] = 0;
+    uint256 movedAmount = deposits[owner][fromEpoch];
+    // `if` to prevent an expensive no-op
+    if (movedAmount > 0) {
+      deposits[owner][toEpoch]   = deposits[owner][toEpoch].add(movedAmount);
+      deposits[owner][fromEpoch] = 0;
+    }
   }
 
 }
