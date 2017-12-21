@@ -146,7 +146,6 @@ def do(chain, token, staking):
             join_filter.get()  # flush
 
             next_epoch = staking.call().getCurrentEpoch() + 1
-            chain.wait.for_receipt(
             receipt = chain.wait.for_receipt(
                 staking.transact({'from': address}).join(tendermint_address))
 
@@ -166,7 +165,7 @@ def do(chain, token, staking):
             assert join_events[0]['args']['amount'] == resulting_deposit
 
             # NOTE: see note on gas cost checking for `deposit`
-            # assert receipt['gasUsed'] <= 300000
+            assert receipt['gasUsed'] <= 350000
 
     return Doer()
 
@@ -592,8 +591,8 @@ def test_max_consumed_gas_on_join_is_safe(do, chain, staking, token):
     jump_to_block(chain, staking.call().getNextEpochBlockNumber())
 
     # continue far into the future
-    epochs_to_forward = 10
-    for _ in range(epochs_to_forward):
+    epochs_to_forward = 3
+    for epoch in range(epochs_to_forward):
         for validator in validators:
             do.join(validator)
         jump_to_block(chain, staking.call().getNextEpochBlockNumber())
