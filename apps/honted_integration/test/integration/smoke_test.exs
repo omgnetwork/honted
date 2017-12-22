@@ -118,11 +118,11 @@ defmodule HonteD.Integration.SmokeTest do
         duplicate: false,
         tx_hash: _some_hash
       }
-    } = API.submit_transaction(full_transaction)
+    } = API.submit_commit(full_transaction)
 
     # duplicate
     assert {:error, %{raw_result: _}}
-      = API.submit_transaction(full_transaction)
+      = API.submit_commit(full_transaction)
 
     # sane invalid transaction response
     assert {:error,
@@ -133,7 +133,7 @@ defmodule HonteD.Integration.SmokeTest do
         reason: :check_tx_failed,
         tx_hash: _
       }
-    } = API.submit_transaction(raw_tx)
+    } = API.submit_commit(raw_tx)
 
     # LISTING TOKENS
     assert {:ok, [asset]} = API.tokens_issued_by(issuer)
@@ -155,7 +155,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
 
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
 
     assert {:ok, @supply} = API.query_balance(asset, alice)
 
@@ -181,7 +181,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
 
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
-    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_commit(raw_tx <> " " <> signature)
 
     # check event
     assert %{
@@ -238,14 +238,14 @@ defmodule HonteD.Integration.SmokeTest do
     )
 
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
 
     # SIGNOFF
 
     {:ok, hash} = API.Tools.get_block_hash(send_height)
     {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, bob, issuer)
     {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
-    {:ok, %{committed_in: last_height}} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{committed_in: last_height}} = API.submit_commit(raw_tx <> " " <> signature)
 
     assert %{
       "transaction" => %{

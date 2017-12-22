@@ -8,7 +8,7 @@ defmodule HonteD.Integration.PerformanceTest do
 
   alias HonteD.Integration.Performance
 
-  @moduletag :integration
+  @moduletag :performance
 
   @moduletag timeout: :infinity
 

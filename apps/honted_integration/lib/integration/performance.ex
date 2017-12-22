@@ -30,16 +30,25 @@ defmodule HonteD.Integration.Performance do
   defp check_result({:error, _}, false), do: :ok
 
   # will submit a stream of transacctions to HonteD.API, checking expected result
-  defp submit_stream(txs_stream) do
-    txs_stream
+  defp submit_stream(streams) when is_list(streams) do
+    streams
+    |> Stream.zip
+    |> Enum.map(fn large_tuple ->
+      large_tuple
+      |> Tuple.to_list
+      |> Enum.map(fn {_expected, tx} ->
+        tx
+        |> HonteD.API.submit_async()
+        # |> check_result(expected)
+      end)
+    end)
+  end
+  defp submit_stream(stream) do
+    stream
     |> Enum.map(fn {expected, tx} ->
-      start = :erlang.monotonic_time()
       tx
-      |> HonteD.API.submit_transaction
+      |> HonteD.API.submit_commit()
       |> check_result(expected)
-      finish = :erlang.monotonic_time()
-      period = :erlang.convert_time_unit(finish - start, :native, :millisecond)
-      Logger.info("me #{inspect self()} in #{inspect period}")
     end)
   end
 
@@ -63,9 +72,9 @@ defmodule HonteD.Integration.Performance do
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
 
-    for txs_stream <- txs_source, do: _ = Task.async(fn ->
-      txs_stream
-      |> submit_stream
+    for streams <- Stream.chunk_every(txs_source, 10), do: _ = Task.async(fn ->
+      streams
+      |> submit_stream()
     end)
 
     # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
@@ -83,10 +92,11 @@ defmodule HonteD.Integration.Performance do
    - duration: time to run performance test under tm-bench [seconds]
   """
   def run(nstreams, fill_in, duration) do
+    _ = Logger.info("Generating scenarios...")
     scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
     setup_tasks = for setup_stream <- HonteD.Performance.Scenario.get_setup(scenario), do: Task.async(fn ->
-          for {_, tx} <- setup_stream, do: API.submit_transaction(tx)
+          for {_, tx} <- setup_stream, do: API.submit_commit(tx)
         end)
     _ = Logger.info("Waiting for setup to complete...")
     for task <- setup_tasks, do: Task.await(task, 100_000)
