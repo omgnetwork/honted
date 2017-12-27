@@ -48,17 +48,17 @@ tx(tx_hash)
 {:ok, %{"height" => height}}  = tx(tx_hash)
 
 # still won't be signed off
-{:ok, raw_tx} = create_sign_off_transaction(height - 1, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height - 1, "abcd", alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
 tx(tx_hash)
 
 # invalid sign-off
-{:ok, raw_tx} = create_sign_off_transaction(height - 2, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height - 2, "abcd", alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
 # this should successfully finalize the above send
-{:ok, raw_tx} = create_sign_off_transaction(height, "abcd", alice); {:ok, signature} = sign(raw_tx, alice_priv)
+{:ok, raw_tx} = create_sign_off_transaction(height, "abcd", alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
 submit_transaction raw_tx <> " " <> signature
 
 tx(tx_hash)
