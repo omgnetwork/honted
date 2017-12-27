@@ -9,6 +9,7 @@ defmodule HonteD.ABCITest do
   use ExUnit.Case, async: true
 
   import HonteD.ABCI.TestHelpers
+  import HonteD.ABCI.Records
 
   import HonteD.ABCI
   import HonteD.Transaction
@@ -16,8 +17,8 @@ defmodule HonteD.ABCITest do
   describe "info requests from tendermint" do
     @tag fixtures: [:empty_state]
     test "info about clean state", %{empty_state: state} do
-      assert {:reply, {:ResponseInfo, 'arbitrary information', 'version info', 0, ''}, ^state} =
-        handle_call({:RequestInfo}, nil, state)
+      assert {:reply, response_info(last_block_height: 0), ^state} =
+        handle_call(request_info(), nil, state)
     end
   end
 
@@ -79,7 +80,7 @@ defmodule HonteD.ABCITest do
     test "queries to /store are verbosely unimplemented", %{empty_state: state} do
       # NOTE: this will naturally go away, if we decide to implement /store
       assert {:reply, {:ResponseQuery, 1, _, _, _, _, _, 'query to /store not implemented'}, ^state} =
-        handle_call({:RequestQuery, '', '/store', 0, :false}, nil, state)
+        handle_call({:RequestQuery, "", '/store', 0, :false}, nil, state)
     end
   end
 end

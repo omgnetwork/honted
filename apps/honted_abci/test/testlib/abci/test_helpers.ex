@@ -25,9 +25,19 @@ defmodule HonteD.ABCI.TestHelpers do
   def do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
     do_tx(request_atom, response_atom, signed_tx, state)
   end
-  def do_tx(request_atom, response_atom, signed_tx, state) do
-    assert {:reply, {^response_atom, code, data, log}, state} = handle_call({request_atom, signed_tx}, nil, state)
-    %{code: code, data: data, log: log, state: state}
+  def do_tx(request_atom, response_atom, signed_tx, abci_app) do
+    assert {:reply, reply, abci_app} = handle_call({request_atom, signed_tx}, nil, abci_app)
+    status = check_response(response_atom, reply)
+    %{status | state: abci_app}
+  end
+
+  defp check_response(:ResponseCheckTx, reply) do
+    assert {:ResponseCheckTx, code, data, log, gas, fee} = reply
+    %{state: nil, code: code, data: data, log: log, gas: gas, fee: fee, tags: nil}
+  end
+  defp check_response(response_atom, reply) do
+    assert {^response_atom, code, data, log, tags} = reply
+    %{state: nil, code: code, data: data, log: log, gas: nil, fee: nil, tags: tags}
   end
 
   def commit(%{state: state}), do: commit(state)
@@ -38,12 +48,12 @@ defmodule HonteD.ABCI.TestHelpers do
   end
 
   def success?(response) do
-    assert %{code: 0, data: '', log: ''} = response
+    assert %{code: 0, data: "", log: ''} = response
     response
   end
 
   def fail?(response, expected_code, expected_log) do
-    assert %{code: ^expected_code, data: '', log: ^expected_log} = response
+    assert %{code: ^expected_code, data: "", log: ^expected_log} = response
     response
   end
 

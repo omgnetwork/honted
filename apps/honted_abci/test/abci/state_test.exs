@@ -12,6 +12,7 @@ defmodule HonteD.ABCI.StateTest do
   use ExUnit.Case, async: true
 
   import HonteD.ABCI.TestHelpers
+  import HonteD.ABCI.Records
 
   import HonteD.ABCI
   import HonteD.Transaction
@@ -70,7 +71,7 @@ defmodule HonteD.ABCI.StateTest do
       {:ok, tx2} = create_issue(nonce: 1, asset: asset, amount: 4, dest: alice.addr, issuer: issuer.addr)
       {:ok, issuer_signature} = HonteD.Crypto.sign(tx1, issuer.priv)
 
-      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
         handle_call({:RequestCheckTx, "#{tx2} #{issuer_signature}"}, nil, state)
 
       tx1 |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
@@ -350,7 +351,7 @@ defmodule HonteD.ABCI.StateTest do
       {:ok, tx2} = create_send(nonce: 0, asset: asset, amount: 4, from: alice.addr, to: bob.addr)
       {:ok, alice_signature} = HonteD.Crypto.sign(tx1, alice.priv)
 
-      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
         handle_call({:RequestCheckTx, "#{tx2} #{alice_signature}"}, nil, state)
 
       tx1 |> sign(bob.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
@@ -395,7 +396,7 @@ defmodule HonteD.ABCI.StateTest do
       {:ok, tx2} = create_sign_off(nonce: 0, height: 2, hash: hash, sender: issuer.addr)
       {:ok, issuer_signature} = HonteD.Crypto.sign(tx1, issuer.priv)
 
-      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
         handle_call({:RequestCheckTx, "#{tx2} #{issuer_signature}"}, nil, state)
 
       tx1 |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
@@ -563,7 +564,7 @@ defmodule HonteD.ABCI.StateTest do
       {:ok, tx2} = create_allow(nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true)
       {:ok, issuer_signature} = HonteD.Crypto.sign(tx1, issuer.priv)
 
-      assert {:reply, {:ResponseCheckTx, 1, '', 'invalid_signature'}, ^state} =
+      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
         handle_call({:RequestCheckTx, "#{tx2} #{issuer_signature}"}, nil, state)
 
       tx1 |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
