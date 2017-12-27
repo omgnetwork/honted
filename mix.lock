@@ -1,4 +1,4 @@
-%{"abci_server": {:git, "https://github.com/KrzysiekJ/abci_server.git", "9902821020a6c7681367e7c0a08c38d9b8a619a0", []},
+%{"abci_server": {:git, "https://github.com/KrzysiekJ/abci_server.git", "104f464061160d89b018878c4ed68e2659eea86b", []},
   "bimap": {:hex, :bimap, "0.1.1", "f0406e59f65ba903af678383d2356d0a6e59fb794adc1a7dd32bd8fabe0f028f", [], [], "hexpm"},
   "bunt": {:hex, :bunt, "0.2.0", "951c6e801e8b1d2cbe58ebbd3e616a869061ddadcc4863d0a2182541acae9a38", [], [], "hexpm"},
   "certifi": {:hex, :certifi, "2.0.0", "a0c0e475107135f76b8c1d5bc7efb33cd3815cb3cf3dea7aefdd174dabead064", [], [], "hexpm"},
