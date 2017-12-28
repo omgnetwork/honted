@@ -33,9 +33,13 @@ defmodule HonteD.Integration.Performance do
   defp submit_stream(txs_stream) do
     txs_stream
     |> Enum.map(fn {expected, tx} ->
+      start = :erlang.monotonic_time()
       tx
       |> HonteD.API.submit_transaction
       |> check_result(expected)
+      finish = :erlang.monotonic_time()
+      period = :erlang.convert_time_unit(finish - start, :native, :millisecond)
+      Logger.info("me #{inspect self()} in #{inspect period}")
     end)
   end
 
