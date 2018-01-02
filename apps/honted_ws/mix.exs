@@ -22,7 +22,6 @@ defmodule HonteD.WS.Mixfile do
         honted_api_ws_port: 4004, # our own ws port where HonteD.API is exposed
       ],
       extra_applications: [:logger],
-      applications: [:cowboy],
       mod: {HonteD.WS.Application, []}
     ]
   end
