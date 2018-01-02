@@ -22,7 +22,6 @@ defmodule HonteD.JSONRPC.Mixfile do
         honted_api_rpc_port: 4000, # our own rpc port where HonteD.API is exposed
       ],
       extra_applications: [:logger],
-      applications: [:jsonrpc2, :cowboy],
       mod: {HonteD.JSONRPC.Application, []}
     ]
   end
