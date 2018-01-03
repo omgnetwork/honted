@@ -115,7 +115,6 @@ defmodule HonteD.Integration.SmokeTest do
     assert {:ok,
       %{
         committed_in: _,
-        duplicate: false,
         tx_hash: _some_hash
       }
     } = API.submit_commit(full_transaction)

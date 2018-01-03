@@ -93,7 +93,6 @@ defmodule HonteD.API do
   Submits a signed transaction, blocks until its committed by the validators
   """
   @spec submit_commit(transaction :: binary) :: {:ok, %{tx_hash: binary,
-                                                        duplicate: boolean,
                                                         committed_in: non_neg_integer}} | {:error, map}
   def submit_commit(transaction) do
     client = TendermintRPC.client()
@@ -102,9 +101,7 @@ defmodule HonteD.API do
       # successes / no-ops
       {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash, "height" => height,
               "deliver_tx" => %{"code" => 0}}} ->
-        {:ok, %{tx_hash: hash, duplicate: false, committed_in: height}}
-      {:ok, %{"check_tx" => %{"code" => 3}, "hash" => hash}} ->
-        {:ok, %{tx_hash: hash, duplicate: true, committed_in: nil}}
+        {:ok, %{tx_hash: hash, committed_in: height}}
       # failures
       {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash} = result} ->
         {:error, %{reason: :deliver_tx_failed, tx_hash: hash, raw_result: result}}
