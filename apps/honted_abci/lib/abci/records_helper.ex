@@ -5,8 +5,10 @@ defmodule HonteD.ABCI.Record.Helper do
   `@lib "abci_server/include/abci.hrl"`
   Next, add `use HonteD.ABCI.Record.Helper`
 
-  Note! All record names will be processed with Macro.underscore/1, but original tags will
+  NOTE All record names will be processed with Macro.underscore/1, but original tags will
   be preserved in the runtime.
+  NOTE due to problems with Excoveralls checking coverage in macros calling macros (see below)
+  we are skipping this file's coverage in honted_abci/coveralls.json, see D333
   """
   require Record
   import Record, only: [defrecord: 3, extract_all: 1]
