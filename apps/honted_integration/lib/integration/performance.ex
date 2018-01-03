@@ -29,25 +29,12 @@ defmodule HonteD.Integration.Performance do
   defp check_result({:ok, _}, true), do: :ok
   defp check_result({:error, _}, false), do: :ok
 
-  # will submit a stream of transacctions to HonteD.API, checking expected result
-  defp submit_stream(streams) when is_list(streams) do
-    streams
-    |> Stream.zip
-    |> Enum.map(fn large_tuple ->
-      large_tuple
-      |> Tuple.to_list
-      |> Enum.map(fn {_expected, tx} ->
-        tx
-        |> HonteD.API.submit_async()
-        # |> check_result(expected)
-      end)
-    end)
-  end
+  # will submit a stream of transactions to HonteD.API, checking expected result
   defp submit_stream(stream) do
     stream
     |> Enum.map(fn {expected, tx} ->
       tx
-      |> HonteD.API.submit_commit()
+      |> HonteD.API.submit_sync()
       |> check_result(expected)
     end)
   end
@@ -72,8 +59,8 @@ defmodule HonteD.Integration.Performance do
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
 
-    for streams <- Stream.chunk_every(txs_source, 10), do: _ = Task.async(fn ->
-      streams
+    for stream <- txs_source, do: _ = Task.async(fn ->
+      stream
       |> submit_stream()
     end)
 
@@ -103,12 +90,11 @@ defmodule HonteD.Integration.Performance do
     _ = Logger.info("Setup completed")
 
     txs_source = scenario.send_txs
-    fill_in_per_stream = div(fill_in, nstreams)
 
+    fill_in_per_stream = div(fill_in, nstreams)
     _ = Logger.info("Starting fill_in: #{inspect fill_in}")
     _ = txs_source
     |> fill_in(fill_in_per_stream)
-
     _ = Logger.info("Fill_in done")
 
     txs_source
