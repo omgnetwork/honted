@@ -116,22 +116,13 @@ defmodule HonteD.Integration.SmokeTest do
       %{
         committed_in: _,
         duplicate: false,
-        tx_hash: some_hash
+        tx_hash: _some_hash
       }
     } = API.submit_transaction(full_transaction)
 
-    # dupliacte
-    assert {:ok,
-      %{
-        committed_in: nil,
-        duplicate: true,
-        tx_hash: ^some_hash
-      } = submit_result
-    } = API.submit_transaction(full_transaction)
-
-    # check consistency of api exposers
-    assert {:ok, TestWebsocket.codec(submit_result)} ==
-      apis_caller.(:submit_transaction, %{transaction: full_transaction})
+    # duplicate
+    assert {:error, %{raw_result: _}}
+      = API.submit_transaction(full_transaction)
 
     # sane invalid transaction response
     assert {:error,
@@ -146,6 +137,10 @@ defmodule HonteD.Integration.SmokeTest do
 
     # LISTING TOKENS
     assert {:ok, [asset]} = API.tokens_issued_by(issuer)
+
+    # check consistency of api exposers
+    assert {:ok, [^asset]} =
+      apis_caller.(:tokens_issued_by, %{issuer: issuer})
 
     # check consistency of api exposers
     assert {:ok, [asset]} == apis_caller.(:tokens_issued_by, %{issuer: issuer})
