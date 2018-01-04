@@ -84,6 +84,8 @@ defmodule HonteD.Integration.Performance do
    - nstreams: number of streams (processes) sending transactions
    - fill_in: number of transactions to pre-fill the state prior to perfornamce test
    - duration: time to run performance test under tm-bench [seconds]
+   - opts: options. Possibilities: %{bc_mode: nil | :commit}. Set to :commit to use submit_commit
+     instead of submit_sync in load phase of performance test
   """
   def run(nstreams, fill_in, duration, opts) do
     _ = Logger.info("Generating scenarios...")
