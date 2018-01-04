@@ -30,13 +30,20 @@ defmodule HonteD.Integration.Performance do
   defp check_result({:error, _}, false), do: :ok
 
   # will submit a stream of transactions to HonteD.API, checking expected result
-  defp submit_stream(stream) do
+  defp submit_stream(stream, opts \\ %{}) do
     stream
     |> Enum.map(fn {expected, tx} ->
-      tx
-      |> HonteD.API.submit_sync()
-      |> check_result(expected)
+      submit_one(expected, tx, opts)
     end)
+  end
+  defp submit_one(expected, tx, %{bc_mode: :commit}) do
+    tx
+    |> HonteD.API.submit_commit()
+    |> check_result(expected)
+  end
+  defp submit_one(_, tx, _) do
+    tx
+    |> HonteD.API.submit_sync()
   end
 
   @doc """
@@ -55,13 +62,13 @@ defmodule HonteD.Integration.Performance do
   @doc """
   Runs the actual perf test scenario under tm-bench
   """
-  def run_performance_test(txs_source, durationT) do
+  def run_performance_test(txs_source, durationT, opts) do
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
 
     for stream <- txs_source, do: _ = Task.async(fn ->
       stream
-      |> submit_stream()
+      |> submit_stream(opts)
     end)
 
     # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
@@ -78,7 +85,7 @@ defmodule HonteD.Integration.Performance do
    - fill_in: number of transactions to pre-fill the state prior to perfornamce test
    - duration: time to run performance test under tm-bench [seconds]
   """
-  def run(nstreams, fill_in, duration) do
+  def run(nstreams, fill_in, duration, opts) do
     _ = Logger.info("Generating scenarios...")
     scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
@@ -99,7 +106,7 @@ defmodule HonteD.Integration.Performance do
 
     txs_source
     |> Enum.map(fn stream -> Stream.drop(stream, fill_in_per_stream) end)
-    |> run_performance_test(duration)
+    |> run_performance_test(duration, opts)
   end
 
   @doc """
@@ -109,6 +116,6 @@ defmodule HonteD.Integration.Performance do
     dir_path = Integration.homedir()
     {:ok, _exit_fn} = Integration.honted()
     {:ok, _exit_fn} = Integration.tendermint(dir_path)
-    run(nstreams, fill_in, duration)
+    run(nstreams, fill_in, duration, %{})
   end
 end

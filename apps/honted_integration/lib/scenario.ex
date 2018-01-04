@@ -70,7 +70,7 @@ defmodule HonteD.Performance.Scenario do
                                  from: sender.addr, to: receiver.addr])
         {{true, signed_tx(tx, sender)}, nonce + 1}
       end
-      Stream.unfold({0, nil}, transaction_generator)
+      Stream.unfold(0, transaction_generator)
     end
   end
 
