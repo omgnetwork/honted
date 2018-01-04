@@ -36,20 +36,16 @@ defmodule HonteD.Integration.ApiTest do
 
     # submit_commit succeeds
     assert {:ok, %{tx_hash: hash}} = token_creation.() |>  API.submit_commit()
-    :timer.sleep(1000)
     assert {:ok, _} = API.tx(hash)
 
     # submit_sync does checkTx and succeeds
     assert {:ok, %{tx_hash: _}} = token_creation.() |> API.submit_sync()
 
-    # submit_async does mempool membership check, should return error here
-    assert {:error, _} = token_creation.() |> API.submit_async()
-
-    :timer.sleep(2000)
+    Process.sleep(2000)
     # submit_async does not do full checkTx end, should return tx id
     assert {:ok, %{tx_hash: hash}} = token_creation.() |> API.submit_async()
     # tx should be mined after some time
-    :timer.sleep(2000)
+    Process.sleep(2000)
     assert {:ok, _} = API.tx(hash)
   end
 end
