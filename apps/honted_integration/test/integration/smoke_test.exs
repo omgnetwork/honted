@@ -102,6 +102,40 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, bob_pub} = Crypto.generate_public_key(bob_priv)
     {:ok, bob} = Crypto.generate_address(bob_pub)
 
+    # BROADCAST_TX_* SEMANTICS CHECKS
+
+    # submit_commit should do CheckTx and fail
+    {:ok, raw_tx} = API.create_create_token_transaction(bob)
+    no_signature_tx = raw_tx
+    assert {:error, %{reason: :check_tx_failed}} = API.submit_commit(no_signature_tx)
+
+    # submit_sync should do CheckTx and fail
+    assert {:error, %{reason: :submit_failed}} = API.submit_sync(no_signature_tx)
+
+    # submit_async does no checks, should return tx id and indicate success
+    assert {:ok, %{tx_hash: hash}} = API.submit_async(no_signature_tx)
+    assert {:error, _} = API.tx(hash)
+
+    token_creation = fn() ->
+      {:ok, raw_tx} = API.create_create_token_transaction(bob)
+      {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
+      raw_tx <> " " <> signature
+    end
+
+    # submit_commit succeeds
+    assert {:ok, %{tx_hash: hash}} = token_creation.() |>  API.submit_commit()
+    assert {:ok, _} = API.tx(hash)
+
+    # submit_sync does checkTx and succeeds
+    assert {:ok, %{tx_hash: _}} = token_creation.() |> API.submit_sync()
+
+    Process.sleep(2000)
+    # submit_async does not do full checkTx end, should return tx id
+    assert {:ok, %{tx_hash: hash}} = token_creation.() |> API.submit_async()
+    # tx should be mined after some time
+    Process.sleep(2000)
+    assert {:ok, _} = API.tx(hash)
+
     # CREATING TOKENS
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
 
