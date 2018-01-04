@@ -92,19 +92,16 @@ defmodule HonteD.API do
   @doc """
   Submits a signed transaction, blocks until its committed by the validators
   """
-  @spec submit_transaction(transaction :: binary) :: {:ok, %{tx_hash: binary,
-                                                             duplicate: boolean,
-                                                             committed_in: non_neg_integer}} | {:error, map}
-  def submit_transaction(transaction) do
+  @spec submit_commit(transaction :: binary) :: {:ok, %{tx_hash: binary,
+                                                        committed_in: non_neg_integer}} | {:error, map}
+  def submit_commit(transaction) do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.broadcast_tx_commit(client, transaction)
     case rpc_response do
       # successes / no-ops
       {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash, "height" => height,
               "deliver_tx" => %{"code" => 0}}} ->
-        {:ok, %{tx_hash: hash, duplicate: false, committed_in: height}}
-      {:ok, %{"check_tx" => %{"code" => 3}, "hash" => hash}} ->
-        {:ok, %{tx_hash: hash, duplicate: true, committed_in: nil}}
+        {:ok, %{tx_hash: hash, committed_in: height}}
       # failures
       {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash} = result} ->
         {:error, %{reason: :deliver_tx_failed, tx_hash: hash, raw_result: result}}
@@ -115,7 +112,30 @@ defmodule HonteD.API do
     end
   end
 
-  def submit_transaction_async(transaction) do
+  @doc """
+  Submits a signed transaction, blocks until it's validated by local mempool
+  """
+  @spec submit_sync(transaction :: binary) :: {:ok, %{tx_hash: binary}} | {:error, map}
+  def submit_sync(transaction) do
+    client = TendermintRPC.client()
+    rpc_response = TendermintRPC.broadcast_tx_sync(client, transaction)
+    case rpc_response do
+      # successes / no-ops
+      {:ok, %{"code" => 0, "hash" => hash}} ->
+        {:ok, %{tx_hash: hash}}
+        # failures
+        {:ok, %{"code" => code, "data" => data, "log" => log, "hash" => hash}} ->
+        {:error, %{reason: :submit_failed, tx_hash: hash, code: code, data: data, log: log}}
+      result ->
+        {:error, %{reason: :unknown_error, raw_result: inspect result}}
+    end
+  end
+
+  @doc """
+  Submits a signed transaction, blocks for a RPC roundtrip time, checks for mempool duplicates
+  """
+  @spec submit_async(transaction :: binary) :: {:ok, %{tx_hash: binary}} | {:error, map}
+  def submit_async(transaction) do
     client = TendermintRPC.client()
     rpc_response = TendermintRPC.broadcast_tx_async(client, transaction)
     case rpc_response do
@@ -123,8 +143,6 @@ defmodule HonteD.API do
       {:ok, %{"code" => 0, "hash" => hash}} ->
         {:ok, %{tx_hash: hash}}
       # failures
-      {:ok, %{"code" => code, "data" => data, "log" => log, "hash" => hash}} ->
-        {:error, %{reason: :submit_failed, tx_hash: hash, code: code, data: data, log: log}}
       result ->
         {:error, %{reason: :unknown_error, raw_result: inspect result}}
     end

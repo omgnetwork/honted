@@ -29,14 +29,21 @@ defmodule HonteD.Integration.Performance do
   defp check_result({:ok, _}, true), do: :ok
   defp check_result({:error, _}, false), do: :ok
 
-  # will submit a stream of transacctions to HonteD.API, checking expected result
-  defp submit_stream(txs_stream) do
-    txs_stream
+  # will submit a stream of transactions to HonteD.API, checking expected result
+  defp submit_stream(stream, opts \\ %{}) do
+    stream
     |> Enum.map(fn {expected, tx} ->
-      tx
-      |> HonteD.API.submit_transaction
-      |> check_result(expected)
+      submit_one(expected, tx, opts)
     end)
+  end
+  defp submit_one(expected, tx, %{bc_mode: :commit}) do
+    tx
+    |> HonteD.API.submit_commit()
+    |> check_result(expected)
+  end
+  defp submit_one(_, tx, _) do
+    tx
+    |> HonteD.API.submit_sync()
   end
 
   @doc """
@@ -55,13 +62,13 @@ defmodule HonteD.Integration.Performance do
   @doc """
   Runs the actual perf test scenario under tm-bench
   """
-  def run_performance_test(txs_source, durationT) do
+  def run_performance_test(txs_source, durationT, opts) do
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
 
-    for txs_stream <- txs_source, do: _ = Task.async(fn ->
-      txs_stream
-      |> submit_stream
+    for stream <- txs_source, do: _ = Task.async(fn ->
+      stream
+      |> submit_stream(opts)
     end)
 
     # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
@@ -77,29 +84,31 @@ defmodule HonteD.Integration.Performance do
    - nstreams: number of streams (processes) sending transactions
    - fill_in: number of transactions to pre-fill the state prior to perfornamce test
    - duration: time to run performance test under tm-bench [seconds]
+   - opts: options. Possibilities: %{bc_mode: nil | :commit}. Set to :commit to use submit_commit
+     instead of submit_sync in load phase of performance test
   """
-  def run(nstreams, fill_in, duration) do
+  def run(nstreams, fill_in, duration, opts) do
+    _ = Logger.info("Generating scenarios...")
     scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
     setup_tasks = for setup_stream <- HonteD.Performance.Scenario.get_setup(scenario), do: Task.async(fn ->
-          for {_, tx} <- setup_stream, do: API.submit_transaction(tx)
+          for {_, tx} <- setup_stream, do: API.submit_commit(tx)
         end)
     _ = Logger.info("Waiting for setup to complete...")
     for task <- setup_tasks, do: Task.await(task, 100_000)
     _ = Logger.info("Setup completed")
 
     txs_source = scenario.send_txs
-    fill_in_per_stream = div(fill_in, nstreams)
 
+    fill_in_per_stream = div(fill_in, nstreams)
     _ = Logger.info("Starting fill_in: #{inspect fill_in}")
     _ = txs_source
     |> fill_in(fill_in_per_stream)
-
     _ = Logger.info("Fill_in done")
 
     txs_source
     |> Enum.map(fn stream -> Stream.drop(stream, fill_in_per_stream) end)
-    |> run_performance_test(duration)
+    |> run_performance_test(duration, opts)
   end
 
   @doc """
@@ -109,6 +118,6 @@ defmodule HonteD.Integration.Performance do
     dir_path = Integration.homedir()
     {:ok, _exit_fn} = Integration.honted()
     {:ok, _exit_fn} = Integration.tendermint(dir_path)
-    run(nstreams, fill_in, duration)
+    run(nstreams, fill_in, duration, %{})
   end
 end

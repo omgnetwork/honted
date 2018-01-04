@@ -14,12 +14,13 @@ defmodule HonteD.Integration.PerformanceTest do
 
   @duration 3 # so that at least one block gets mined :)
 
-  @nstreams 100
-  @fill_in 200
+  @nstreams 2
+  @fill_in 2
 
   @tag fixtures: [:tendermint]
   test "performance test should run with fill in", %{} do
-    result = Performance.run(@nstreams, @fill_in, @duration)
+    opts = %{bc_mode: :commit} # to make sure that test is deterministic
+    result = Performance.run(@nstreams, @fill_in, @duration, opts)
 
     result
     |> String.contains?("Txs/sec")

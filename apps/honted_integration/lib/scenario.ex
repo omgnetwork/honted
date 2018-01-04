@@ -9,7 +9,6 @@ defmodule HonteD.Performance.Scenario do
   import HonteD.Transaction
 
   @start_tokens 1_000_000
-  @amount_that_fails 1_000_000_000_000
   @normal_amount 1
 
   defmodule Keys do
@@ -61,19 +60,17 @@ defmodule HonteD.Performance.Scenario do
     model.holders_senders
   end
 
-  defp prepare_send_streams(holders_senders, tokens, receivers, failure_rate) do
-    seeds = make_n_seeds(:rand.export_seed(), length(holders_senders))
-    args = :lists.zip3(holders_senders, tokens, seeds)
-    for {sender, token, stream_initial_seed} <- args do
-      transaction_generator = fn({nonce, stream_seed}) ->
-        _ = :rand.seed(stream_seed)
-        success = failure_rate < :rand.uniform()
-        receiver = Enum.random(receivers)
-        {:ok, tx} = create_send([nonce: nonce, asset: token, amount: send_amount(success),
+  defp prepare_send_streams(holders_senders, tokens, receivers, _failure_rate) do
+    args = Enum.zip(holders_senders, tokens)
+    n = length(receivers)
+    for {sender, token} <- args do
+      transaction_generator = fn(nonce) ->
+        receiver = :lists.nth(:rand.uniform(n), receivers)
+        {:ok, tx} = create_send([nonce: nonce, asset: token, amount: @normal_amount,
                                  from: sender.addr, to: receiver.addr])
-        {{success, signed_tx(tx, sender)}, {next_nonce(success, nonce), :rand.export_seed()}}
+        {{true, signed_tx(tx, sender)}, nonce + 1}
       end
-      Stream.unfold({0, stream_initial_seed}, transaction_generator)
+      Stream.unfold(0, transaction_generator)
     end
   end
 
@@ -91,12 +88,6 @@ defmodule HonteD.Performance.Scenario do
     seed = :rand.export_seed()
     [seed | acc]
   end
-
-  defp send_amount(false), do: @amount_that_fails
-  defp send_amount(true), do: @normal_amount
-
-  defp next_nonce(true, n), do: n + 1
-  defp next_nonce(false, n), do: n
 
   defp generate_keys(_) do
     {:ok, priv} = generate_private_key()

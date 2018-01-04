@@ -16,11 +16,11 @@ import HonteD.Crypto
 {:ok, diane_priv} = generate_private_key; {:ok, diane_pub} = generate_public_key diane_priv; {:ok, diane} = generate_address diane_pub
 
 {:ok, raw_tx} = create_create_token_transaction(ivan); {:ok, signature} = sign(raw_tx, ivan_priv)
-{:ok, hash} = submit_transaction raw_tx <> " " <> signature
+{:ok, hash} = submit_commit raw_tx <> " " <> signature
 {:ok, [asset]} = tokens_issued_by(ivan)
 
 {:ok, raw_tx} = create_issue_transaction(asset, 500, alice, ivan); {:ok, signature} = sign(raw_tx, ivan_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # v START DEMO HERE v
 
@@ -31,11 +31,11 @@ bob
 
 # send some transactions, that will be signed off later
 {:ok, raw_tx} = create_send_transaction(asset, 5, alice, bob); {:ok, signature} = sign(raw_tx, alice_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 {:ok, raw_tx} = create_send_transaction(asset, 5, alice, bob); {:ok, signature} = sign(raw_tx, alice_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 {:ok, raw_tx} = create_send_transaction(asset, 5, alice, bob); {:ok, signature} = sign(raw_tx, alice_priv)
-{:ok, %{tx_hash: tx_hash, committed_in: height}} = submit_transaction raw_tx <> " " <> signature
+{:ok, %{tx_hash: tx_hash, committed_in: height}} = submit_commit raw_tx <> " " <> signature
 
 # check Bob has received the events in wscat
 
@@ -47,17 +47,17 @@ submit_transaction raw_tx <> " " <> signature
 # Ivan can delegate signing to Diane and keep his issuing private key secure
 # lets do that
 {:ok, raw_tx} = create_allow_transaction(ivan, diane, "signoff", true); {:ok, signature} = sign(raw_tx, ivan_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # From now on, Diane can sign off on behalf of Ivan
 
 # this should successfully finalize 2 of 3 above sends
 {:ok, raw_tx} = create_sign_off_transaction(height - 1, block_hash, diane, ivan); {:ok, signature} = sign(raw_tx, diane_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # valid sign-off, but with wrong block_hash (puts all transactions of token into :committed_unknown state)
 {:ok, raw_tx} = create_sign_off_transaction(height, "garbage", diane, ivan); {:ok, signature} = sign(raw_tx, diane_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # check no more finalized had been received
 
@@ -67,7 +67,7 @@ tx(tx_hash)
 # fix the broken sign-off
 {:ok, new_block_hash} = HonteD.API.Tools.get_block_hash(height + 1)
 {:ok, raw_tx} = create_sign_off_transaction(height + 1, new_block_hash, diane, ivan); {:ok, signature} = sign(raw_tx, diane_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # check the fixed state
 tx(tx_hash)
@@ -88,19 +88,19 @@ bob = # bobs pub key from previous session
 {:ok, audrey_priv} = generate_private_key; {:ok, audrey_pub} = generate_public_key audrey_priv; {:ok, audrey} = generate_address audrey_pub
 {:ok, imogen_priv} = generate_private_key; {:ok, imogen_pub} = generate_public_key imogen_priv; {:ok, imogen} = generate_address imogen_pub
 {:ok, raw_tx} = create_create_token_transaction(imogen); {:ok, signature} = sign(raw_tx, imogen_priv)
-{:ok, hash} = submit_transaction raw_tx <> " " <> signature
+{:ok, hash} = submit_commit raw_tx <> " " <> signature
 {:ok, [asset]} = tokens_issued_by(imogen)
 
 {:ok, raw_tx} = create_issue_transaction(asset, 500, audrey, imogen); {:ok, signature} = sign(raw_tx, imogen_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # PREPARATIONS DONE
 
 # two events that could be "missed", because after reboot we haven't subscribed yet!!!
 {:ok, raw_tx} = create_send_transaction(asset, 5, audrey, bob); {:ok, signature} = sign(raw_tx, audrey_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 {:ok, raw_tx} = create_send_transaction(asset, 5, audrey, bob); {:ok, signature} = sign(raw_tx, audrey_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # subscribe to bob's received again
 # NOTE: this time we take note of the height returned in the `new_send_filter` call
@@ -109,9 +109,9 @@ submit_transaction raw_tx <> " " <> signature
 
 # check that we can receive _new_ events just fine
 {:ok, raw_tx} = create_send_transaction(asset, 5, audrey, bob); {:ok, signature} = sign(raw_tx, audrey_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 {:ok, raw_tx} = create_send_transaction(asset, 5, audrey, bob); {:ok, signature} = sign(raw_tx, audrey_priv)
-submit_transaction raw_tx <> " " <> signature
+submit_commit raw_tx <> " " <> signature
 
 # now grab the historic events 
 # {"wsrpc": "1.0", "type": "rq", "method": "new_send_filter_history", "params": {"watched": "", "first": "", "last": ""}}
