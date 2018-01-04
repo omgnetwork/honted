@@ -6,7 +6,9 @@ defmodule HonteD.ABCI.State do
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
 
-  def empty, do: %{}
+  def initial do
+    %{state: %{current_epoch: 1, change_epoch: false}, ethereum: HonteD.ABCI.Ethereum}
+  end
 
   def get(state, key) do
     case state[key] do
@@ -72,19 +74,23 @@ defmodule HonteD.ABCI.State do
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx}) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
+         :ok <- validator_block_passed?(state),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
-                   |> apply_epoch_change(tx.epoch_number)
-                   |> update_validators
+                   |> mark_epoch_change(tx.epoch_number)
                    |> bump_nonce_after(tx)}
   end
 
-  defp epoch_valid?(state, epoch_number) do
-    :ok
+  defp validator_block_passed?(state) do
+    if state.current_validator_block <= state.current_ethereum_block_height do
+      :ok
+    else
+      {:error, :validator_block_not_passed}
+    end
   end
 
-  defp update_validators(state) do
-    state
+  defp epoch_valid?(state, epoch_number) do
+    if Map.get(state, :current_epoch) == epoch_number - 1, do: :ok, else: {:error, :invalid_epoch_number}
   end
 
   defp account_has_at_least?(state, key_src, amount) do
@@ -164,9 +170,8 @@ defmodule HonteD.ABCI.State do
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
-  defp apply_epoch_change(state, epoch) do
-    state
-    |> Map.update(:epoch, epoch, &(if &1 == epoch - 1, do: epoch, else: &1))
+  defp mark_epoch_change(state, epoch_number) do
+    Map.update(state, :change_epoch, true, &(if state.current_epoch == epoch_number - 1, do: true, else: &1))
   end
 
   defp bump_nonce_after(state, tx) do

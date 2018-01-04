@@ -582,8 +582,30 @@ defmodule HonteD.ABCI.StateTest do
   describe "well formedness of epoch change transactions" do
     @tag fixtures: [:alice, :empty_state]
     test "checking epoch change transactions", %{empty_state: state, alice: alice} do
-      create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+      #correct
+      create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 2)
       |> sign(alice.priv) |> check_tx(state) |> success?
+
+      #malformed
+      sign("0 EPOCH_CHANGE #{alice.addr} -1", alice.priv)
+      |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+      sign("0 EPOCH_CHANGE #{alice.addr} 1.5", alice.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      sign("0 EPOCH_CHANGE #{alice.addr} one", alice.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
     end
   end
+
+  describe "epoch change transaction logic" do
+    @tag fixtures: [:alice, :empty_state]
+    test "mark epoch change", %{empty_state: state, alice: alice} do
+      expected_local_state = Map.put(state.local_state, "nonces/#{alice.addr}", 1)
+      |> Map.put(:change_epoch, true)
+      expected_state = %{state | local_state: expected_local_state}
+
+      create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 2)
+      |> sign(alice.priv) |> check_tx(state) |> success? |> same?(expected_state)
+    end
+  end
+
 end

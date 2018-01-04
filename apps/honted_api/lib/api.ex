@@ -90,6 +90,19 @@ defmodule HonteD.API do
   end
 
   @doc """
+  Creates a signable, encoded transaction that notifies about epoch change
+  """
+  @spec create_epoch_change_transaction(sender :: binary, epoch_number :: pos_integer)
+        :: {:ok, binary} | {:error, map}
+  def create_epoch_change_transaction(sender, epoch_number) do
+    client = TendermintRPC.client()
+    with {:ok, nonce} <- Tools.get_nonce(client, sender),
+         do: Transaction.create_epoch_change(nonce: nonce,
+                                      sender: sender,
+                                      epoch_number: epoch_number)
+  end
+
+  @doc """
   Submits a signed transaction, blocks until its committed by the validators
   """
   @spec submit_transaction(transaction :: binary) :: {:ok, %{tx_hash: binary,

@@ -15,8 +15,8 @@ defmodule HonteD.ABCI do
   Tracks state which is controlled by consensus and also tracks local (mempool related, transient) state.
   Local state is being overwritten by consensus state on every commit.
   """
-  defstruct [consensus_state: State.empty(),
-             local_state: State.empty(),
+  defstruct [consensus_state: State.initial(),
+             local_state: State.initial(),
             ]
 
   def start_link(opts) do
