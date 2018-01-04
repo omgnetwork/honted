@@ -4,7 +4,9 @@
 
 Only **Linux** platforms supported now. Known to work with Ubuntu 16.04
 
-After installing [Elixir](http://elixir-lang.github.io/install.html#unix-and-unix-like) and [Tendermint](https://tendermint.com/downloads):
+Install [Elixir](http://elixir-lang.github.io/install.html#unix-and-unix-like).
+
+Install [Tendermint](https://tendermint.com/downloads). **NOTE** we require Tendermint `v0.14.0` and this in turn requires `golang` > `v1.9` (works with `v1.9.2`). In order to do that, `git checkout` the above tag for Tendermint repo in your `$GOPATH`, then (optionally) `glide install` and `go install github.com/tendermint/tendermint/cmd/tendermint`.
 
   - `git clone ...` - clone this repo
   - `mix deps.get`
@@ -16,8 +18,6 @@ After installing [Elixir](http://elixir-lang.github.io/install.html#unix-and-uni
 
 Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean the databases and start from scratch.
 
-**NOTE** Tendermint 0.11.1 or later is required.
-
 ## Testing
 
  - quick test (no integration tests): `mix test --no-start`
@@ -25,14 +25,11 @@ Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean
  - everything: `mix test --no-start --include integration`
  - Dialyzer: `mix dialyzer`. First run will build the PLT, so may take several minutes
  - style & linting: `mix credo`. (`--strict` is switched on by default)
+ - coverage: `mix coveralls.html --umbrella --no-start --include integration`
 
 ### Integration tests
 
-**NOTE** Integration tests require `tm-bench` to be installed.
-To do that setup `golang` (at least `1.9.2`) and `go get -u github.com/tendermint/tools/tm-bench`.
-
-**NOTE** `tm-bench` currently requires exactly Tendermint 0.11.1.
-To do that setup `golang` (at least `1.9.2`), check out `0.11.1` tag for Tendermint and `go install github.com/tendermint/tendermint/cmd/tendermint`.
+**NOTE** Integration tests require `tm-bench` to be installed: `go get -u github.com/tendermint/tools/tm-bench`, possibly a `glide install` will be necessary
 
 When running `integration` tests, remember to have `tendermint` and `tm-bench` binaries reachable in your `$PATH`.
 
