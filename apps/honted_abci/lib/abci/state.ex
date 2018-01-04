@@ -64,11 +64,27 @@ defmodule HonteD.ABCI.State do
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Allow{} = tx}) do
-
     with :ok <- nonce_valid?(state, tx.allower, tx.nonce),
          do: {:ok, state
                    |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)
                    |> bump_nonce_after(tx)}
+  end
+
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx}) do
+    with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
+         :ok <- epoch_valid?(state, tx.epoch_number),
+         do: {:ok, state
+                   |> apply_epoch_change(tx.epoch_number)
+                   |> update_validators
+                   |> bump_nonce_after(tx)}
+  end
+
+  defp epoch_valid?(state, epoch_number) do
+    :ok
+  end
+
+  defp update_validators(state) do
+    state
   end
 
   defp account_has_at_least?(state, key_src, amount) do
@@ -146,6 +162,11 @@ defmodule HonteD.ABCI.State do
   defp apply_allow(state, allower, allowee, privilege, allow) do
     state
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
+  end
+
+  defp apply_epoch_change(state, epoch) do
+    state
+    |> Map.update(:epoch, epoch, &(if &1 == epoch - 1, do: epoch, else: &1))
   end
 
   defp bump_nonce_after(state, tx) do

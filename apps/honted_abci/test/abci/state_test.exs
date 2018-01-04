@@ -578,4 +578,12 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(issuer.priv) |> check_tx(state) |> fail?(1, 'unknown_privilege') |> same?(state)
     end
   end
+
+  describe "well formedness of epoch change transactions" do
+    @tag fixtures: [:alice, :empty_state]
+    test "checking epoch change transactions", %{empty_state: state, alice: alice} do
+      create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+      |> sign(alice.priv) |> check_tx(state) |> success?
+    end
+  end
 end
