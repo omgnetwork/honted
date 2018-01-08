@@ -9,7 +9,9 @@ defmodule HonteD.ABCI do
   use GenServer
   import HonteD.ABCI.Records
 
+  alias HonteD.ABCI.EthereumContractState, as: EthereumContractState
   alias HonteD.ABCI.State, as: State
+  alias HonteD.Transaction
 
   @doc """
   Tracks state which is controlled by consensus and also tracks local (mempool related, transient) state.
@@ -17,6 +19,7 @@ defmodule HonteD.ABCI do
   """
   defstruct [consensus_state: State.initial(),
              local_state: State.initial(),
+             contract_state: EthereumContractState.initial()
             ]
 
   def start_link(opts) do
@@ -53,7 +56,7 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_check_tx(tx: tx), _from, abci_app) do
     with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
-         {:ok, new_local_state} <- generic_handle_tx(abci_app.local_state, decoded)
+         {:ok, new_local_state} <- handle_tx(abci_app, decoded, &(&1.local_state))
     do
       # no change to state! we don't allow to build upon uncommited transactions
       {:reply, response_check_tx(code: code(:ok)), %{abci_app | local_state: new_local_state}}
@@ -67,7 +70,7 @@ defmodule HonteD.ABCI do
     # NOTE: yes, we want to crash on invalid transactions, lol
     # there's a chore to fix that
     {:ok, decoded} = HonteD.TxCodec.decode(tx)
-    {:ok, new_consensus_state} = generic_handle_tx(abci_app.consensus_state, decoded)
+    {:ok, new_consensus_state} = handle_tx(abci_app, decoded, &(&1.consensus_state))
     HonteD.ABCI.Events.notify(new_consensus_state, decoded.raw_tx)
     {:reply, response_deliver_tx(code: code(:ok)), %{abci_app | consensus_state: new_consensus_state}}
   end
@@ -137,9 +140,15 @@ defmodule HonteD.ABCI do
     |> to_charlist
   end
 
-  defp generic_handle_tx(state, tx) do
+  defp handle_tx(abci_app, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{}} = tx, extract_state)  do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
-         do: State.exec(state, tx)
+         :ok <- HonteD.ABCI.EthereumContractState.validator_block_passed?(abci_app.contract_state),
+         do: State.exec(extract_state.(abci_app), tx)
+  end
+
+  defp handle_tx(abci_app, tx, extract_state) do
+    with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
+         do: State.exec(extract_state.(abci_app), tx)
   end
 
   defp lookup(state, key) do

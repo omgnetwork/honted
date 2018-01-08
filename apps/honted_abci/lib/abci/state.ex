@@ -5,9 +5,11 @@ defmodule HonteD.ABCI.State do
   alias HonteD.Transaction
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
+  @epoch_number_key "contract/epoch_number"
+  @epoch_change_key "contract/epoch_change"
 
   def initial do
-    %{state: %{current_epoch: 1, change_epoch: false}, ethereum: HonteD.ABCI.Ethereum}
+    %{@epoch_number_key => 1, @epoch_change_key => false}
   end
 
   def get(state, key) do
@@ -74,23 +76,15 @@ defmodule HonteD.ABCI.State do
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx}) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
-         :ok <- validator_block_passed?(state),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
-                   |> mark_epoch_change(tx.epoch_number)
+                   |> apply_epoch_change(tx.epoch_number)
                    |> bump_nonce_after(tx)}
   end
 
-  defp validator_block_passed?(state) do
-    if state.current_validator_block <= state.current_ethereum_block_height do
-      :ok
-    else
-      {:error, :validator_block_not_passed}
-    end
-  end
-
   defp epoch_valid?(state, epoch_number) do
-    if Map.get(state, :current_epoch) == epoch_number - 1, do: :ok, else: {:error, :invalid_epoch_number}
+    is_next_epoch = state[@epoch_number_key] == epoch_number - 1
+    if is_next_epoch and not state[@epoch_change_key], do: :ok, else: {:error, :invalid_epoch_change}
   end
 
   defp account_has_at_least?(state, key_src, amount) do
@@ -170,8 +164,9 @@ defmodule HonteD.ABCI.State do
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
-  defp mark_epoch_change(state, epoch_number) do
-    Map.update(state, :change_epoch, true, &(if state.current_epoch == epoch_number - 1, do: true, else: &1))
+  defp apply_epoch_change(state, epoch_number) do
+    epoch_change_valid = state[@epoch_number_key] == epoch_number - 1
+    Map.update!(state, @epoch_change_key, &(&1 or epoch_change_valid))
   end
 
   defp bump_nonce_after(state, tx) do

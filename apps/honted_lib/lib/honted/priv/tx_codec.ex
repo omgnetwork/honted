@@ -71,7 +71,7 @@ defmodule HonteD.TxCodec do
           _ -> {:error, :malformed_numbers}
         end
       [nonce, "EPOCH_CHANGE", sender, epoch_number, signature] when byte_size(signature) == @signature_length ->
-        case {Integer.parse(nonce), Integer.parse(epoch_number)} do #FIXME: when epoch_number > 0
+        case {Integer.parse(nonce), Integer.parse(epoch_number)} do
           {{int_nonce, ""}, {int_epoch_number, ""}} -> {:ok, %Transaction.EpochChange{nonce: int_nonce,
                                                       sender: sender,
                                                       epoch_number: int_epoch_number}

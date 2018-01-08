@@ -23,7 +23,7 @@ defmodule HonteD.ABCI.TestHelpers do
   def deliver_tx(signed_tx, state), do: do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
 
   def check_tx(signed_tx, state), do: do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
-  
+
   def do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
     do_tx(request_atom, response_atom, signed_tx, state)
   end

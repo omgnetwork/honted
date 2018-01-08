@@ -68,4 +68,10 @@ defmodule HonteD.ABCI.Fixtures do
   deffixture some_block_hash do
     "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
   end
+
+  deffixture contract_state_no_epoch_change do
+    {:ok, state} = HonteD.ABCI.init(:ok)
+    contract_state = %HonteD.ABCI.EthereumContractState{ethereum_block_height: 1, validator_block_height: 2}
+    %{state | contract_state: contract_state}
+  end
 end
