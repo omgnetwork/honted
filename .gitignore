@@ -31,3 +31,4 @@ populus/build/
 
 *.trace
 callgrind.out.*
+*.log
