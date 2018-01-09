@@ -78,7 +78,7 @@ defmodule HonteD.ABCI.State do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
-                   |> apply_epoch_change(tx.epoch_number)
+                   |> apply_epoch_change
                    |> bump_nonce_after(tx)}
   end
 
@@ -164,10 +164,7 @@ defmodule HonteD.ABCI.State do
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
-  defp apply_epoch_change(state, epoch_number) do
-    epoch_change_valid = state[@epoch_number_key] == epoch_number - 1
-    Map.update!(state, @epoch_change_key, &(&1 or epoch_change_valid))
-  end
+  defp apply_epoch_change(state), do: %{state | @epoch_change_key => true}
 
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)

@@ -132,6 +132,10 @@ defmodule HonteD.ABCI do
     {:reply, response_init_chain(), abci_app}
   end
 
+  def handle_call({:set_contract_state, %EthereumContractState{} = contract_state}, _from, abci_app) do
+    {:reply, :ok, %{abci_app | contract_state: contract_state}}
+  end
+
   ### END GenServer
 
   defp encode_query_response(object) do
