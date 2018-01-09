@@ -12,6 +12,7 @@ with open("populus/build/contracts.json") as f:
     HONTE_STAKING_BYTECODE = contracts['HonteStaking']['bytecode']
 
 def deploy(chain, ContractClass, owner):
+    print("ContractClass: ", ContractClass)
     deploy_tx = ContractClass.deploy({"from": owner})
     # Wait(chain, chain.web3).for_receipt(deploy_tx)
     wait_for_transaction_receipt(chain.web3, deploy_tx)

@@ -3,25 +3,18 @@ defmodule HonteD.Eth do
   Documentation for HonteD.Eth.
   """
 
-  def launch_and_deploy do
-    {pid, _} = dev_geth()
-    :ready = rpc_ready?()
-    deploy()
-    geth_stop(pid)
-  end
-
-  def deploy do
-    cmd = "./deploy.py"
-    deploy_proc = %Porcelain.Process{err: nil, out: depl_out} = Porcelain.spawn_shell(
-      cmd,
-      out: :stream,
-    )
-  end
+  alias HonteD.Eth.WaitFor, as: WaitFor
 
   def dev_geth do
     Temp.track!
     homedir = Temp.mkdir!(%{prefix: "honted_eth_test_homedir"})
-    geth("geth --rpc --datadir " <> homedir <> " 2>&1")
+    res = geth("geth --dev --rpc --datadir " <> homedir <> " 2>&1")
+    {:ok, :ready} = WaitFor.rpc()
+    res
+  end
+
+  def dev_deploy do
+    {:ok, _token, _staking} = HonteD.Eth.Contract.deploy(20, 2, 5)
   end
 
   def geth(cmd \\ "geth --rpc") do
@@ -30,7 +23,7 @@ defmodule HonteD.Eth do
       cmd,
       out: :stream,
     )
-    :ok = wait_for_geth_start(geth_out)
+    wait_for_geth_start(geth_out)
     {geth_proc, geth_out}
   end
 
@@ -39,42 +32,18 @@ defmodule HonteD.Eth do
   end
 
   # PRIVATE
-
   defp wait_for_geth_start(geth_out) do
     wait_for_start(geth_out, "IPC endpoint opened", 3000)
   end
 
-  def wait_for_start(outstream, look_for, timeout) do
+  defp wait_for_start(outstream, look_for, timeout) do
     # Monitors the stdout coming out of a process for signal of successful startup
     waiting_task_function = fn ->
       outstream
       |> Stream.take_while(fn line -> not String.contains?(line, look_for) end)
       |> Enum.to_list
     end
-
-    waiting_task_function
-    |> Task.async
-    |> Task.await(timeout)
-
-    :ok
-  end
-
-  def rpc_ready?() do
-    ref = Task.async(fn ->
-      check_sync_until_ready()
-    end)
-    Task.await(ref, :infinity)
-  end
-
-  defp check_sync_until_ready do
-    case Ethereumex.HttpClient.eth_syncing() do
-      {:ok, false} ->
-        :ready
-      other ->
-        IO.puts("syncing: #{inspect other}")
-        Process.sleep(1000)
-        check_sync_until_ready()
-    end
+    WaitFor.function(waiting_task_function, timeout)
   end
 
 end
