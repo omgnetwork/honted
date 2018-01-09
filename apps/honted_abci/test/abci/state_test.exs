@@ -626,9 +626,9 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_epoch_change')
     end
 
-    @tag fixtures: [:alice, :contract_state_no_epoch_change]
+    @tag fixtures: [:alice, :staking_state_no_epoch_change]
     test "do not apply epoch change when validator block has not passed",
-     %{contract_state_no_epoch_change: state, alice: alice} do
+     %{staking_state_no_epoch_change: state, alice: alice} do
        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 2)
        |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'validator_block_has_not_passed')
        |> same?(state)
