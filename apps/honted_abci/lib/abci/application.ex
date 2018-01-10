@@ -8,7 +8,6 @@ defmodule HonteD.ABCI.Application do
     children = [
       {HonteD.ABCI, name: HonteD.ABCI},
       :abci_server.child_spec(HonteD.ABCI, abci_port),
-      # NOTE placeholder: EthereumTracker somewhere here
     ]
 
     opts = [strategy: :one_for_one, name: HonteD.ABCI.Supervisor]

@@ -1,49 +1,58 @@
 defmodule HonteD.Eth do
   @moduledoc """
-  Documentation for HonteD.Eth.
+  Tracks state of geth synchronization and state of staking contract and feeds it to ABCI state machine.
   """
 
-  alias HonteD.Eth.WaitFor, as: WaitFor
+  require Logger
+  use GenServer
 
-  def dev_geth do
-    Temp.track!
-    homedir = Temp.mkdir!(%{prefix: "honted_eth_test_homedir"})
-    res = geth("geth --dev --rpc --datadir " <> homedir <> " 2>&1")
-    {:ok, :ready} = WaitFor.rpc()
-    res
+  alias Ethereumex.HttpClient, as: RPC
+
+  defstruct [failed: 0,
+             max: 120,
+            ]
+
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, :ok, opts)
   end
 
-  def dev_deploy do
-    {:ok, _token, _staking} = HonteD.Eth.Contract.deploy(20, 2, 5)
-  end
-
-  def geth(cmd \\ "geth --rpc") do
-    IO.puts("starting #{inspect cmd}")
-    geth_proc = %Porcelain.Process{err: nil, out: geth_out} = Porcelain.spawn_shell(
-      cmd,
-      out: :stream,
-    )
-    wait_for_geth_start(geth_out)
-    {geth_proc, geth_out}
-  end
-
-  def geth_stop(pid) do
-    Porcelain.Process.stop(pid)
-  end
-
-  # PRIVATE
-  defp wait_for_geth_start(geth_out) do
-    wait_for_start(geth_out, "IPC endpoint opened", 3000)
-  end
-
-  defp wait_for_start(outstream, look_for, timeout) do
-    # Monitors the stdout coming out of a process for signal of successful startup
-    waiting_task_function = fn ->
-      outstream
-      |> Stream.take_while(fn line -> not String.contains?(line, look_for) end)
-      |> Enum.to_list
+  def init(:ok) do
+    case syncing?() do
+      false ->
+        Process.send_after(self(), :check_sync_state, 1000)
+        {:ok, %__MODULE__{}}
+      true ->
+        {:stop, :honted_requires_geth_to_be_synchronized}
     end
-    WaitFor.function(waiting_task_function, timeout)
+  end
+
+  def handle_call(_, _from, state) do
+    {:reply, :ok, state}
+  end
+
+  def handle_info(:check_sync_state, state) do
+    Process.send_after(self(), :check_sync_state, 1000)
+    case syncing?() do
+      true ->
+        {:noreply, %{state | failed: state.failed + 1}}
+      false ->
+        {:noreply, %{state | failed: 0}}
+    end
+  end
+
+  defp syncing? do
+    try do
+      sync = RPC.eth_syncing()
+      case sync do
+        {:ok, syncing} when is_boolean(syncing) -> syncing
+        {:ok, _} -> true
+      end
+    catch
+      _other ->
+        true
+      _class, _type ->
+        true
+    end
   end
 
 end
