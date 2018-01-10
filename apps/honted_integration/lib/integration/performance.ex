@@ -41,9 +41,10 @@ defmodule HonteD.Integration.Performance do
     |> HonteD.API.submit_commit()
     |> check_result(expected)
   end
-  defp submit_one(_, tx, _) do
+  defp submit_one(expected, tx, _) do
     tx
     |> HonteD.API.submit_sync()
+    |> check_result(expected)
   end
 
   @doc """
@@ -66,13 +67,15 @@ defmodule HonteD.Integration.Performance do
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
 
-    for stream <- txs_source, do: _ = Task.async(fn ->
+    test_tasks = for stream <- txs_source, do: Task.async(fn ->
       stream
       |> submit_stream(opts)
     end)
 
     # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
     {:error, :noproc} = Porcelain.Process.await(tm_bench_proc, durationT * 1000 + 1000)
+
+    for task <- test_tasks, do: nil = Task.shutdown(task, 100)
 
     tm_bench_out
     |> Enum.to_list
@@ -115,9 +118,20 @@ defmodule HonteD.Integration.Performance do
   Runs full HonteD node and runs perf test
   """
   def setup_and_run(nstreams, fill_in, duration) do
+    [:porcelain, :hackney]
+    |> Enum.each(&Application.ensure_all_started/1)
+
     dir_path = Integration.homedir()
-    {:ok, _exit_fn} = Integration.honted()
-    {:ok, _exit_fn} = Integration.tendermint(dir_path)
-    run(nstreams, fill_in, duration, %{})
+    {:ok, _exit_fn_honted} = Integration.honted()
+    {:ok, exit_fn_tendermint} = Integration.tendermint(dir_path)
+
+    result = run(nstreams, fill_in, duration, %{})
+
+    exit_fn_tendermint.()
+
+    # TODO: don't know why this is needed, should happen automatically on terminate. Does something bork at teardown?
+    Temp.cleanup()
+
+    IO.puts(result)
   end
 end
