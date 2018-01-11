@@ -15,67 +15,105 @@ defmodule HonteD.API.TendermintRPC do
 
   @behaviour HonteD.API.TendermintBehavior
 
-  require Tesla
+  defmodule Websocket do
+    @moduledoc """
+    Genserver implementing application-wide reused connection to the Tendermint RPC via JSONRPC over Websocket
+    """
+    use GenServer
+    @rpc_timeout 100_000
 
-  @impl true
-  def client do
-    rpc_port = Application.get_env(:honted_api, :tendermint_rpc_port)
-    Tesla.build_client [
-      {Tesla.Middleware.BaseUrl, "http://localhost:#{rpc_port}"},
-      Tesla.Middleware.JSON
-    ]
+    def start_link(opts) do
+      GenServer.start(__MODULE__, :ok, opts)
+    end
+
+    def init(:ok) do
+      {:ok, nil}
+    end
+
+    def call_method(method, params) do
+      GenServer.call(__MODULE__, {:call, method, params}, @rpc_timeout)
+    end
+
+    def handle_call({:call, method, params}, _from, websocket) do
+      websocket = if websocket == nil, do: Websocket.connect!, else: websocket
+      case sendrecv!(websocket, method, params) do
+        {:ok, response} -> {:reply, Poison.decode!(response), websocket}
+        {:error, error} -> {:stop, %{reason: error}, websocket}
+      end
+    end
+
+    def connect!() do
+      rpc_port = Application.get_env(:honted_api, :tendermint_rpc_port)
+      Socket.Web.connect!("localhost", rpc_port, path: "/websocket")
+    end
+
+    def send!(websocket, method, params) when is_atom(method) and is_map(params) do
+      encoded_message = Poison.encode!(%{jsonrpc: "2.0", id: "0", method: method, params: params})
+      websocket
+      |> Socket.Web.send!({
+        :text,
+        encoded_message
+      })
+    end
+
+    def recv!(websocket) do
+      case Socket.Web.recv!(websocket) do
+        {:text, response} -> {:ok, response}
+        {:ping, ""} -> recv!(websocket)
+      end
+    end
+
+    def sendrecv!(websocket, method, params) when is_atom(method) and is_list(params) do
+      :ok = Websocket.send!(websocket, method, Map.new(params))
+      Websocket.recv!(websocket)
+    end
   end
 
   @impl true
-  def broadcast_tx_async(client, tx) do
-    client
-    |> Tesla.get("/broadcast_tx_async", query: encode(
-      tx: tx))
+  def client, do: nil
+
+  @impl true
+  def broadcast_tx_async(_client, tx) do
+    :broadcast_tx_async
+    |> Websocket.call_method([tx: tx |> Base.encode64])
     |> decode_jsonrpc
   end
 
   @impl true
-  def broadcast_tx_sync(client, tx) do
-    client
-    |> Tesla.get("/broadcast_tx_sync", query: encode(
-      tx: tx))
+  def broadcast_tx_sync(_client, tx) do
+    :broadcast_tx_sync
+    |> Websocket.call_method([tx: tx |> Base.encode64])
     |> decode_jsonrpc
   end
 
   @impl true
-  def broadcast_tx_commit(client, tx) do
-    client
-    |> Tesla.get("/broadcast_tx_commit", query: encode(
-      tx: tx))
+  def broadcast_tx_commit(_client, tx) do
+    :broadcast_tx_commit
+    |> Websocket.call_method([tx: tx |> Base.encode64])
     |> decode_jsonrpc
   end
 
   @impl true
-  def abci_query(client, data, path) do
-    client
-    |> Tesla.get("abci_query", query: encode(
-      data: data,
-      path: path))
+  def abci_query(_client, data, path) do
+    :abci_query
+    |> Websocket.call_method([data: data, path: path])
     |> decode_jsonrpc
     |> decode_abci_query
   end
 
   @impl true
-  def tx(client, hash) do
-    client
-    |> Tesla.get("tx", query: encode(
-      hash: {:hash, hash},
-      prove: false))
+  def tx(_client, hash) do
+    :tx
+    |> Websocket.call_method([hash: hash |> Base.decode16! |> Base.encode64, prove: false])
     |> decode_jsonrpc
     |> decode_tx
   end
 
   @impl true
-  def block(client, height) do
+  def block(_client, height) do
     {:ok, block} =
-      client
-      |> Tesla.get("block", query: encode(
-            height: height))
+      :block
+      |> Websocket.call_method([height: height])
       |> decode_jsonrpc
     {:ok, update_in(block, ["block", "data", "txs"],
                     fn(txs) -> Enum.map(txs, &Base.decode64!/1) end)}
@@ -84,7 +122,7 @@ defmodule HonteD.API.TendermintRPC do
   ### private - tendermint rpc's specific encoding/decoding
 
   defp decode_jsonrpc(response) do
-    case response.body do
+    case response do
       %{"result" => result} -> {:ok, result}
       %{"error" => error} -> {:error, error}
     end
@@ -101,14 +139,4 @@ defmodule HonteD.API.TendermintRPC do
           |> Map.update!("tx", &Base.decode64!/1)}
   end
   defp decode_tx(other), do: other
-
-  defp encode(arglist) when is_list(arglist) do
-    arglist
-    |> Enum.map(fn {argname, argval} -> {argname, encode(argval)} end)
-  end
-  defp encode({:hash, raw}) when is_binary(raw), do: "0x#{raw}"
-  defp encode(raw) when is_binary(raw), do: "\"#{raw}\""
-  defp encode(raw) when is_boolean(raw), do: to_string(raw)
-  defp encode(raw) when is_integer(raw), do: Integer.to_string(raw)
-
 end
