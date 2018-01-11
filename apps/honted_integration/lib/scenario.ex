@@ -9,7 +9,6 @@ defmodule HonteD.Performance.Scenario do
   import HonteD.Transaction
 
   @start_tokens 1_000_000
-  @amount_that_fails 1_000_000_000_000
   @normal_amount 1
 
   defmodule Keys do
@@ -89,30 +88,6 @@ defmodule HonteD.Performance.Scenario do
     |> String.pad_leading(37, "c")
     |> Kernel.<>("pub")
   end
-
-  # FIXME: temporarily here, afterwards remove the commit entirely
-  defp prepare_send_streams2(holders_senders, tokens, receivers, failure_rate) do
-    seeds = make_n_seeds(:rand.export_seed(), length(holders_senders))
-    args = :lists.zip3(holders_senders, tokens, seeds)
-    for {sender, token, stream_initial_seed} <- args do
-      transaction_generator = fn({nonce, receivers_cycle}) ->
-        # _ = :rand.seed(stream_seed)
-        # success = failure_rate < :rand.uniform()
-        success = true
-        receiver = hd(Enum.take(receivers_cycle, 1))
-        {:ok, tx} = create_send([nonce: nonce, asset: token, amount: send_amount(success),
-                                 from: sender.addr, to: receiver.addr])
-        {{success, signed_tx(tx, sender)}, {next_nonce(success, nonce), Stream.drop(receivers_cycle, 1)}}
-      end
-      Stream.unfold({0, Stream.cycle(receivers)}, transaction_generator)
-    end
-  end
-
-  defp send_amount(false), do: @amount_that_fails
-  defp send_amount(true), do: @normal_amount
-
-  defp next_nonce(true, n), do: n + 1
-  defp next_nonce(false, n), do: n
 
   # All seeds are a function of initial_seed, but they do not overlap in practice
   def make_n_seeds(initial_seed, n) when n > 0 do
