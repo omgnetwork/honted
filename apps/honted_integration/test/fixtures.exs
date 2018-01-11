@@ -8,14 +8,20 @@ defmodule HonteD.Integration.Fixtures do
   end
 
   deffixture tendermint(homedir, honted) do
-    :ok = honted
+    IO.puts("deffixture.tendermint")
     {:ok, exit_fn} = Integration.tendermint(homedir)
     on_exit exit_fn
     :ok
   end
 
   deffixture honted() do
-    {:ok, exit_fn} = Integration.honted()
+    IO.puts("deffixture.honted")
+    {:ok, geth_exit} = Integration.geth()
+    {:ok, honted_exit} = Integration.honted()
+    exit_fn = fn() ->
+      honted_exit.()
+      geth_exit.()
+    end
     on_exit exit_fn
     :ok
   end

@@ -19,6 +19,10 @@ defmodule HontedEth.Mixfile do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      env: [
+        token_contract_address: "0x0", # address of OMG token contract on Ethereum
+        staking_contract_address: "0x0", # address of deployed staking address on Ethereum
+      ],
       extra_applications: [:logger],
       mod: {HonteD.Eth.Application, []}
     ]

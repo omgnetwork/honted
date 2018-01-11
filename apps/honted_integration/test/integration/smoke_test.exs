@@ -90,6 +90,7 @@ defmodule HonteD.Integration.SmokeTest do
 
   @tag fixtures: [:tendermint, :websocket, :apis_caller]
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
+    IO.puts("sm test 1")
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
     {:ok, issuer} = Crypto.generate_address(issuer_pub)
@@ -322,6 +323,7 @@ defmodule HonteD.Integration.SmokeTest do
   @tag fixtures: [:tendermint, :apis_caller]
   test "incorrect calls to websockets should return sensible response not crash", %{apis_caller: apis_caller} do
     # bad method
+    IO.puts("sm test 2")
     {:error, %{"data" => %{"method" => "token_inf"}, "message" => "Method not found"}} = apis_caller.(:token_inf, %{token: ""})
 
     # bad params
