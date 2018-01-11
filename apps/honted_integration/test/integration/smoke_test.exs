@@ -318,6 +318,7 @@ defmodule HonteD.Integration.SmokeTest do
       "source" => ^filter_id,
       "height" => ^committed_at_height
     } = TestWebsocket.recv!(websocket)
+    IO.puts("sm test1 ended")
   end
 
   @tag fixtures: [:tendermint, :apis_caller]

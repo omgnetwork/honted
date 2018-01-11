@@ -5,11 +5,23 @@ defmodule HonteD.Eth.Contract do
   import Ethereumex.HttpClient
   alias HonteD.Eth.WaitFor, as: WaitFor
 
-  def deploy(epoch_length, maturity_margin, max_validators) do
+  def deploy_dev(epoch_length, maturity_margin, max_validators) do
+    deploy("", epoch_length, maturity_margin, max_validators)
+  end
+
+  def deploy_integration(epoch_length, maturity_margin, max_validators) do
+    deploy("../../", epoch_length, maturity_margin, max_validators)
+  end
+
+  def deploy(root, epoch_length, maturity_margin, max_validators) do
+    token_bc = File.read!(root <> "contracts/omg_token_bytecode.hex")
+    staking_bc = staking_bytecode(root <> "populus/build/contracts.json")
+    IO.puts("token: #{inspect bit_size(token_bc)}, staking: #{inspect bit_size(staking_bc)}")
     {:ok, [addr | _]} = eth_accounts()
-    token = File.read!("contracts/omg_token_bytecode.hex")
-    {:ok, token_address} = deploy_contract(addr, token, [], [])
-    {:ok, staking_address} = deploy_contract(addr, staking_bytecode(),
+    IO.puts("deploy token")
+    {:ok, token_address} = deploy_contract(addr, token_bc, [], [])
+    IO.puts("deploy staking")
+    {:ok, staking_address} = deploy_contract(addr, staking_bc,
       [epoch_length, maturity_margin, token_address, max_validators],
       [{:uint, 256}, {:uint, 256}, :address, {:uint, 256}])
     {:ok, token_address, staking_address}
@@ -117,9 +129,9 @@ defmodule HonteD.Eth.Contract do
   defp cleanup("0x" <> hex), do: hex |> String.upcase |> Base.decode16!
   defp cleanup(other), do: other
 
-  defp staking_bytecode do
+  defp staking_bytecode(path) do
     %{"HonteStaking" => %{"bytecode" => bytecode}} =
-      "populus/build/contracts.json"
+      path
       |> File.read!()
       |> Poison.decode!()
     String.replace(bytecode, "0x", "")

@@ -19,6 +19,7 @@ defmodule HonteD.Integration.Fixtures do
     {:ok, geth_exit} = Integration.geth()
     {:ok, honted_exit} = Integration.honted()
     exit_fn = fn() ->
+      IO.puts("deffixture.honted combined on_exit")
       honted_exit.()
       geth_exit.()
     end
