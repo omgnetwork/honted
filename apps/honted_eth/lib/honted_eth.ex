@@ -10,24 +10,28 @@ defmodule HonteD.Eth do
 
   defstruct [failed: 0,
              max: 120,
+             contract: nil
             ]
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, :ok, opts)
   end
 
-  def init(:ok) do
+  def init(_staking) do
+    # FIXME: this should be in integration test
+    HonteD.Eth.Geth.dev_geth()
+    {:ok, _token, staking} = HonteD.Eth.Geth.dev_deploy()
     case syncing?() do
       false ->
         Process.send_after(self(), :check_sync_state, 1000)
-        {:ok, %__MODULE__{}}
+        {:ok, %__MODULE__{contract: staking}}
       true ->
         {:stop, :honted_requires_geth_to_be_synchronized}
     end
   end
 
   def handle_call(_, _from, state) do
-    {:reply, :ok, state}
+    {:reply, {:ok, state.contract}, state}
   end
 
   def handle_info(:check_sync_state, state) do
