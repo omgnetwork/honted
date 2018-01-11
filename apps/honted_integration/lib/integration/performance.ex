@@ -37,11 +37,6 @@ defmodule HonteD.Integration.Performance do
       submit_one(expected, tx, opts)
     end)
   end
-  defp submit_one(expected, tx, %{bc_mode: :commit}) do
-    tx
-    |> HonteD.API.submit_commit()
-    |> check_result(expected)
-  end
   defp submit_one(expected, tx, _) do
     tx
     |> HonteD.API.submit_sync()

@@ -19,7 +19,7 @@ defmodule HonteD.Integration.PerformanceTest do
 
   @tag fixtures: [:tendermint]
   test "performance test should run with fill in", %{} do
-    opts = %{bc_mode: :commit, profiling: nil} # to make sure that test is deterministic
+    opts = %{profiling: nil}
     result = Performance.run(@nstreams, @fill_in, @duration, opts)
 
     result
