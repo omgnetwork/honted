@@ -13,12 +13,15 @@ defmodule HonteD.Integration do
 
   def geth do
     IO.puts("integration.geth()")
-    {ref, _} = HonteD.Eth.Geth.dev_geth()
+    Application.ensure_all_started(:porcelain)
+    Application.ensure_all_started(:ethereumex)
+    {ref, geth_os_pid, _} = HonteD.Eth.Geth.dev_geth()
     {:ok, token, staking} = HonteD.Eth.Geth.dev_deploy()
     Application.put_env(:honted_eth, :token_contract_address, token)
     Application.put_env(:honted_eth, :staking_contract_address, staking)
     on_exit = fn() ->
-      HonteD.Eth.Geth.geth_stop(ref)
+      IO.puts("integration.geth on_exit")
+      HonteD.Eth.Geth.geth_stop(ref, geth_os_pid)
     end
     {:ok, on_exit}
   end
@@ -34,7 +37,9 @@ defmodule HonteD.Integration do
       our_apps_to_start
       |> Enum.map(&Application.ensure_all_started/1)
       |> Enum.flat_map(fn {:ok, app_list} -> app_list end) # check if successfully started here!
+    IO.puts("started_apps order: #{inspect started_apps}")
     {:ok, fn ->
+      IO.puts("integration.honted on_exit")
       started_apps
       |> Enum.map(&Application.stop/1)
     end}
@@ -60,6 +65,7 @@ defmodule HonteD.Integration do
     _ = Task.async(fn -> show_tendermint_logs(tendermint_out) end)
 
     {:ok, fn ->
+      IO.puts("integration.tendermint on_exit")
       Porcelain.Process.stop(tendermint_proc)
     end}
   end

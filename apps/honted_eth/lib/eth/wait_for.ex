@@ -6,7 +6,9 @@ defmodule HonteD.Eth.WaitFor do
 
   def rpc() do
     f = fn() ->
+      IO.puts("before eth_syncing")
       {:ok, false} = eth_syncing()
+      IO.puts("after good eth_syncing")
       {:ok, :ready}
     end
     function(fn() -> repeat_until_ok(f) end, 10_000)
@@ -14,9 +16,10 @@ defmodule HonteD.Eth.WaitFor do
 
   def receipt(txhash, timeout) do
     f = fn() ->
-      {:ok, receipt} = eth_get_transaction_receipt(txhash)
-      true = receipt != nil
-      {:ok, receipt}
+      case eth_get_transaction_receipt(txhash) do
+        {:ok, receipt} when receipt != nil -> {:ok, receipt}
+        _ -> :repeat
+      end
     end
     rf = fn() -> repeat_until_ok(f) end
     function(rf, timeout)
@@ -32,12 +35,14 @@ defmodule HonteD.Eth.WaitFor do
     try do
       {:ok, _} = f.()
     catch
-      _ ->
+      something ->
+        IO.puts("repeat until single clause: #{inspect something}")
         Process.sleep(100)
         repeat_until_ok(f)
-      _, _ ->
-      Process.sleep(100)
-      repeat_until_ok(f)
+      :error, {:badmatch, _} = error ->
+        IO.puts("repeat until double clause: #{inspect {:error, error}}")
+        Process.sleep(100)
+        repeat_until_ok(f)
     end
   end
 end
