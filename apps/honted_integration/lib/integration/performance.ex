@@ -136,7 +136,7 @@ defmodule HonteD.Integration.Performance do
       :fprof ->
         :fprof.apply(fn ->
           profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
-        end, [])
+        end, [], [procs: [:all]])
         :fprof.profile()
 
         [callers: true,
