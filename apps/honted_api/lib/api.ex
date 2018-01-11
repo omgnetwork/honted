@@ -98,8 +98,8 @@ defmodule HonteD.API do
     client = TendermintRPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
          do: Transaction.create_epoch_change(nonce: nonce,
-                                      sender: sender,
-                                      epoch_number: epoch_number)
+                                             sender: sender,
+                                             epoch_number: epoch_number)
   end
 
   @doc """

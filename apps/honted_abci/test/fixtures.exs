@@ -8,8 +8,17 @@ defmodule HonteD.ABCI.Fixtures do
 
   import HonteD.ABCI.TestHelpers
 
-  deffixture empty_state do
-    {:ok, state} = HonteD.ABCI.init(:ok)
+  deffixture staking_state do
+    %HonteD.ABCI.Staking{
+      ethereum_block_height: 10,
+      start_block: 0,
+      epoch_length: 2,
+      maturity_margin: 1
+    }
+  end
+
+  deffixture empty_state(staking_state) do
+    {:ok, state} = HonteD.ABCI.init(:ok, staking_state)
     state
   end
 
@@ -69,9 +78,10 @@ defmodule HonteD.ABCI.Fixtures do
     "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
   end
 
-  deffixture staking_state_no_epoch_change(empty_state) do
-    staking_state = %HonteD.ABCI.Staking{ethereum_block_height: 1, validator_block_height: 2}
-    {:reply, :ok, state} = HonteD.ABCI.handle_call({:set_staking_state, staking_state}, self(), empty_state)
+  deffixture state_no_epoch_change(empty_state, staking_state) do
+    staking_state_no_epoch_change = %{staking_state | ethereum_block_height: 0}
+    {:reply, :ok, state} =
+      HonteD.ABCI.handle_call({:set_staking_state, staking_state_no_epoch_change}, self(), empty_state)
     state
   end
 end

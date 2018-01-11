@@ -9,8 +9,8 @@ defmodule HonteD.ABCI do
   use GenServer
   import HonteD.ABCI.Records
 
-  alias HonteD.ABCI.Staking, as: Staking
-  alias HonteD.ABCI.State, as: State
+  alias HonteD.ABCI.Staking
+  alias HonteD.ABCI.State
   alias HonteD.Transaction
 
   @doc """
@@ -19,7 +19,7 @@ defmodule HonteD.ABCI do
   """
   defstruct [consensus_state: State.initial(),
              local_state: State.initial(),
-             staking_state: Staking.initial()
+             staking_state: nil
             ]
 
   def start_link(opts) do
@@ -30,8 +30,9 @@ defmodule HonteD.ABCI do
     GenServer.call(__MODULE__, request)
   end
 
-  def init(:ok) do
-    {:ok, %__MODULE__{}}
+  def init(:ok, staking_state) do
+    abci_app = %{%__MODULE__{} | staking_state: staking_state}
+    {:ok, abci_app}
   end
 
   def handle_call(request_info(version: _), _from, abci_app) do
@@ -146,8 +147,7 @@ defmodule HonteD.ABCI do
 
   defp handle_tx(abci_app, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{}} = tx, extract_state)  do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
-         :ok <- HonteD.ABCI.Staking.validator_block_passed?(abci_app.staking_state),
-         do: State.exec(extract_state.(abci_app), tx)
+         do: State.exec(extract_state.(abci_app), tx, abci_app.staking_state)
   end
 
   defp handle_tx(abci_app, tx, extract_state) do

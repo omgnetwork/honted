@@ -3,13 +3,14 @@ defmodule HonteD.ABCI.State do
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
   alias HonteD.Transaction
+  alias HonteD.ABCI.Staking
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
   @epoch_number_key "contract/epoch_number"
-  @epoch_change_key "contract/epoch_change"
+  @epoch_change_key "contract/epoch_change" # indicates that epoch has changed
 
   def initial do
-    %{@epoch_number_key => 1, @epoch_change_key => false}
+    %{@epoch_number_key => 0, @epoch_change_key => false}
   end
 
   def get(state, key) do
@@ -74,12 +75,24 @@ defmodule HonteD.ABCI.State do
                    |> bump_nonce_after(tx)}
   end
 
-  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx}) do
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx},
+   %Staking{} = staking_state) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
+         :ok <- validator_block_passed?(state, staking_state),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
                    |> apply_epoch_change
                    |> bump_nonce_after(tx)}
+  end
+
+  defp validator_block_passed?(state, staking_state) do
+    validator_block = staking_state.start_block +
+      staking_state.epoch_length * (state[@epoch_number_key] + 1) - staking_state.maturity_margin
+    if (validator_block <= staking_state.ethereum_block_height) do
+      :ok
+    else
+      {:error, :validator_block_has_not_passed}
+    end
   end
 
   defp epoch_valid?(state, epoch_number) do
@@ -164,7 +177,11 @@ defmodule HonteD.ABCI.State do
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
-  defp apply_epoch_change(state), do: %{state | @epoch_change_key => true}
+  defp apply_epoch_change(state) do
+    state
+    |> Map.update!(@epoch_change_key, fn _ -> true end)
+    |> Map.update!(@epoch_number_key, &(&1 + 1))
+  end
 
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)
