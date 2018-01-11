@@ -11,12 +11,25 @@ defmodule HonteD.Integration do
     Temp.mkdir!(%{prefix: "honted_tendermint_test_homedir"})
   end
 
+  def geth do
+    IO.puts("integration.geth()")
+    {ref, _} = HonteD.Eth.Geth.dev_geth()
+    {:ok, token, staking} = HonteD.Eth.Geth.dev_deploy()
+    Application.put_env(:honted_eth, :token_contract_address, token)
+    Application.put_env(:honted_eth, :staking_contract_address, staking)
+    on_exit = fn() ->
+      HonteD.Eth.Geth.geth_stop(ref)
+    end
+    {:ok, on_exit}
+  end
+
   @doc """
   Runs a HonteD ABCI app using Porcelain
   """
   def honted do
+    IO.puts("integration.honted()")
     # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
-    our_apps_to_start = [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
+    our_apps_to_start = [:honted_eth, :honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
     started_apps =
       our_apps_to_start
       |> Enum.map(&Application.ensure_all_started/1)

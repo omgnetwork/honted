@@ -17,10 +17,8 @@ defmodule HonteD.Eth do
     GenServer.start_link(__MODULE__, :ok, opts)
   end
 
-  def init(_staking) do
-    # FIXME: this should be in integration test
-    HonteD.Eth.Geth.dev_geth()
-    {:ok, _token, staking} = HonteD.Eth.Geth.dev_deploy()
+  def init(:ok) do
+    staking = Application.get_env(:honted_eth, :staking_contract_address)
     case syncing?() do
       false ->
         Process.send_after(self(), :check_sync_state, 1000)

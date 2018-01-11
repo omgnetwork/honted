@@ -24,6 +24,7 @@ defmodule HonteD.Eth.Geth do
       out: :stream,
     )
     wait_for_geth_start(geth_out)
+    Process.sleep(1000)
     {geth_proc, geth_out}
   end
 
