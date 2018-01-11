@@ -7,6 +7,7 @@ defmodule HonteD.Integration.Performance do
 
   require Logger
   alias HonteD.{API}
+  import ExProf.Macro
 
   @doc """
   Starts a tm-bench Porcelain process for `duration_T` to listen for events and collect metrics
@@ -50,7 +51,7 @@ defmodule HonteD.Integration.Performance do
   @doc """
   Fills the state a bit using txs source
   """
-  def fill_in(txs_source, fill_in_per_stream) do
+  defp fill_in(txs_source, fill_in_per_stream) do
     fill_tasks = for txs_stream <- txs_source, do: Task.async(fn ->
       txs_stream
       |> Stream.take(fill_in_per_stream)
@@ -61,25 +62,29 @@ defmodule HonteD.Integration.Performance do
   end
 
   @doc """
-  Runs the actual perf test scenario under tm-bench
-  """
-  def run_performance_test(txs_source, durationT, opts) do
-    _ = Logger.info("starting tm-bench")
-    {tm_bench_proc, tm_bench_out} = tm_bench(durationT)
+  Runs the actual perf test scenario under tm-bench.
 
-    test_tasks = for stream <- txs_source, do: Task.async(fn ->
+  Assumes tm-bench is started. This is the protion of the test that should be measured/profiled etc
+  """
+  defp run_performance_test_tasks(txs_source, opts) do
+    # begin test by starting asynchronous transaction senders
+    for stream <- txs_source, do: Task.async(fn ->
       stream
       |> submit_stream(opts)
     end)
+  end
 
+  defp profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts) do
+    test_tasks =
+      txs_source_without_fill_in
+      |> run_performance_test_tasks(opts)
+
+    # wait till end of test
     # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
-    {:error, :noproc} = Porcelain.Process.await(tm_bench_proc, durationT * 1000 + 1000)
+    {:error, :noproc} = Porcelain.Process.await(tm_bench_proc, duration * 1000 + 1000)
 
-    for task <- test_tasks, do: nil = Task.shutdown(task, 100)
-
-    tm_bench_out
-    |> Enum.to_list
-    |> Enum.join
+    # cleanup
+    for task <- test_tasks, do: nil = Task.shutdown(task, :brutal_kill)
   end
 
   @doc """
@@ -90,7 +95,7 @@ defmodule HonteD.Integration.Performance do
    - opts: options. Possibilities: %{bc_mode: nil | :commit}. Set to :commit to use submit_commit
      instead of submit_sync in load phase of performance test
   """
-  def run(nstreams, fill_in, duration, opts) do
+  def run(nstreams, fill_in, duration, %{profiling: profiling} = opts) do
     _ = Logger.info("Generating scenarios...")
     scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
@@ -104,20 +109,53 @@ defmodule HonteD.Integration.Performance do
     txs_source = scenario.send_txs
 
     fill_in_per_stream = div(fill_in, nstreams)
-    _ = Logger.info("Starting fill_in: #{inspect fill_in}")
-    _ = txs_source
-    |> fill_in(fill_in_per_stream)
-    _ = Logger.info("Fill_in done")
 
+    _ = Logger.info("Starting fill_in: #{inspect fill_in}")
     txs_source
-    |> Enum.map(fn stream -> Stream.drop(stream, fill_in_per_stream) end)
-    |> run_performance_test(duration, opts)
+    |> fill_in(fill_in_per_stream)
+
+    _ = Logger.info("Fill_in done")
+    txs_source_without_fill_in =
+      txs_source
+      |> Enum.map(fn stream -> Stream.drop(stream, fill_in_per_stream) end)
+
+    _ = Logger.info("starting tm-bench")
+    {tm_bench_proc, tm_bench_out} = tm_bench(duration)
+
+    case profiling do
+      nil ->
+        profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+      :eprof ->
+        profile do
+          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+        end
+      :eflame ->
+        :eflame.apply(fn ->
+          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+        end, [])
+      :fprof ->
+        :fprof.apply(fn ->
+          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+        end, [])
+        :fprof.profile()
+
+        [callers: true,
+         sort: :own,
+         totals: true,
+         details: true]
+        |> :fprof.analyse()
+        |> IO.puts
+    end
+
+    tm_bench_out
+    |> Enum.to_list
+    |> Enum.join
   end
 
   @doc """
   Runs full HonteD node and runs perf test
   """
-  def setup_and_run(nstreams, fill_in, duration) do
+  def setup_and_run(nstreams, fill_in, duration, opts \\ %{profiling: nil}) do
     [:porcelain, :hackney]
     |> Enum.each(&Application.ensure_all_started/1)
 
@@ -125,7 +163,7 @@ defmodule HonteD.Integration.Performance do
     {:ok, _exit_fn_honted} = Integration.honted()
     {:ok, exit_fn_tendermint} = Integration.tendermint(dir_path)
 
-    result = run(nstreams, fill_in, duration, %{})
+    result = run(nstreams, fill_in, duration, opts)
 
     exit_fn_tendermint.()
 

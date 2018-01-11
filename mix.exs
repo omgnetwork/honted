@@ -21,6 +21,8 @@ defmodule HonteD.Umbrella.Mixfile do
       {:mox, "~> 0.3.1", only: :test},
       {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.6", only: [:test]},
+      {:exprof, "~> 0.2.0"},
+      {:eflame, ~r/.*/, git: "https://github.com/proger/eflame.git", compile: "rebar compile"}
     ]
   end
 end
