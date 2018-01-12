@@ -4,12 +4,13 @@ defmodule HonteD.ABCI.Fixtures do
 
   use ExUnitFixtures.FixtureModule
 
-  import HonteD.Transaction
+  alias HonteD.Validator
 
+  import HonteD.Transaction
   import HonteD.ABCI.TestHelpers
 
   deffixture staking_state do
-    %HonteD.ABCI.Staking{
+    %HonteD.Staking{
       ethereum_block_height: 10,
       start_block: 0,
       epoch_length: 2,
@@ -80,8 +81,78 @@ defmodule HonteD.ABCI.Fixtures do
 
   deffixture state_no_epoch_change(empty_state, staking_state) do
     staking_state_no_epoch_change = %{staking_state | ethereum_block_height: 0}
-    {:reply, :ok, state} =
-      HonteD.ABCI.handle_call({:set_staking_state, staking_state_no_epoch_change}, self(), empty_state)
+    {:noreply, state} =
+      HonteD.ABCI.handle_cast({:set_staking_state, staking_state_no_epoch_change}, self(), empty_state)
     state
   end
+
+  deffixture initial_validators do
+    [Validator.validator({1, "tm_addr_1", "eth_addr_1"}),
+     Validator.validator({10, "tm_addr_2", "eth_addr_2"}),
+    ]
+  end
+
+  deffixture epoch_1_validators do
+    [Validator.validator({1, "tm_addr_2", "eth_addr_2"}),
+     Validator.validator({1, "tm_addr_3", "eth_addr_3"}),
+     Validator.validator({2, "tm_addr_4", "eth_addr_4"}),
+    ]
+  end
+
+  deffixture epoch_2_validators do
+    [Validator.validator({10, "tm_addr_2", "eth_addr_2"}),
+     Validator.validator({2, "tm_addr_4", "eth_addr_4"}),
+     Validator.validator({1, "tm_addr_5", "eth_addr_5"}),
+    ]
+  end
+
+  deffixture validators_diffs_1 do
+    [{0, "tm_addr_1"},
+     {1, "tm_addr_2"},
+     {1, "tm_addr_3"},
+     {2, "tm_addr_4"},
+    ]
+  end
+
+  deffixture validators_diffs_2 do
+    [{10, "tm_addr_1"},
+     {2, "tm_addr_3"},
+     {1, "tm_addr_4"},
+     {0, "tm_addr_2"},
+    ]
+  end
+
+  deffixture first_epoch_change_state(alice, empty_state, staking_state,
+   initial_validators, epoch_1_validators) do
+    validators = %{
+      1 => epoch_1_validators,
+    }
+    staking_state_with_validators = %{staking_state | validators: validators}
+
+    %{state: state} =
+      create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+      |> sign(alice.priv) |> check_tx(empty_state)
+    state_with_inital_validators = %{state | initial_validators: initial_validators}
+    {:noreply, state} =
+      HonteD.ABCI.handle_cast({:set_staking_state, staking_state_with_validators},
+        self(), state_with_inital_validators)
+    state
+  end
+
+  deffixture second_epoch_change_state(alice, first_epoch_change_state, staking_state,
+   epoch_1_validators, epoch_2_validators) do
+     validators = %{
+       1 => epoch_1_validators,
+       2 => epoch_2_validators
+     }
+     %{state: state} =
+       create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+       |> sign(alice.priv) |> check_tx(first_epoch_change_state)
+    staking_state_with_validators = %{staking_state | validators: validators}
+    {:noreply, state} =
+      HonteD.ABCI.handle_cast({:set_staking_state, staking_state_with_validators},
+        self(), state)
+    state
+  end
+
 end

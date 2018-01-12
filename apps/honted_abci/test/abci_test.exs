@@ -83,4 +83,27 @@ defmodule HonteD.ABCITest do
         handle_call({:RequestQuery, "", '/store', 0, :false}, nil, state)
     end
   end
+
+  describe "end block," do
+    @tag fixtures: [:empty_state]
+    test "does not update validators and state when epoch has not changed", %{empty_state: state} do
+      assert {:reply, response_end_block(diffs: []), ^state} =
+        handle_call(request_end_block(), nil, state)
+    end
+
+    @tag fixtures: [:first_epoch_change_state, :validators_diffs_1]
+    test "updates set of validators for the first epoch",
+    %{first_epoch_change_state: state, validators_diffs_1: diffs} do
+      assert {:reply, response_end_block(diffs: diffs), _} =
+        handle_call(request_end_block(), nil, state)
+    end
+
+    @tag fixtures: [:second_epoch_change_state, :validators_diffs_2]
+    test "updates set of validators when epoch changes",
+    %{second_epoch_change_state: state, validators_diffs_2: diffs} do
+      assert {:reply, response_end_block(diffs: diffs), _} =
+        handle_call(request_end_block(), nil, state)
+    end
+  end
+
 end

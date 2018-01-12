@@ -1,4 +1,4 @@
-defmodule HonteD.ABCI.Staking do
+defmodule HonteD.Staking do
   @moduledoc """
   Manages the state of HonteD-OmiseGO Ethereum contract
   """
@@ -6,6 +6,7 @@ defmodule HonteD.ABCI.Staking do
              :start_block,
              :epoch_length,
              :maturity_margin,
+             :validators
             ]
 
 end

@@ -3,7 +3,7 @@ defmodule HonteD.ABCI.State do
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
   alias HonteD.Transaction
-  alias HonteD.ABCI.Staking
+  alias HonteD.Staking
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
   @epoch_number_key "contract/epoch_number"
@@ -199,6 +199,18 @@ defmodule HonteD.ABCI.State do
   defp scan_potential_issued(unfiltered_tokens, state, issuer) do
     unfiltered_tokens
     |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+  end
+
+  def epoch_change?(state) do
+    state[@epoch_change_key]
+  end
+
+  def not_change_epoch(state) do
+    Map.update!(state, @epoch_change_key, fn _ -> false end)
+  end
+
+  def epoch_number(state) do
+    state[@epoch_number_key]
   end
 
 end

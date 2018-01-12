@@ -9,7 +9,7 @@ defmodule HonteD.ABCI do
   use GenServer
   import HonteD.ABCI.Records
 
-  alias HonteD.ABCI.Staking
+  alias HonteD.Staking
   alias HonteD.ABCI.State
   alias HonteD.Transaction
 
@@ -19,7 +19,8 @@ defmodule HonteD.ABCI do
   """
   defstruct [consensus_state: State.initial(),
              local_state: State.initial(),
-             staking_state: nil
+             staking_state: nil,
+             initial_validators: nil
             ]
 
   def start_link(opts) do
@@ -41,7 +42,9 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call(request_end_block(height: _height), _from, abci_app) do
-    {:reply, response_end_block(diffs: []), abci_app}
+    diffs = validators_diff(abci_app)
+    abci_app = end_block(abci_app)
+    {:reply, response_end_block(diffs: diffs), abci_app}
   end
 
   def handle_call(request_begin_block(header: header(height: height)), _from, abci_app) do
@@ -133,11 +136,55 @@ defmodule HonteD.ABCI do
     {:reply, response_init_chain(), abci_app}
   end
 
-  def handle_call({:set_staking_state, %Staking{} = contract_state}, _from, abci_app) do
-    {:reply, :ok, %{abci_app | staking_state: contract_state}}
+  def handle_cast({:set_staking_state, %Staking{} = contract_state}, _from, abci_app) do
+    {:noreply, %{abci_app | staking_state: contract_state}}
   end
 
   ### END GenServer
+
+  defp end_block(abci_app) do
+    if State.epoch_change?(abci_app.local_state) do
+      local_state = State.not_change_epoch(abci_app.local_state)
+      %{abci_app | local_state: local_state}
+    else
+      abci_app
+    end
+  end
+
+  defp validators_diff(abci_app) do
+    next_epoch = State.epoch_number(abci_app.local_state)
+    current_epoch = next_epoch - 1
+    epoch_change = State.epoch_change?(abci_app.local_state)
+    cond do
+      epoch_change and (current_epoch > 0) ->
+        current_epoch_validators = abci_app.staking_state.validators[current_epoch]
+        next_epoch_validators = abci_app.staking_state.validators[next_epoch]
+
+        validators_diff(current_epoch_validators, next_epoch_validators)
+      epoch_change ->
+        next_epoch_validators = abci_app.staking_state.validators[next_epoch]
+        validators_diff(abci_app.initial_validators, next_epoch_validators)
+      true ->
+        []
+    end
+  end
+
+  defp validators_diff(current_epoch_validators, next_epoch_validators) do
+    removed_validators = removed_validators(current_epoch_validators, next_epoch_validators)
+    next_validators = next_validators(next_epoch_validators)
+
+    removed_validators ++ next_validators
+  end
+
+  defp removed_validators(current_epoch_validators, next_epoch_validators) do
+    removed_validators =
+      tendermint_addresses(current_epoch_validators) -- tendermint_addresses(next_epoch_validators)
+    Enum.map(removed_validators, &({&1, 0}))
+  end
+
+  defp tendermint_addresses(validators), do: Enum.map(validators, &(&1.tendermint_address))
+
+  defp next_validators(validators), do: Enum.map(validators, &({&1.tendermint_address, &1.stake}))
 
   defp encode_query_response(object) do
     object
@@ -145,7 +192,7 @@ defmodule HonteD.ABCI do
     |> to_charlist
   end
 
-  defp handle_tx(abci_app, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{}} = tx, extract_state)  do
+  defp handle_tx(abci_app, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{}} = tx, extract_state) do
     with :ok <- HonteD.Transaction.Validation.valid_signed?(tx),
          do: State.exec(extract_state.(abci_app), tx, abci_app.staking_state)
   end
