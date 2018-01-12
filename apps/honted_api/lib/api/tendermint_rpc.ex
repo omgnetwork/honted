@@ -23,7 +23,7 @@ defmodule HonteD.API.TendermintRPC do
     @rpc_timeout 100_000
 
     def start_link(opts) do
-      GenServer.start(__MODULE__, :ok, opts)
+      GenServer.start_link(__MODULE__, :ok, opts)
     end
 
     def init(:ok) do
@@ -59,7 +59,8 @@ defmodule HonteD.API.TendermintRPC do
     def recv!(websocket) do
       case Socket.Web.recv!(websocket) do
         {:text, response} -> {:ok, response}
-        {:ping, ""} -> recv!(websocket)
+        {:close, :abnormal, nil}  -> {:error, :socket_closed}
+        {:ping, ""} -> recv!(websocket) # just step over the ping and continue
       end
     end
 

@@ -95,7 +95,7 @@ defmodule HonteD.Integration.Performance do
     scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
     _ = Logger.info("Starting setup...")
     setup_tasks = for setup_stream <- HonteD.Performance.Scenario.get_setup(scenario), do: Task.async(fn ->
-          for {_, tx} <- setup_stream, do: API.submit_commit(tx)
+          for {true, tx} <- setup_stream, do: {:ok, _} = API.submit_sync(tx)
         end)
     _ = Logger.info("Waiting for setup to complete...")
     for task <- setup_tasks, do: Task.await(task, 100_000)
