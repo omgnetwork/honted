@@ -4,6 +4,7 @@ defmodule HonteD.Integration.Performance do
   """
 
   alias HonteD.Integration
+  alias HonteD.Performance
 
   require Logger
   alias HonteD.{API}
@@ -92,16 +93,16 @@ defmodule HonteD.Integration.Performance do
   """
   def run(nstreams, fill_in, duration, %{profiling: profiling} = opts) do
     _ = Logger.info("Generating scenarios...")
-    scenario = HonteD.Performance.Scenario.new(nstreams, nstreams * 2)
+    scenario = Performance.Scenario.new(nstreams, 10_000_000_000_000_000_000) # huge number of receivers
     _ = Logger.info("Starting setup...")
-    setup_tasks = for setup_stream <- HonteD.Performance.Scenario.get_setup(scenario), do: Task.async(fn ->
+    setup_tasks = for setup_stream <- Performance.Scenario.get_setup(scenario), do: Task.async(fn ->
           for {true, tx} <- setup_stream, do: {:ok, _} = API.submit_sync(tx)
         end)
     _ = Logger.info("Waiting for setup to complete...")
     for task <- setup_tasks, do: Task.await(task, 100_000)
     _ = Logger.info("Setup completed")
 
-    txs_source = scenario.send_txs
+    txs_source = Performance.Scenario.get_send_txs(scenario)
 
     fill_in_per_stream = div(fill_in, nstreams)
 
@@ -110,9 +111,7 @@ defmodule HonteD.Integration.Performance do
     |> fill_in(fill_in_per_stream)
 
     _ = Logger.info("Fill_in done")
-    txs_source_without_fill_in =
-      txs_source
-      |> Enum.map(fn stream -> Stream.drop(stream, fill_in_per_stream) end)
+    txs_source_without_fill_in = Performance.Scenario.get_send_txs(scenario, fill_in_per_stream)
 
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(duration)

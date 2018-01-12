@@ -3,7 +3,7 @@ defmodule HonteD.Performance.Scenario do
   Generating test scenarios for performance tests - mainly streams of transactions and other useful data
   """
 
-  defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :receivers, :send_txs]
+  defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :no_receivers, :failure_rate]
 
   import HonteD.Crypto
   import HonteD.Transaction
@@ -43,11 +43,9 @@ defmodule HonteD.Performance.Scenario do
     {tokens, create_token_txs} = Enum.unzip(Enum.map(issuers, &create_token/1))
     holders_senders = Enum.map(1..no_senders, &generate_keys/1)
     issue_txs = Enum.map(:lists.zip3(issuers, tokens, holders_senders), &issue_token/1)
-    receivers = 1..no_receivers |> Enum.map(&generate_keys/1)
-    streams = prepare_send_streams(holders_senders, tokens, receivers, failure_rate)
     %__MODULE__{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
                 holders_senders: holders_senders, issue_txs: issue_txs,
-                receivers: receivers, send_txs: streams
+                no_receivers: no_receivers, failure_rate: failure_rate
     }
   end
 
@@ -60,19 +58,36 @@ defmodule HonteD.Performance.Scenario do
   def get_senders(model) do
     model.holders_senders
   end
+  
+  def get_send_txs(model, skip_per_stream \\ 0) do
+    prepare_send_streams(model.holders_senders,
+                         model.tokens,
+                         model.no_receivers,
+                         model.failure_rate,
+                         skip_per_stream)
+  end
 
-  defp prepare_send_streams(holders_senders, tokens, receivers, _failure_rate) do
+  defp prepare_send_streams(holders_senders, tokens, no_receivers, _failure_rate, skip_per_stream) do
     args = Enum.zip(holders_senders, tokens)
-    n = length(receivers)
     for {sender, token} <- args do
       transaction_generator = fn(nonce) ->
-        receiver = :lists.nth(:rand.uniform(n), receivers)
+        receiver = get_receiver_number(nonce, no_receivers)
         {:ok, tx} = create_send([nonce: nonce, asset: token, amount: @normal_amount,
-                                 from: sender.addr, to: receiver.addr])
+                                 from: sender.addr, to: receiver])
         {{true, signed_tx(tx, sender)}, nonce + 1}
       end
-      Stream.unfold(0, transaction_generator)
+      
+      # we're starting with nonce equal to the number of transactions to skip
+      Stream.unfold(skip_per_stream, transaction_generator)
     end
+  end
+  
+  defp get_receiver_number(number, no_receivers) do
+    number
+    |> Integer.mod(no_receivers)
+    |> Integer.to_string
+    |> String.pad_leading(37, "c")
+    |> Kernel.<>("pub")
   end
 
   # FIXME: temporarily here, afterwards remove the commit entirely

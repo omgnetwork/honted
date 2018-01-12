@@ -16,7 +16,8 @@ defmodule HonteD.Performance.ScenarioTest do
       |> List.flatten()
       |> Enum.reduce(State.empty(), &apply_tx/2)
 
-    scenario.send_txs
+    scenario
+    |> get_send_txs()
     |> hd()
     |> Enum.take(n)
     |> Enum.reduce(state, &apply_tx/2)
@@ -44,18 +45,31 @@ defmodule HonteD.Performance.ScenarioTest do
 
     test "Scenarios are deterministic." do
       scenario1 = HonteD.Performance.Scenario.new(2, 10)
-      run1 = Enum.take(hd(scenario1.send_txs), 10)
+      run1 = Enum.take(hd(get_send_txs(scenario1)), 10)
       scenario2 = HonteD.Performance.Scenario.new(2, 10)
-      run2 = Enum.take(hd(scenario2.send_txs), 10)
+      run2 = Enum.take(hd(get_send_txs(scenario2)), 10)
       assert run1 == run2
     end
 
     test "Scenarios are not identical." do
       scenario1 = HonteD.Performance.Scenario.new(2, 10)
-      run1 = Enum.take(hd(scenario1.send_txs), 10)
+      run1 = Enum.take(hd(get_send_txs(scenario1)), 10)
       scenario3 = HonteD.Performance.Scenario.new(3, 10)
-      run3 = Enum.take(hd(scenario3.send_txs), 10)
+      run3 = Enum.take(hd(get_send_txs(scenario3)), 10)
       assert run1 != run3
+    end
+    
+    test "Scenario can skip transactions and remain correct" do
+      scenario = HonteD.Performance.Scenario.new(2, 10)
+      to_skip = 100
+      state = run(scenario, to_skip)
+
+      scenario
+      |> get_send_txs(to_skip)
+      |> hd()
+      |> Enum.take(200)
+      |> Enum.reduce(state, &apply_tx/2)
+
     end
   end
 
