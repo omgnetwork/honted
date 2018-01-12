@@ -155,11 +155,9 @@ defmodule HonteD.Integration.Performance do
 
     dir_path = Integration.homedir()
     {:ok, _exit_fn_honted} = Integration.honted()
-    {:ok, exit_fn_tendermint} = Integration.tendermint(dir_path)
+    {:ok, _exit_fn_tendermint} = Integration.tendermint(dir_path)
 
     result = run(nstreams, fill_in, duration, opts)
-
-    exit_fn_tendermint.()
 
     # TODO: don't know why this is needed, should happen automatically on terminate. Does something bork at teardown?
     Temp.cleanup()
