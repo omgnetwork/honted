@@ -1,14 +1,16 @@
-### Commit: `2a141d859c6ef7a384519cd9930e5732a6d22670`
+## Commit: `3690d4268c306013f4516d981fb4b3945407996a`
 
 ```
 mix run --no-start -e 'HonteD.Integration.Performance.setup_and_run(5,0,100, %{profiling: :fprof})'
 ```
 
+### CPU load
+
 1. Tesla's `'Elixir.HonteD.API.TendermintRPC',client,0}` isn't a burden: `286.370` out of `531801.077` in `{'Elixir.HonteD.API',submit_sync,1}`. Likely it only creates a function returning the client.
   - **NOTE** it has been removed in subsequent optimizations, now using persistent Websocket connection
 2. in `{'Elixir.HonteD.API.TendermintRPC',broadcast_tx_sync,2}` mostly `Tesla` and `http` request handling
   - see NOTE above
-3. `{'Elixir.HonteD.Performance.Scenario','-prepare_send_streams/4-fun-0-',5}` takes `2787.796` which is small but noticable if compared to time spent with `ABCI`. Most of this is spent in creating and signing transactions (equal because both are mocks - hash functions)
+3. `{'Elixir.HonteD.Performance.Scenario','-prepare_send_streams/4-fun-0-',5}` takes `2787.796` which is small but noticeable if compared to time spent with `ABCI`. Most of this is spent in creating and signing transactions (equal because both are mocks - hash functions)
 4. Time spent with `ABCI` is in total: `{'Elixir.HonteD.ABCI',handle_call,3}` - `16823.502`, of which (compare with 2nd figure):
         { {'Elixir.HonteD.ABCI',handle_call,3},       16782,16823.502,  262.675},     %
         [{{'Elixir.HonteD.TxCodec',decode,1},         16655, 4234.177,  102.471},
@@ -38,5 +40,18 @@ mix run --no-start -e 'HonteD.Integration.Performance.setup_and_run(5,0,100, %{p
          {{'Elixir.HonteD.ABCI.State',hash,1},          50,39707.260,    0.347},
          {{'Elixir.List.Chars',to_charlist,1},          50,    1.952,    0.239}]}.
 7. We seem to be at saturation point. There are no evident bottlenecks aside in the node itself
-  **TODO** check Poison encoding in `{'Elixir.HonteD.API.TendermintRPC.Websocket','send!',3}`
-8. **TODO** get some idea about disk usage/disk space requirements/memory usage and ways to profile
+  - `{'Elixir.HonteD.API.TendermintRPC.Websocket','send!',3}` seems to do a lot of heavy lifting with JSON encoding.
+  This should, however, not be a limiting factor for the test. **NOTE** consider changing to `Jason`,
+  which claims to be faster. For reference:
+       { {'Elixir.HonteD.API.TendermintRPC.Websocket','send!',3},2834, 5475.848,   20.509},     %
+       [{{'Elixir.Socket.Web','send!',2},            2834, 1185.560,    8.866},      
+        {{'Elixir.Poison','encode!',1},              2834, 4269.779,    8.282}]}.    
+
+8. **TODO** get some idea about disk usage/disk space requirements and ways to profile
+
+### Memory
+
+Using `:observer.start; HonteD.Performance...` we can see that 
+for the run mentioned the total memory consumption grows linearly to ~120MB, with peaks at ~150MB.
+Memory usage is due to bloating of `ABCI.State` and `Eventer's` unfinalized transaction queues, quite naturally.
+**NOTE** consider sending `SignOff` transactions to relax the latter load.
