@@ -22,7 +22,8 @@ defmodule HonteD.Umbrella.Mixfile do
       {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.6", only: [:test]},
       {:exprof, "~> 0.2.0"},
-      {:eflame, ~r/.*/, git: "https://github.com/proger/eflame.git", compile: "rebar compile"}
+      {:eflame, ~r/.*/, git: "https://github.com/proger/eflame.git", compile: "rebar compile"}, # regex - match any ver
+      {:eep, ~r/.*/, github: "virtan/eep", compile: "rebar compile"}, # regex - match any version
     ]
   end
 end

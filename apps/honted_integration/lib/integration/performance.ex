@@ -82,6 +82,12 @@ defmodule HonteD.Integration.Performance do
     # cleanup
     for task <- test_tasks, do: nil = Task.shutdown(task, :brutal_kill)
   end
+  
+  defp wait_for_eep_convert(file_name) do
+    callgrind_path = "callgrind.out.#{file_name}"
+    Process.sleep(1000)
+    if File.exists?(callgrind_path), do: :ok, else: wait_for_eep_convert(file_name)
+  end
 
   @doc """
   Assumes a setup done earlier, builds the scenario and runs performance test
@@ -119,6 +125,16 @@ defmodule HonteD.Integration.Performance do
     case profiling do
       nil ->
         profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+      :eep ->
+        file_name = "eep_out"
+        # profiling
+        :eep.start_file_tracing(file_name |> to_charlist)
+        profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+        :eep.stop_tracing()
+        
+        # conversion to kcachegrind format, need the wait, since eep converts async and provides no way to syncronise
+        :eep.convert_tracing(file_name |> to_charlist)
+        wait_for_eep_convert(file_name)
       :eprof ->
         profile do
           profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)

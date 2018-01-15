@@ -29,4 +29,5 @@ erl_crash.dump
 
 populus/build/
 
-fprof\.trace
+*.trace
+callgrind.out.*

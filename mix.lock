@@ -6,6 +6,7 @@
   "cowlib": {:hex, :cowlib, "1.0.2", "9d769a1d062c9c3ac753096f868ca121e2730b9a377de23dec0f7e08b1df84ee", [], [], "hexpm"},
   "credo": {:hex, :credo, "0.8.10", "261862bb7363247762e1063713bb85df2bbd84af8d8610d1272cd9c1943bba63", [], [{:bunt, "~> 0.2.0", [hex: :bunt, repo: "hexpm", optional: false]}], "hexpm"},
   "dialyxir": {:hex, :dialyxir, "0.5.1", "b331b091720fd93e878137add264bac4f644e1ddae07a70bf7062c7862c4b952", [], [], "hexpm"},
+  "eep": {:git, "https://github.com/virtan/eep.git", "8f6e5e3ade0606390d928830db61350a5451dda8", []},
   "eflame": {:git, "https://github.com/proger/eflame.git", "ee3a44b950aeb2434460045274809ad506141a83", []},
   "ex_unit_fixtures": {:hex, :ex_unit_fixtures, "0.3.1", "8ea3fcf6973529c016792b9a424d9e94101e9f7f01a111bd41a2d4e13cc5fa59", [], [], "hexpm"},
   "excoveralls": {:hex, :excoveralls, "0.7.5", "339e433e5d3bce09400dc8de7b9040741a409c93917849916c136a0f51fdc183", [], [{:exjsx, ">= 3.0.0", [hex: :exjsx, repo: "hexpm", optional: false]}, {:hackney, ">= 0.12.0", [hex: :hackney, repo: "hexpm", optional: false]}], "hexpm"},
