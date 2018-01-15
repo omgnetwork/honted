@@ -87,22 +87,22 @@ defmodule HonteD.ABCI.Fixtures do
   end
 
   deffixture initial_validators do
-    [Validator.validator(1, "tm_addr_1"),
-     Validator.validator(10, "tm_addr_2"),
+    [%Validator{stake: 1, tendermint_address: "tm_addr_1"},
+     %Validator{stake: 1, tendermint_address: "tm_addr_2"},
     ]
   end
 
   deffixture epoch_1_validators do
-    [Validator.validator(1, "tm_addr_2"),
-     Validator.validator(1, "tm_addr_3"),
-     Validator.validator(2, "tm_addr_4"),
+    [%Validator{stake: 1, tendermint_address: "tm_addr_2"},
+     %Validator{stake: 1, tendermint_address: "tm_addr_3"},
+     %Validator{stake: 1, tendermint_address: "tm_addr_4"},
     ]
   end
 
   deffixture epoch_2_validators do
-    [Validator.validator(10, "tm_addr_2"),
-     Validator.validator(2, "tm_addr_4"),
-     Validator.validator(1, "tm_addr_5"),
+    [%Validator{stake: 10, tendermint_address: "tm_addr_2"},
+     %Validator{stake: 2, tendermint_address: "tm_addr_4"},
+     %Validator{stake: 1, tendermint_address: "tm_addr_5"},
     ]
   end
 

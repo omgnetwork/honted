@@ -134,7 +134,10 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_init_chain(validators: validators), _from, abci_app) do
     initial_validators =
-      Enum.map(validators, fn validator(power: power, pub_key: pub_key) -> Validator.validator(power, pub_key) end)
+      Enum.map(
+        validators,
+        fn validator(power: power, pub_key: pub_key) -> %Validator{stake: power, tendermint_address: pub_key} end
+      )
     state = %{abci_app | initial_validators: initial_validators}
     {:reply, response_init_chain(), state}
   end
