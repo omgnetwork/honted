@@ -87,22 +87,22 @@ defmodule HonteD.ABCI.Fixtures do
   end
 
   deffixture initial_validators do
-    [Validator.validator({1, "tm_addr_1", "eth_addr_1"}),
-     Validator.validator({10, "tm_addr_2", "eth_addr_2"}),
+    [Validator.validator(1, "tm_addr_1"),
+     Validator.validator(10, "tm_addr_2"),
     ]
   end
 
   deffixture epoch_1_validators do
-    [Validator.validator({1, "tm_addr_2", "eth_addr_2"}),
-     Validator.validator({1, "tm_addr_3", "eth_addr_3"}),
-     Validator.validator({2, "tm_addr_4", "eth_addr_4"}),
+    [Validator.validator(1, "tm_addr_2"),
+     Validator.validator(1, "tm_addr_3"),
+     Validator.validator(2, "tm_addr_4"),
     ]
   end
 
   deffixture epoch_2_validators do
-    [Validator.validator({10, "tm_addr_2", "eth_addr_2"}),
-     Validator.validator({2, "tm_addr_4", "eth_addr_4"}),
-     Validator.validator({1, "tm_addr_5", "eth_addr_5"}),
+    [Validator.validator(10, "tm_addr_2"),
+     Validator.validator(2, "tm_addr_4"),
+     Validator.validator(1, "tm_addr_5"),
     ]
   end
 

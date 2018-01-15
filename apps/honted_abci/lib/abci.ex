@@ -12,6 +12,7 @@ defmodule HonteD.ABCI do
   alias HonteD.Staking
   alias HonteD.ABCI.State
   alias HonteD.Transaction
+  alias HonteD.Validator
 
   @doc """
   Tracks state which is controlled by consensus and also tracks local (mempool related, transient) state.
@@ -131,9 +132,11 @@ defmodule HonteD.ABCI do
     {:reply, reply, abci_app}
   end
 
-  def handle_call(request_init_chain(validators: [validator()]) = request, from, abci_app) do
-    _ = Logger.warn("Warning: unhandled call from tendermint request: #{inspect request} from #{inspect from}")
-    {:reply, response_init_chain(), abci_app}
+  def handle_call(request_init_chain(validators: validators), _from, abci_app) do
+    initial_validators =
+      Enum.map(validators, fn validator(power: power, pub_key: pub_key) -> Validator.validator(power, pub_key) end)
+    state = %{abci_app | initial_validators: initial_validators}
+    {:reply, response_init_chain(), state}
   end
 
   def handle_cast({:set_staking_state, %Staking{} = contract_state}, _from, abci_app) do

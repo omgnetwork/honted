@@ -14,6 +14,8 @@ defmodule HonteD.ABCITest do
   import HonteD.ABCI
   import HonteD.Transaction
 
+  alias HonteD.Validator
+
   describe "info requests from tendermint" do
     @tag fixtures: [:empty_state]
     test "info about clean state", %{empty_state: state} do
@@ -84,7 +86,7 @@ defmodule HonteD.ABCITest do
     end
   end
 
-  describe "end block," do
+  describe "end block" do
     @tag fixtures: [:empty_state]
     test "does not update validators and state when epoch has not changed", %{empty_state: state} do
       assert {:reply, response_end_block(diffs: []), ^state} =
@@ -103,6 +105,17 @@ defmodule HonteD.ABCITest do
     %{second_epoch_change_state: state, validators_diffs_2: diffs} do
       assert {:reply, response_end_block(diffs: diffs), _} =
         handle_call(request_end_block(), nil, state)
+    end
+  end
+
+  describe "init chain request" do
+    @tag fixtures: [:empty_state]
+    test "sets initial validators", %{empty_state: state} do
+      {stake, tendermint_address} = {1, "tm_addr_1"}
+      {:reply, _, state} =
+        handle_call(request_init_chain(validators: [validator(power: stake, pub_key: tendermint_address)]),
+                    nil, state)
+      assert state.initial_validators == [%Validator{stake: stake, tendermint_address: tendermint_address}]
     end
   end
 
