@@ -44,9 +44,7 @@ defmodule HonteD.Integration.Performance do
     |> check_result(expected)
   end
 
-  @doc """
-  Fills the state a bit using txs source
-  """
+  # Fills the state a bit using txs source
   defp fill_in(txs_source, fill_in_per_stream) do
     fill_tasks = for txs_stream <- txs_source, do: Task.async(fn ->
       txs_stream
@@ -57,11 +55,8 @@ defmodule HonteD.Integration.Performance do
     for task <- fill_tasks, do: Task.await(task, 100_000)
   end
 
-  @doc """
-  Runs the actual perf test scenario under tm-bench.
-
-  Assumes tm-bench is started. This is the protion of the test that should be measured/profiled etc
-  """
+  # Runs the actual perf test scenario under tm-bench.
+  # Assumes tm-bench is started. This is the protion of the test that should be measured/profiled etc
   defp run_performance_test_tasks(txs_source, opts) do
     # begin test by starting asynchronous transaction senders
     for stream <- txs_source, do: Task.async(fn ->
@@ -82,7 +77,7 @@ defmodule HonteD.Integration.Performance do
     # cleanup
     for task <- test_tasks, do: nil = Task.shutdown(task, :brutal_kill)
   end
-  
+
   defp wait_for_eep_convert(file_name) do
     callgrind_path = "callgrind.out.#{file_name}"
     Process.sleep(1000)
@@ -99,7 +94,7 @@ defmodule HonteD.Integration.Performance do
   """
   def run(nstreams, fill_in, duration, opts) do
     profiling = opts[:profiling]
-    
+
     _ = Logger.info("Generating scenarios...")
     scenario = Performance.Scenario.new(nstreams, 10_000_000_000_000_000_000) # huge number of receivers
     _ = Logger.info("Starting setup...")
@@ -133,7 +128,7 @@ defmodule HonteD.Integration.Performance do
         :eep.start_file_tracing(file_name |> to_charlist)
         profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
         :eep.stop_tracing()
-        
+
         # conversion to kcachegrind format, need the wait, since eep converts async and provides no way to syncronise
         :eep.convert_tracing(file_name |> to_charlist)
         wait_for_eep_convert(file_name)
@@ -168,7 +163,7 @@ defmodule HonteD.Integration.Performance do
     |> Enum.to_list
     |> Enum.join
   end
-  
+
   @doc """
   Runs full HonteD node and runs perf test
   """
@@ -187,7 +182,7 @@ defmodule HonteD.Integration.Performance do
       %Porcelain.Result{err: nil, out: out} = Porcelain.shell("set -xe; du -sh #{homedir}")
       IO.puts("Disk used for homedir:\n#{out}\n")
     end
-    
+
     # TODO: don't know why this is needed, should happen automatically on terminate. Does something bork at teardown?
     Temp.cleanup()
 

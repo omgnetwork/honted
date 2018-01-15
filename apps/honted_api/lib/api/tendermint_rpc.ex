@@ -8,7 +8,7 @@ defmodule HonteD.API.TendermintRPC do
   The sequence of every call to the RPC is:
     - incoming request from Elixir
     - encode the query using `encode` for their respective types
-    - send request to json rpc via Tesla
+    - send request to json rpc via Websocket
     - decode jsonrpc response via `decode_jsonrpc`
     - additional decoding depending on the particular request/response (the `case do`)
   """
@@ -31,11 +31,14 @@ defmodule HonteD.API.TendermintRPC do
     end
 
     def call_method(method, params) do
-      GenServer.call(__MODULE__, {:call, method, params}, @rpc_timeout)
+      GenServer.call(__MODULE__, {:call_method, method, params}, @rpc_timeout)
     end
 
-    def handle_call({:call, method, params}, _from, websocket) do
+    def handle_call({:call_method, method, params}, _from, websocket) do
+      # connect on very first request
       websocket = if websocket == nil, do: Websocket.connect!, else: websocket
+
+      # do request
       case sendrecv!(websocket, method, params) do
         {:ok, response} -> {:reply, Poison.decode!(response), websocket}
         {:error, error} -> {:stop, %{reason: error}, websocket}
@@ -74,28 +77,28 @@ defmodule HonteD.API.TendermintRPC do
   def client, do: nil
 
   @impl true
-  def broadcast_tx_async(_client, tx) do
+  def broadcast_tx_async(nil, tx) do
     :broadcast_tx_async
     |> Websocket.call_method([tx: tx |> Base.encode64])
     |> decode_jsonrpc
   end
 
   @impl true
-  def broadcast_tx_sync(_client, tx) do
+  def broadcast_tx_sync(nil, tx) do
     :broadcast_tx_sync
     |> Websocket.call_method([tx: tx |> Base.encode64])
     |> decode_jsonrpc
   end
 
   @impl true
-  def broadcast_tx_commit(_client, tx) do
+  def broadcast_tx_commit(nil, tx) do
     :broadcast_tx_commit
     |> Websocket.call_method([tx: tx |> Base.encode64])
     |> decode_jsonrpc
   end
 
   @impl true
-  def abci_query(_client, data, path) do
+  def abci_query(nil, data, path) do
     :abci_query
     |> Websocket.call_method([data: data, path: path])
     |> decode_jsonrpc
@@ -103,7 +106,7 @@ defmodule HonteD.API.TendermintRPC do
   end
 
   @impl true
-  def tx(_client, hash) do
+  def tx(nil, hash) do
     :tx
     |> Websocket.call_method([hash: hash |> Base.decode16! |> Base.encode64, prove: false])
     |> decode_jsonrpc
@@ -111,13 +114,11 @@ defmodule HonteD.API.TendermintRPC do
   end
 
   @impl true
-  def block(_client, height) do
-    {:ok, block} =
-      :block
-      |> Websocket.call_method([height: height])
-      |> decode_jsonrpc
-    {:ok, update_in(block, ["block", "data", "txs"],
-                    fn(txs) -> Enum.map(txs, &Base.decode64!/1) end)}
+  def block(nil, height) do
+    :block
+    |> Websocket.call_method([height: height])
+    |> decode_jsonrpc
+    |> decode_block
   end
 
   ### private - tendermint rpc's specific encoding/decoding
@@ -140,4 +141,11 @@ defmodule HonteD.API.TendermintRPC do
           |> Map.update!("tx", &Base.decode64!/1)}
   end
   defp decode_tx(other), do: other
+
+  defp decode_block({:ok, result}) do
+    {:ok, result
+          |> update_in(["block", "data", "txs"], fn(txs) -> Enum.map(txs, &Base.decode64!/1) end)}
+
+  end
+  defp decode_block(other), do: other
 end

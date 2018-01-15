@@ -58,7 +58,7 @@ defmodule HonteD.Performance.ScenarioTest do
       run3 = Enum.take(hd(get_send_txs(scenario3)), 10)
       assert run1 != run3
     end
-    
+
     test "Scenario can skip transactions and remain correct" do
       scenario = HonteD.Performance.Scenario.new(2, 10)
       to_skip = 100

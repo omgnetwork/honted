@@ -57,7 +57,7 @@ defmodule HonteD.Performance.Scenario do
   def get_senders(model) do
     model.holders_senders
   end
-  
+
   def get_send_txs(model, skip_per_stream \\ 0) do
     prepare_send_streams(model.holders_senders,
                          model.tokens,
@@ -75,12 +75,12 @@ defmodule HonteD.Performance.Scenario do
                                  from: sender.addr, to: receiver])
         {{true, signed_tx(tx, sender)}, nonce + 1}
       end
-      
+
       # we're starting with nonce equal to the number of transactions to skip
       Stream.unfold(skip_per_stream, transaction_generator)
     end
   end
-  
+
   defp get_receiver_number(number, no_receivers) do
     number
     |> Integer.mod(no_receivers)
