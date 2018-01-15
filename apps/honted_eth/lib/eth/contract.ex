@@ -1,6 +1,8 @@
 defmodule HonteD.Eth.Contract do
   @moduledoc """
   Ask staking contract for validator and epoch information.
+
+  FIXME: split into dev/integration part and production part
   """
   import Ethereumex.HttpClient
   alias HonteD.Eth.WaitFor, as: WaitFor
@@ -13,23 +15,59 @@ defmodule HonteD.Eth.Contract do
     deploy("../../", epoch_length, maturity_margin, max_validators)
   end
 
+  # FIXME: refactor for default contract deployment params
   def deploy(root, epoch_length, maturity_margin, max_validators) do
+    Application.ensure_all_started(:ethereumex)
     token_bc = File.read!(root <> "contracts/omg_token_bytecode.hex")
     staking_bc = staking_bytecode(root <> "populus/build/contracts.json")
     IO.puts("token: #{inspect bit_size(token_bc)}, staking: #{inspect bit_size(staking_bc)}")
     {:ok, [addr | _]} = eth_accounts()
-    IO.puts("deploy token")
     {:ok, token_address} = deploy_contract(addr, token_bc, [], [])
-    IO.puts("deploy staking")
     {:ok, staking_address} = deploy_contract(addr, staking_bc,
       [epoch_length, maturity_margin, token_address, max_validators],
       [{:uint, 256}, {:uint, 256}, :address, {:uint, 256}])
+    Application.put_env(:honted_eth, :token_contract_address, token_address)
+    Application.put_env(:honted_eth, :staking_contract_address, staking_address)
     {:ok, token_address, staking_address}
   end
 
+  def add_validator(token, staking, tm) do
+    {:ok, [addr | _]} = eth_accounts()
+    mint_omg(token, addr, addr, 10 * ether())
+    {:ok, txhash} = contract_join(token, staking, addr, tm, ether())
+    {:ok, {addr, tm, 1.0}}
+  end
+
+  def mint_omg(token, addr, target, amount) do
+    data = ABI.encode("mint(address,uint)", [cleanup(target), amount]) |> Base.encode16
+    {:ok, txhash} = eth_send_transaction(%{from: addr, to: token, data: "0x#{data}"})
+    {:ok, _receipt} = WaitFor.receipt(txhash, 10_000)
+  end
+
+  defp contract_join(token, staking, addr, tm, amount) do
+    IO.puts("approve")
+    data = ABI.encode("approve(address,uint256)", [cleanup(staking), amount]) |> Base.encode16
+    {:ok, txhash} = eth_send_transaction(%{from: addr, data: "0x#{data}", to: token})
+    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+    IO.puts("join")
+    data = ABI.encode("join(address)", [cleanup(tm)]) |> Base.encode16
+    {:ok, txhash} = eth_send_transaction(%{from: addr, to: staking, data: "0x#{data}"})
+    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+    IO.puts("join done")
+    %{"contractAddress" => contract_address} = receipt
+    {:ok, contract_address}
+  end
+
+  # FIXME: parsing of block height is broken ATM (Elixir bitsyntax)
   def block_height do
     {:ok, enc_answer} = eth_block_number()
-    decode_answer(enc_answer, [{:uint, 256}])
+    IO.puts("enc #{inspect enc_answer}")
+    padded = mb_pad_16(enc_answer)
+    IO.puts("padded #{inspect padded}")
+    {:ok, dec} = Base.decode16(padded, case: :lower)
+    IO.puts("decoded #{inspect dec}")
+    <<result :: integer>> = dec
+    result
   end
 
   def read_validators(staking) do
@@ -135,5 +173,25 @@ defmodule HonteD.Eth.Contract do
       |> File.read!()
       |> Poison.decode!()
     String.replace(bytecode, "0x", "")
+  end
+
+  def ether, do: trunc(:math.pow(10, 18))
+
+  def eth_hex(num) when is_number(num) do
+    hex = [trunc(num)]
+      |> ABI.TypeEncoder.encode_raw([{:uint, 256}])
+      |> Base.encode16(case: :lower)
+    "0x" <> hex
+  end
+
+  def mb_pad_16(arg = ("0x" <> hex)) do
+    len = trunc(bit_size(hex) / 8)
+    IO.puts("len: #{len}")
+    evenodd = rem(len, 2)
+    IO.puts("evenodd: #{evenodd}")
+    case evenodd do
+      0 -> hex
+      1 -> "0" <> hex
+    end
   end
 end

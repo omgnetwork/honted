@@ -319,20 +319,18 @@ defmodule HonteD.Integration.SmokeTest do
       "height" => ^committed_at_height
     } = TestWebsocket.recv!(websocket)
     IO.puts("sm test1 ended")
+
+  @tag fixtures: [:geth, :honted, :tendermint, :apis_caller]
+  test "integration with geth, ethereum and staking contract" do
+    # epoch zero, new validators are yet to join staking
+    token = Application.get_env(:honted_eth, :token_contract_address)
+    staking = Application.get_env(:honted_eth, :staking_contract_address)
+    tm = token
+    {:ok, val} = HonteD.Eth.Contract.add_validator(token, staking, tm)
+    IO.puts("done adding validators")
+    {:ok, next} = HonteD.Eth.Contract.get_next_epoch_block_number(staking)
+    height = HonteD.Eth.Contract.block_height()
+    IO.puts("successful setup! #{inspect next}, currently #{inspect height}")
   end
 
-  @tag fixtures: [:tendermint, :apis_caller]
-  test "incorrect calls to websockets should return sensible response not crash", %{apis_caller: apis_caller} do
-    # bad method
-    IO.puts("sm test 2")
-    {:error, %{"data" => %{"method" => "token_inf"}, "message" => "Method not found"}} = apis_caller.(:token_inf, %{token: ""})
-
-    # bad params
-    {:error, %{"data" => %{"msg" => "Please provide parameter `token` of type `:binary`",
-                           "name" => "token",
-                           "type" => "binary"
-                         },
-               "message" => "Invalid params"}
-     } = apis_caller.(:token_info, %{toke: ""})
-  end
 end
