@@ -46,7 +46,6 @@ defmodule HonteD.Integration.PerformanceTest do
 
     various_profilers = [%{profiling: :fprof},
                          %{profiling: :eprof},
-                         %{profiling: :eflame},
                          %{profiling: :eep},]
 
     fn ->

@@ -9,7 +9,7 @@ defmodule HonteD.PerftestScript do
   mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100, %{homedir_size: true})'
   ```
 
-  Available profilers: `:fprof`, `:eep`, `:eprof`, `:eflame` (in order of usefulness)
+  Available profilers: `:fprof`, `:eep`, `:eprof`
 
   NOTE: keep this as thin as reasonably possible, this is not tested (excluded in coveralls.json)
   """

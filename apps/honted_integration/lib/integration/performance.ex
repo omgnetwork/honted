@@ -136,10 +136,6 @@ defmodule HonteD.Integration.Performance do
         profile do
           profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
         end
-      :eflame ->
-        :eflame.apply(fn ->
-          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
-        end, [])
       :fprof ->
         :fprof.apply(fn ->
           profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
