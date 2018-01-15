@@ -16,13 +16,14 @@ defmodule HonteD.Integration.Fixtures do
 
   deffixture honted() do
     IO.puts("deffixture.honted")
-    {:ok, geth_exit} = Integration.geth()
-    {:ok, honted_exit} = Integration.honted()
-    exit_fn = fn() ->
-      IO.puts("deffixture.honted combined on_exit")
-      honted_exit.()
-      geth_exit.()
-    end
+    {:ok, exit_fn} = Integration.honted()
+    on_exit exit_fn
+    :ok
+  end
+
+  deffixture geth() do
+    Application.put_env(:honted_eth, :enabled, true)
+    {:ok, exit_fn} = Integration.geth()
     on_exit exit_fn
     :ok
   end

@@ -13,10 +13,6 @@ defmodule HonteD.Eth.Geth do
     res
   end
 
-  def dev_deploy do
-    {:ok, _token, _staking} = HonteD.Eth.Contract.deploy_integration(20, 2, 5)
-  end
-
   def geth(cmd \\ "geth --rpc") do
     geth_pids = geth_os_pids()
     geth_proc = %Porcelain.Process{err: nil, out: geth_out} = Porcelain.spawn_shell(

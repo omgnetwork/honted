@@ -19,11 +19,15 @@ defmodule HonteD.Eth do
 
   def init(:ok) do
     staking = Application.get_env(:honted_eth, :staking_contract_address)
-    case syncing?() do
-      false ->
+    enabled = Application.get_env(:honted_eth, :enabled)
+    case {enabled, syncing?()} do
+      {false, _} ->
+        # FIXME: start some stub module here instead
+        {:ok, %__MODULE__{contract: staking}}
+      {true, false} ->
         Process.send_after(self(), :check_sync_state, 1000)
         {:ok, %__MODULE__{contract: staking}}
-      true ->
+      {true, true} ->
         {:stop, :honted_requires_geth_to_be_synchronized}
     end
   end

@@ -6,13 +6,13 @@ defmodule HonteD.Integration.VersionTest do
 
   @moduletag :integration
 
-  test "Tendermint at supported version" do
-    %Porcelain.Result{err: nil, status: 0, out: version_output} = Porcelain.shell(
-      "tendermint version"
-    )
-    version_output
-    |> String.trim
-    |> Version.match?("~> 0.14.0")
-    |> assert
-  end
+  # test "Tendermint at supported version" do
+  #   %Porcelain.Result{err: nil, status: 0, out: version_output} = Porcelain.shell(
+  #     "tendermint version"
+  #   )
+  #   version_output
+  #   |> String.trim
+  #   |> Version.match?("~> 0.14.0")
+  #   |> assert
+  # end
 end
