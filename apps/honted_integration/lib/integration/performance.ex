@@ -163,29 +163,4 @@ defmodule HonteD.Integration.Performance do
     |> Enum.to_list
     |> Enum.join
   end
-
-  @doc """
-  Runs full HonteD node and runs perf test
-  """
-  def setup_and_run(nstreams, fill_in, duration, opts \\ %{}) do
-    [:porcelain, :hackney]
-    |> Enum.each(&Application.ensure_all_started/1)
-
-    homedir = Integration.homedir()
-    {:ok, _exit_fn_honted} = Integration.honted()
-    {:ok, _exit_fn_tendermint} = Integration.tendermint(homedir)
-
-    result = run(nstreams, fill_in, duration, opts)
-
-    if opts[:homedir_size] do
-      IO.puts("\n")
-      %Porcelain.Result{err: nil, out: out} = Porcelain.shell("set -xe; du -sh #{homedir}")
-      IO.puts("Disk used for homedir:\n#{out}\n")
-    end
-
-    # TODO: don't know why this is needed, should happen automatically on terminate. Does something bork at teardown?
-    Temp.cleanup()
-
-    IO.puts(result)
-  end
 end

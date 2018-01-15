@@ -1,7 +1,7 @@
 ## Commit: `3690d4268c306013f4516d981fb4b3945407996a`
 
 ```
-mix run --no-start -e 'HonteD.Integration.Performance.setup_and_run(5,0,100)'
+mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100)'
 ```
 (+ `%{profiling: ..., homedir_size: true}` optional argument, as needed.
 
@@ -31,10 +31,10 @@ Without the overhead of profiling, the txs processed (_Intel® Core™ i5-7200U 
 2. in `{'Elixir.HonteD.API.TendermintRPC',broadcast_tx_sync,2}` mostly `Tesla` and `http` request handling
   - see NOTE above, not any more
 3. `{'Elixir.HonteD.Performance.Scenario','-prepare_send_streams/4-fun-0-',5}` takes `2787.796` which is small but noticeable if compared to time spent with `ABCI`. Most of this is spent in creating and signing transactions (equal because both are mocks - hash functions)
-6. After 
+6. After
    - changing `http` communication with Tendermint RPC to `websockets`
    - diversifying the receivers and making the state fill more
-   
+
    the code handling transactions breaks down as follows (majority of time spent using our silly-state-hashing):
           { {'Elixir.HonteD.ABCI',handle_call,3},       12302,45333.018,  103.391},     %
           [{{'Elixir.HonteD.TxCodec',decode,1},         12152, 1448.985,   44.439},
@@ -78,7 +78,7 @@ Disk used for homedir:
 
 ### Memory
 
-Using `:observer.start; HonteD.Performance...` we can see that 
+Using `:observer.start; HonteD.Performance...` we can see that
 for the run mentioned the total memory consumption grows linearly to ~120MB, with peaks at ~150MB.
 Memory usage is due to bloating of `ABCI.State` and `Eventer's` unfinalized transaction queues, quite naturally.
 

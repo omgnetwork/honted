@@ -37,8 +37,10 @@ When running `integration` tests, remember to have `tendermint` and `tm-bench` b
 
 In the same setup as for the Integration tests, run e.g.:
 ```
-mix run apps/honted_integration/scripts/performance.exs --nstreams 2 --fill-in 200 --duration 4
+mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100)'
 ```
+
+for more details see the `moduledoc` therein
 
 ## Using the APIs
 
