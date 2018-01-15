@@ -39,8 +39,15 @@ defmodule HonteD.Performance.ScenarioTest do
     end
 
     test "Scenario.new/2 crashes for strange values." do
-      catch_error(HonteD.Performance.Scenario.new(0, 10))
       catch_error(HonteD.Performance.Scenario.new(10, 0))
+    end
+
+    test "Can generate empty scenarios with Scenario.new/2" do
+      empty = HonteD.Performance.Scenario.new(0, 10)
+
+      assert get_setup(empty) == []
+      assert get_senders(empty) == []
+      assert get_send_txs(empty) == []
     end
 
     test "Scenarios are deterministic." do
@@ -65,7 +72,7 @@ defmodule HonteD.Performance.ScenarioTest do
       state = run(scenario, to_skip)
 
       scenario
-      |> get_send_txs(to_skip)
+      |> get_send_txs(skip_per_stream: to_skip)
       |> hd()
       |> Enum.take(200)
       |> Enum.reduce(state, &apply_tx/2)

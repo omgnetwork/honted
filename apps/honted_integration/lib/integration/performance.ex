@@ -107,14 +107,14 @@ defmodule HonteD.Integration.Performance do
 
     txs_source = Performance.Scenario.get_send_txs(scenario)
 
-    fill_in_per_stream = div(fill_in, nstreams)
+    fill_in_per_stream = if nstreams != 0, do: div(fill_in, nstreams), else: 0
 
     _ = Logger.info("Starting fill_in: #{inspect fill_in}")
     txs_source
     |> fill_in(fill_in_per_stream)
 
     _ = Logger.info("Fill_in done")
-    txs_source_without_fill_in = Performance.Scenario.get_send_txs(scenario, fill_in_per_stream)
+    txs_source_without_fill_in = Performance.Scenario.get_send_txs(scenario, skip_per_stream: fill_in_per_stream)
 
     _ = Logger.info("starting tm-bench")
     {tm_bench_proc, tm_bench_out} = tm_bench(duration)

@@ -48,6 +48,14 @@ defmodule HonteD.Performance.Scenario do
     }
   end
 
+  # NOTE need this, since thanks to Elixir's range support (1..0 == [0, 1]), we can't have it in the general clause
+  def new(0, no_receivers, failure_rate) do
+    %__MODULE__{issuers: [], create_token_txs: [], tokens: [],
+                holders_senders: [], issue_txs: [],
+                no_receivers: no_receivers, failure_rate: failure_rate
+    }
+  end
+
   def get_setup(model) do
     model.create_token_txs
     |> Enum.zip(model.issue_txs)
@@ -58,13 +66,14 @@ defmodule HonteD.Performance.Scenario do
     model.holders_senders
   end
 
-  def get_send_txs(model, skip_per_stream \\ 0) do
+  def get_send_txs(model, [skip_per_stream: skip_per_stream]) do
     prepare_send_streams(model.holders_senders,
                          model.tokens,
                          model.no_receivers,
                          model.failure_rate,
                          skip_per_stream)
   end
+  def get_send_txs(model), do: get_send_txs(model, skip_per_stream: 0)
 
   defp prepare_send_streams(holders_senders, tokens, no_receivers, _failure_rate, skip_per_stream) do
     args = Enum.zip(holders_senders, tokens)
