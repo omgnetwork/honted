@@ -34,7 +34,7 @@ defmodule HonteD.Integration.Performance do
   # will submit a stream of transactions to HonteD.API, checking expected result
   defp submit_stream(stream) do
     stream
-    |> Enum.map(fn {expected, tx} ->
+    |> Enum.each(fn {expected, tx} ->
       submit_one(expected, tx)
     end)
   end
@@ -52,7 +52,8 @@ defmodule HonteD.Integration.Performance do
       |> submit_stream
     end)
 
-    for task <- fill_tasks, do: Task.await(task, 100_000)
+    for task <- fill_tasks, do: :ok = Task.await(task, 100_000)
+    :ok
   end
 
   # Runs the actual perf test scenario under tm-bench.
@@ -76,6 +77,7 @@ defmodule HonteD.Integration.Performance do
 
     # cleanup
     for task <- test_tasks, do: nil = Task.shutdown(task, :brutal_kill)
+    :ok
   end
 
   defp wait_for_eep_convert(file_name) do
@@ -132,12 +134,13 @@ defmodule HonteD.Integration.Performance do
         :eep.convert_tracing(file_name |> to_charlist)
         wait_for_eep_convert(file_name)
       :eprof ->
-        profile do
+        _ = ExProf.Macro.profile do
           profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
         end
+        :ok # tu surpress whatever profile macro would return
       :fprof ->
         :fprof.apply(fn ->
-          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
+          :ok = profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
         end, [], [procs: [:all]])
         :fprof.profile()
 

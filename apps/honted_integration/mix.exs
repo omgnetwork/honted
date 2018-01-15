@@ -29,6 +29,8 @@ defmodule HonteD.Integration.Mixfile do
       {:socket, "~> 0.3"},
       {:hackney, "~> 1.7"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
+      {:exprof, "~> 0.2.0"},
+      {:eep, ~r/.*/, github: "virtan/eep", compile: "rebar compile"}, # regex - match any version
       #
       {:honted_lib, in_umbrella: true},
       {:honted_api, in_umbrella: true},

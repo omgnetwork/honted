@@ -30,6 +30,8 @@ defmodule HonteD.Performance.Scenario do
   global ordering of transactions.
   """
   def new(no_senders, no_receivers, failure_rate \\ 0.1)
+
+  def new(no_senders, no_receivers, failure_rate)
   when
   0 <= failure_rate and
   failure_rate < 1 and

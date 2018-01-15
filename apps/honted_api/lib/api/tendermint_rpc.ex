@@ -62,7 +62,7 @@ defmodule HonteD.API.TendermintRPC do
     def recv!(websocket) do
       case Socket.Web.recv!(websocket) do
         {:text, response} -> {:ok, response}
-        {:close, :abnormal, nil}  -> {:error, :socket_closed}
+        {:close, reason, _}  -> {:error, {:socket_closed, reason}}
         {:ping, ""} -> recv!(websocket) # just step over the ping and continue
       end
     end
