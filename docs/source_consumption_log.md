@@ -29,7 +29,6 @@ Identifies each module of pre-existing source code used in developing source cod
   * `mox`, Apache 2.0, https://hex.pm/packages/mox
   * `excoveralls`, MIT, https://hex.pm/packages/excoveralls
   * `exprof`, MIT, https://hex.pm/packages/exprof
-  * `eflame`, ISC, https://github.com/proger/eflame
   * `eep`, MIT, https://github.com/virtan/eep
 * `tendermint`, Apache 2.0, https://github.com/tendermint/tendermint
 

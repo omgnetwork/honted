@@ -79,7 +79,7 @@ defmodule HonteD.Performance.Scenario do
     args = Enum.zip(holders_senders, tokens)
     for {sender, token} <- args do
       transaction_generator = fn(nonce) ->
-        receiver = get_receiver_number(nonce, no_receivers)
+        receiver = current_receiver(nonce, no_receivers)
         {:ok, tx} = create_send([nonce: nonce, asset: token, amount: @normal_amount,
                                  from: sender.addr, to: receiver])
         {{true, signed_tx(tx, sender)}, nonce + 1}
@@ -90,7 +90,7 @@ defmodule HonteD.Performance.Scenario do
     end
   end
 
-  defp get_receiver_number(number, no_receivers) do
+  defp current_receiver(number, no_receivers) do
     number
     |> Integer.mod(no_receivers)
     |> Integer.to_string

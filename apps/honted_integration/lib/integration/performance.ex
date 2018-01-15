@@ -32,13 +32,13 @@ defmodule HonteD.Integration.Performance do
   defp check_result({:error, _}, false), do: :ok
 
   # will submit a stream of transactions to HonteD.API, checking expected result
-  defp submit_stream(stream, opts \\ %{}) do
+  defp submit_stream(stream) do
     stream
     |> Enum.map(fn {expected, tx} ->
-      submit_one(expected, tx, opts)
+      submit_one(expected, tx)
     end)
   end
-  defp submit_one(expected, tx, _) do
+  defp submit_one(expected, tx) do
     tx
     |> HonteD.API.submit_sync()
     |> check_result(expected)
@@ -57,18 +57,18 @@ defmodule HonteD.Integration.Performance do
 
   # Runs the actual perf test scenario under tm-bench.
   # Assumes tm-bench is started. This is the protion of the test that should be measured/profiled etc
-  defp run_performance_test_tasks(txs_source, opts) do
+  defp run_performance_test_tasks(txs_source) do
     # begin test by starting asynchronous transaction senders
     for stream <- txs_source, do: Task.async(fn ->
       stream
-      |> submit_stream(opts)
+      |> submit_stream()
     end)
   end
 
-  defp profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts) do
+  defp profilable_section(txs_source_without_fill_in, tm_bench_proc, duration) do
     test_tasks =
       txs_source_without_fill_in
-      |> run_performance_test_tasks(opts)
+      |> run_performance_test_tasks()
 
     # wait till end of test
     # NOTE: absolutely no clue why we match like that, tm_bench_proc should run here
@@ -89,8 +89,7 @@ defmodule HonteD.Integration.Performance do
    - nstreams: number of streams (processes) sending transactions
    - fill_in: number of transactions to pre-fill the state prior to perfornamce test
    - duration: time to run performance test under tm-bench [seconds]
-   - opts: options. Possibilities: %{bc_mode: nil | :commit}. Set to :commit to use submit_commit
-     instead of submit_sync in load phase of performance test
+   - opts: options
   """
   def run(nstreams, fill_in, duration, opts) do
     profiling = opts[:profiling]
@@ -121,12 +120,12 @@ defmodule HonteD.Integration.Performance do
 
     case profiling do
       nil ->
-        profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+        profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
       :eep ->
         file_name = "eep_out"
         # profiling
         :eep.start_file_tracing(file_name |> to_charlist)
-        profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+        profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
         :eep.stop_tracing()
 
         # conversion to kcachegrind format, need the wait, since eep converts async and provides no way to syncronise
@@ -134,11 +133,11 @@ defmodule HonteD.Integration.Performance do
         wait_for_eep_convert(file_name)
       :eprof ->
         profile do
-          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
         end
       :fprof ->
         :fprof.apply(fn ->
-          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration, opts)
+          profilable_section(txs_source_without_fill_in, tm_bench_proc, duration)
         end, [], [procs: [:all]])
         :fprof.profile()
 
