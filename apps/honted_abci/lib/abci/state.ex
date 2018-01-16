@@ -184,7 +184,7 @@ defmodule HonteD.ABCI.State do
 
   defp apply_epoch_change(state) do
     state
-    |> Map.update!(@epoch_change_key, fn _ -> true end)
+    |> Map.put(@epoch_change_key, true)
     |> Map.update!(@epoch_number_key, &(&1 + 1))
   end
 
@@ -211,7 +211,7 @@ defmodule HonteD.ABCI.State do
   end
 
   def not_change_epoch(state) do
-    Map.update!(state, @epoch_change_key, fn _ -> false end)
+    Map.put(state, @epoch_change_key, false)
   end
 
   def epoch_number(state) do
