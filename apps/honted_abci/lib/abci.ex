@@ -43,9 +43,11 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call(request_end_block(height: _height), _from, abci_app) do
-    diffs = validators_diff(abci_app)
-    abci_app = end_block(abci_app)
-    {:reply, response_end_block(diffs: diffs), abci_app}
+    diffs = validators_diff(abci_app.consensus_state,
+                            abci_app.staking_state,
+                            abci_app.initial_validators)
+    new_consensus_state = end_block(abci_app.consensus_state)
+    {:reply, response_end_block(diffs: diffs), %{abci_app | consensus_state: new_consensus_state}}
   end
 
   def handle_call(request_begin_block(header: header(height: height)), _from, abci_app) do
@@ -134,10 +136,10 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_init_chain(validators: validators), _from, abci_app) do
     initial_validators =
-      Enum.map(
-        validators,
-        fn validator(power: power, pub_key: pub_key) -> %Validator{stake: power, tendermint_address: pub_key} end
-      )
+      for validator(power: power, pub_key: pub_key) <- validators do
+        %Validator{stake: power, tendermint_address: pub_key}
+      end
+
     state = %{abci_app | initial_validators: initial_validators}
     {:reply, response_init_chain(), state}
   end
@@ -148,28 +150,27 @@ defmodule HonteD.ABCI do
 
   ### END GenServer
 
-  defp end_block(abci_app) do
-    if State.epoch_change?(abci_app.local_state) do
-      local_state = State.not_change_epoch(abci_app.local_state)
-      %{abci_app | local_state: local_state}
+  defp end_block(state) do
+    if State.epoch_change?(state) do
+      State.not_change_epoch(state)
     else
-      abci_app
+      state
     end
   end
 
-  defp validators_diff(abci_app) do
-    next_epoch = State.epoch_number(abci_app.local_state)
+  defp validators_diff(state, staking_state, initial_validators) do
+    next_epoch = State.epoch_number(state)
     current_epoch = next_epoch - 1
-    epoch_change = State.epoch_change?(abci_app.local_state)
+    epoch_change = State.epoch_change?(state)
     cond do
       epoch_change and (current_epoch > 0) ->
-        current_epoch_validators = abci_app.staking_state.validators[current_epoch]
-        next_epoch_validators = abci_app.staking_state.validators[next_epoch]
+        current_epoch_validators = staking_state.validators[current_epoch]
+        next_epoch_validators = staking_state.validators[next_epoch]
 
         validators_diff(current_epoch_validators, next_epoch_validators)
       epoch_change ->
-        next_epoch_validators = abci_app.staking_state.validators[next_epoch]
-        validators_diff(abci_app.initial_validators, next_epoch_validators)
+        next_epoch_validators = staking_state.validators[next_epoch]
+        validators_diff(initial_validators, next_epoch_validators)
       true ->
         []
     end

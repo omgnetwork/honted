@@ -7,7 +7,9 @@ defmodule HonteD.ABCI.State do
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
   @epoch_number_key "contract/epoch_number"
-  @epoch_change_key "contract/epoch_change" # indicates that epoch has changed
+  # indicates that epoch change is in progress, is set to true in epoch change transaction
+  # and set to false when state is processed in EndBlock
+  @epoch_change_key "contract/epoch_change"
 
   def initial do
     %{@epoch_number_key => 0, @epoch_change_key => false}
@@ -78,21 +80,11 @@ defmodule HonteD.ABCI.State do
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx},
    %Staking{} = staking_state) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
-         :ok <- validator_block_passed?(state, staking_state),
+         :ok <- Staking.validator_block_passed?(staking_state, state[@epoch_number_key]),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
                    |> apply_epoch_change
                    |> bump_nonce_after(tx)}
-  end
-
-  defp validator_block_passed?(state, staking_state) do
-    validator_block = staking_state.start_block +
-      staking_state.epoch_length * (state[@epoch_number_key] + 1) - staking_state.maturity_margin
-    if (validator_block <= staking_state.ethereum_block_height) do
-      :ok
-    else
-      {:error, :validator_block_has_not_passed}
-    end
   end
 
   defp epoch_valid?(state, epoch_number) do

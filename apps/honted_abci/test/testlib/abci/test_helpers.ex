@@ -82,4 +82,6 @@ defmodule HonteD.ABCI.TestHelpers do
     assert %{state: ^expected_state} = response
     response
   end
+
+  def assert_same_elements(l1, l2), do: assert Enum.sort(l1) == Enum.sort(l2)
 end
