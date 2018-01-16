@@ -81,12 +81,10 @@ defmodule HonteD.API.EventsTest do
       height = 1
       {e1, {:event, receivable}} = event_send(address1(), 0, "asset", height)
       client(fn() ->
-        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {:ok, fid, _} = nsfilter(server, self(), address1())
         send(parent, :ready)
 
-        receivable = %{receivable | source: fid}
-        expected = {:event, receivable}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(receivable, fid)
       end)
       receive do :ready -> :ok end
       notify_woc(server, %HonteD.API.Events.NewBlock{height: height})
@@ -113,9 +111,7 @@ defmodule HonteD.API.EventsTest do
         {:ok, fid, _} = nsfilter(server, self(), address1())
         send(parent, :ready)
 
-        receivable = %{receivable | source: fid}
-        expected = {:event, receivable}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(receivable, fid)
         refute_receive(_, @timeout)
       end)
       receive do :ready -> :ok end
@@ -138,23 +134,12 @@ defmodule HonteD.API.EventsTest do
         {:ok, fid, _} = nsfilter(server, self(), address1())
         send(parent, :ready)
 
-        expected = {:event, %{com1 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{com2 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{com3 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{fin1 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{fin2 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{fin3 | source: fid}}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(com1, fid)
+        assert_received_from_source(com2, fid)
+        assert_received_from_source(com3, fid)
+        assert_received_from_source(fin1, fid)
+        assert_received_from_source(fin2, fid)
+        assert_received_from_source(fin3, fid)
       end)
 
       receive do :ready -> :ok end
@@ -173,27 +158,18 @@ defmodule HonteD.API.EventsTest do
       height = 1
       {e1, {:event, com1} = r1} = event_send(address1(), 0, "asset1", height)
       {e2, {:event, com2} = r2} = event_send(address1(), 0, "asset2", height)
-      {e3, {:event, com3} = r3} = event_send(address1(), 0, "asset3", height)
+      {e3, {:event, com3}} = event_send(address1(), 0, "asset3", height)
       {s1, [{:event, fin1}, {:event, fin2}]} = event_sign_off([r1, r2], height)
 
       client(fn() ->
-        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {:ok, fid, _} = nsfilter(server, self(), address1())
         send(parent, :ready)
 
-        expected = {:event, %{com1 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{com2 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{com3 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{fin1 | source: fid}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{fin2 | source: fid}}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(com1, fid)
+        assert_received_from_source(com2, fid)
+        assert_received_from_source(com3, fid)
+        assert_received_from_source(fin1, fid)
+        assert_received_from_source(fin2, fid)
         refute_receive(_, @timeout)
       end)
 
@@ -219,8 +195,7 @@ defmodule HonteD.API.EventsTest do
         {:ok, fid2, _} = nsfilter(server, self(), address2())
         send(parent, :ready)
 
-        expected = {:event, %{fin1 | source: fid1}}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(fin1, fid1)
 
         not_expected = {:event, %{fin2 | source: fid2}}
         refute_receive(^not_expected, @timeout)
@@ -249,11 +224,8 @@ defmodule HonteD.API.EventsTest do
         {:ok, fid2, _} = nsfilter(server, self(), address2())
         send(parent, :ready)
 
-        expected = {:event, %{fin1 | source: fid1}}
-        assert_receive(^expected, @timeout)
-
-        expected = {:event, %{fin2 | source: fid2}}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(fin1, fid1)
+        assert_received_from_source(fin2, fid2)
       end)
 
       receive do :ready -> :ok end
@@ -275,11 +247,10 @@ defmodule HonteD.API.EventsTest do
       {f1, {:event, fin1}} = event_sign_off_bad_hash(r1, height)
 
       client(fn() ->
-        {:ok, fid, height} = nsfilter(server, self(), address1())
+        {:ok, fid, _} = nsfilter(server, self(), address1())
         send(parent, :ready)
 
-        expected = {:event, %{com1 | source: fid}}
-        assert_receive(^expected, @timeout)
+        assert_received_from_source(com1, fid)
 
         not_expected =  {:event, %{fin1 | source: fid}}
         refute_receive(^not_expected, @timeout)
@@ -342,8 +313,8 @@ defmodule HonteD.API.EventsTest do
       client(fn() ->
         {:ok, fid, _} = nsfilter(server, self(), address1())
         send(parent, :ready)
-        expected = {:event, %{receivable1 | source: fid}}
-        assert_receive(^expected, @timeout)
+
+        assert_received_from_source(receivable1, fid)
         refute_receive(_, @timeout)
       end)
 
@@ -351,8 +322,8 @@ defmodule HonteD.API.EventsTest do
       client(fn() ->
         {:ok, fid, _} = nsfilter(server, self(), address2())
         send(parent, :ready)
-        expected = {:event, %{receivable2 | source: fid}}
-        assert_receive(^expected, @timeout)
+
+        assert_received_from_source(receivable2, fid)
         refute_receive(_, @timeout)
       end)
 
@@ -415,6 +386,11 @@ defmodule HonteD.API.EventsTest do
     test "Filter_id is a binary - drop", %{server: server} do
       assert {:error, _} = drop_filter(server, make_ref())
     end
+  end
+
+  defp assert_received_from_source(message, filter_id) do
+    expected = {:event, %{message | source: filter_id}}
+    assert_receive(^expected, @timeout)
   end
 
 end
