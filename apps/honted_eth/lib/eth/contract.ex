@@ -58,16 +58,11 @@ defmodule HonteD.Eth.Contract do
     {:ok, contract_address}
   end
 
-  # FIXME: parsing of block height is broken ATM (Elixir bitsyntax)
   def block_height do
     {:ok, enc_answer} = eth_block_number()
-    IO.puts("enc #{inspect enc_answer}")
     padded = mb_pad_16(enc_answer)
-    IO.puts("padded #{inspect padded}")
     {:ok, dec} = Base.decode16(padded, case: :lower)
-    IO.puts("decoded #{inspect dec}")
-    <<result :: integer>> = dec
-    result
+    :binary.decode_unsigned(dec)
   end
 
   def read_validators(staking) do
