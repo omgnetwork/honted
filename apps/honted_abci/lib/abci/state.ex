@@ -80,11 +80,24 @@ defmodule HonteD.ABCI.State do
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx},
    %Staking{} = staking_state) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
-         :ok <- Staking.validator_block_passed?(staking_state, state[@epoch_number_key]),
+         :ok <- validator_block_passed?(staking_state, state[@epoch_number_key]),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
                    |> apply_epoch_change
                    |> bump_nonce_after(tx)}
+  end
+
+  def validator_block_passed?(staking, epoch) do
+    # We enumerate epochs starting from 0
+    # Calculating validator block height is based on HonteStaking Ethereum contract
+    # Keep the logic consistent with contract code
+    validator_block =
+      staking.start_block + staking.epoch_length * (epoch + 1) - staking.maturity_margin
+    if validator_block <= staking.ethereum_block_height do
+      :ok
+    else
+      {:error, :validator_block_has_not_passed}
+    end
   end
 
   defp epoch_valid?(state, epoch_number) do
