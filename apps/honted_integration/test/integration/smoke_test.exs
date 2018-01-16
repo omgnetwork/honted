@@ -323,14 +323,21 @@ defmodule HonteD.Integration.SmokeTest do
   @tag fixtures: [:geth, :honted, :tendermint, :apis_caller]
   test "integration with geth, ethereum and staking contract" do
     # epoch zero, new validators are yet to join staking
-    token = Application.get_env(:honted_eth, :token_contract_address)
-    staking = Application.get_env(:honted_eth, :staking_contract_address)
+    {:ok, token, staking} = HonteD.Eth.Contract.deploy_integration(8, 2, 5)
+    Application.put_env(:honted_eth, :token_contract_address, token)
+    Application.put_env(:honted_eth, :staking_contract_address, staking)
     tm = token
-    {:ok, val} = HonteD.Eth.Contract.add_validator(token, staking, tm)
-    IO.puts("done adding validators")
+    # limitation: in integration tests all addresses must be controlled by local geth node
+    {:ok, [alice_addr | _]} = Ethereumex.HttpClient.eth_accounts()
+    amount = 100
+    {:ok, _} = HonteD.Eth.Contract.mint_omg(token, alice_addr, amount)
+    {:ok, _} = HonteD.Eth.Contract.approve(token, alice_addr, staking, amount)
+    {:ok, _} = HonteD.Eth.Contract.deposit(staking, alice_addr, amount)
+    {:ok, _} = HonteD.Eth.Contract.join(staking, alice_addr, tm)
     {:ok, next} = HonteD.Eth.Contract.get_next_epoch_block_number(staking)
-    height = HonteD.Eth.Contract.block_height()
-    IO.puts("successful setup! #{inspect next}, currently #{inspect height}")
+    HonteD.Eth.WaitFor.block_height(next + 1, true, 10_000)
+    vals = HonteD.Eth.Contract.read_validators(staking)
+    assert [%{:epoch => 1, :validators => [{^amount, _, _}]}] = vals
   end
 
 end

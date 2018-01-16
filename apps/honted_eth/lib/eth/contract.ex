@@ -31,31 +31,30 @@ defmodule HonteD.Eth.Contract do
     {:ok, token_address, staking_address}
   end
 
-  def add_validator(token, staking, tm) do
-    {:ok, [addr | _]} = eth_accounts()
-    mint_omg(token, addr, addr, 10 * ether())
-    {:ok, txhash} = contract_join(token, staking, addr, tm, ether())
-    {:ok, {addr, tm, 1.0}}
-  end
-
-  def mint_omg(token, addr, target, amount) do
-    data = ABI.encode("mint(address,uint)", [cleanup(target), amount]) |> Base.encode16
-    {:ok, txhash} = eth_send_transaction(%{from: addr, to: token, data: "0x#{data}"})
-    {:ok, _receipt} = WaitFor.receipt(txhash, 10_000)
-  end
-
-  defp contract_join(token, staking, addr, tm, amount) do
-    IO.puts("approve")
-    data = ABI.encode("approve(address,uint256)", [cleanup(staking), amount]) |> Base.encode16
+  def approve(token, addr, benefactor, amount) do
+    data = ABI.encode("approve(address,uint256)", [cleanup(benefactor), amount]) |> Base.encode16
     {:ok, txhash} = eth_send_transaction(%{from: addr, data: "0x#{data}", to: token})
     {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
-    IO.puts("join")
-    data = ABI.encode("join(address)", [cleanup(tm)]) |> Base.encode16
-    {:ok, txhash} = eth_send_transaction(%{from: addr, to: staking, data: "0x#{data}"})
+  end
+
+  def deposit(staking, addr, amount) do
+    data = ABI.encode("deposit(uint256)", [amount]) |> Base.encode16
+    {:ok, txhash} = eth_send_transaction(%{from: addr, data: "0x#{data}", to: staking})
     {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
-    IO.puts("join done")
-    %{"contractAddress" => contract_address} = receipt
-    {:ok, contract_address}
+  end
+
+  def join(staking, addr, tm) do
+    false = in_maturity_margin?(staking)
+    data = ABI.encode("join(address)", [cleanup(addr)]) |> Base.encode16
+    four_mil = "0x3D0900"
+    {:ok, txhash} = eth_send_transaction(%{from: addr, to: staking, data: "0x#{data}", gas: four_mil})
+    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+  end
+
+  def mint_omg(token, target, amount) do
+    data = ABI.encode("mint(address,uint)", [cleanup(target), amount]) |> Base.encode16
+    {:ok, txhash} = eth_send_transaction(%{from: target, to: token, data: "0x#{data}"})
+    {:ok, _receipt} = WaitFor.receipt(txhash, 10_000)
   end
 
   def block_height do
@@ -66,30 +65,37 @@ defmodule HonteD.Eth.Contract do
   end
 
   def read_validators(staking) do
-    current = get_current_epoch(staking)
-    max_vals = max_number_of_validators(staking)
+    {:ok, current} = get_current_epoch(staking)
+    {:ok, max_vals} = max_number_of_validators(staking)
     for epoch <- 1..current do
       get_while = fn(index, acc) -> wrap_while(acc, get_validator(staking, epoch, index)) end
-      Enum.reduce_while(0..max_vals, [], get_while)
+      %{epoch: epoch, validators: Enum.reduce_while(0..max_vals, [], get_while)}
     end
   end
 
-  # FIXME: check if returned values are not zero
-  defp wrap_while(acc, {:ok, [{_stake, _tm_addr, _eth_addr} = value]}) do
+  defp wrap_while(acc, {:ok, [{0, _tm_addr, _eth_addr}]}) do
+    {:halt, acc}
+  end
+  defp wrap_while(acc, {:ok, [{_, _, _} = value]}) do
     {:cont, [value | acc]}
   end
 
   def get_validator(staking, epoch, index) do
-    data = "getValidator(uint256, uint256)" |> ABI.encode([epoch, index]) |> Base.encode16
-    {:ok, "0x" <> enc_return} = eth_call(%{to: staking, data: "0x#{data}"})
-    decode_answer(enc_return, [{:tuple, [{:uint, 256}, :address, :address]}])
+    return_types = [{:tuple, [{:uint, 256}, :address, :address]}]
+    call_contract(staking, "getValidator(uint256,uint256)", [epoch, index], return_types)
   end
 
   def in_maturity_margin?(staking) do
-    {:ok, current_height} = block_height()
+    current_height = block_height()
     {:ok, next} = get_next_epoch_block_number(staking)
     {:ok, mm} = maturity_margin(staking)
     current_height > (next - mm)
+  end
+
+  def balance_of(token, address) do
+    signature = "balanceOf(address)"
+    {:ok, [value]} = call_contract(token, signature, [cleanup(address)], [{:uint, 256}])
+    {:ok, value}
   end
 
   def get_current_epoch(staking) do
@@ -129,9 +135,9 @@ defmodule HonteD.Eth.Contract do
     {:ok, value}
   end
 
-  def call_contract(staking, signature, args, return_types) do
+  def call_contract(contract, signature, args, return_types) do
     data = signature |> ABI.encode(args) |> Base.encode16
-    {:ok, "0x" <> enc_return} = eth_call(%{to: staking, data: "0x#{data}"})
+    {:ok, "0x" <> enc_return} = eth_call(%{to: contract, data: "0x#{data}"})
     decode_answer(enc_return, return_types)
   end
 
@@ -179,11 +185,9 @@ defmodule HonteD.Eth.Contract do
     "0x" <> hex
   end
 
-  def mb_pad_16(arg = ("0x" <> hex)) do
+  def mb_pad_16("0x" <> hex) do
     len = trunc(bit_size(hex) / 8)
-    IO.puts("len: #{len}")
     evenodd = rem(len, 2)
-    IO.puts("evenodd: #{evenodd}")
     case evenodd do
       0 -> hex
       1 -> "0" <> hex

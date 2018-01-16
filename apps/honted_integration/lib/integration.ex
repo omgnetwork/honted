@@ -19,9 +19,6 @@ defmodule HonteD.Integration do
     Application.ensure_all_started(:porcelain)
     Application.ensure_all_started(:ethereumex)
     {ref, geth_os_pid, _} = HonteD.Eth.Geth.dev_geth()
-    {:ok, token, staking} = HonteD.Eth.Contract.deploy_integration(20, 2, 5)
-    Application.put_env(:honted_eth, :token_contract_address, token)
-    Application.put_env(:honted_eth, :staking_contract_address, staking)
     on_exit = fn() ->
       IO.puts("integration.geth on_exit")
       HonteD.Eth.Geth.geth_stop(ref, geth_os_pid)
