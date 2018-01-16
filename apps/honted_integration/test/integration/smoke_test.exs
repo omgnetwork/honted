@@ -327,6 +327,7 @@ defmodule HonteD.Integration.SmokeTest do
     Application.put_env(:honted_eth, :token_contract_address, token)
     Application.put_env(:honted_eth, :staking_contract_address, staking)
     tm = token
+    assert [] = HonteD.Eth.Contract.read_validators(staking)
     # limitation: in integration tests all addresses must be controlled by local geth node
     {:ok, [alice_addr | _]} = Ethereumex.HttpClient.eth_accounts()
     amount = 100

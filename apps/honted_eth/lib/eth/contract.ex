@@ -14,10 +14,17 @@ defmodule HonteD.Eth.Contract do
   def read_validators(staking) do
     {:ok, current} = get_current_epoch(staking)
     {:ok, max_vals} = max_number_of_validators(staking)
-    for epoch <- 1..current do
+    read_validators(staking, current, max_vals)
+  end
+
+  defp read_validators(staking, current_epoch, max_vals) when current_epoch > 0 do
+    for epoch <- 1..current_epoch do
       get_while = fn(index, acc) -> wrap_while(acc, get_validator(staking, epoch, index)) end
       %{epoch: epoch, validators: Enum.reduce_while(0..max_vals, [], get_while)}
     end
+  end
+  defp read_validators(_staking, _current_epoch, _max_vals) do
+    []
   end
 
   defp wrap_while(acc, {:ok, [{0, _tm_addr, _eth_addr}]}) do
