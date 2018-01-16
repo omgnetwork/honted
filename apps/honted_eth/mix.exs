@@ -32,8 +32,8 @@ defmodule HontedEth.Mixfile do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:abi, "~> 0.1.6"},
-      {:ethereumex, "~> 0.2.0", override: true},
+      {:abi, git: "https://github.com/omisego/abi.git", branch: "fix_types"},
+      {:ethereumex, git: "https://github.com/omisego/ethereumex.git", branch: "fix_spec", override: true},
       {:porcelain, "~> 2.0"},
       {:eth, "~> 0.1.0"} # , only: [:test, :dev]
     ]

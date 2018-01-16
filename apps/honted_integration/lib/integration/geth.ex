@@ -4,9 +4,11 @@ defmodule HonteD.Integration.Geth do
   """
 
   def dev_geth do
+    # FIXME: Warnings produced here are result of Temp+Porcelain.Process being broken
+    # FIXME: Dropping Temp or using Porcelain.Result instead of Process prevents warnings
     Temp.track!
     homedir = Temp.mkdir!(%{prefix: "honted_eth_test_homedir"})
-    res = geth("geth --dev --rpc --datadir " <> homedir <> " 2>&1")
+    res = geth("geth --dev --rpc --datadir #{homedir} 2>&1")
     {:ok, :ready} = HonteD.Eth.WaitFor.rpc()
     res
   end
@@ -48,17 +50,13 @@ defmodule HonteD.Integration.Geth do
     IO.puts("waiting for: #{inspect look_for}")
     # Monitors the stdout coming out of a process for signal of successful startup
     waiting_task_function = fn ->
-      outstream
+      _ = outstream
       |> Stream.take_while(fn line ->
-        res = not String.contains?(line, look_for)
-        IO.puts("found: #{inspect res}; geth prints: #{inspect line}")
-        res
+         not String.contains?(line, look_for)
       end)
       |> Enum.to_list
-      IO.puts("returning from waiting")
       :ok
     end
     waiting_task_function |> Task.async |> Task.await(timeout)
-    IO.puts("returning from wait_for_start")
   end
 end

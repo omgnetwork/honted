@@ -2,12 +2,11 @@ defmodule HonteD.Eth.WaitFor do
   @moduledoc """
   Generic wait_for_* utils, styled after web3 counterparts
   """
-  import Ethereumex.HttpClient
-
+  
   def rpc do
     f = fn() ->
       IO.puts("before eth_syncing")
-      {:ok, false} = eth_syncing()
+      {:ok, false} = Ethereumex.HttpClient.eth_syncing()
       IO.puts("after good eth_syncing")
       {:ok, :ready}
     end
@@ -21,7 +20,7 @@ defmodule HonteD.Eth.WaitFor do
       IO.puts("current height: #{inspect height}; n: #{n}")
       case height < n do
         true ->
-          maybe_mine(dev)
+          _ = maybe_mine(dev)
           :repeat
         false ->
           {:ok, height}
@@ -33,7 +32,7 @@ defmodule HonteD.Eth.WaitFor do
 
   def receipt(txhash, timeout) do
     f = fn() ->
-      case eth_get_transaction_receipt(txhash) do
+      case Ethereumex.HttpClient.eth_get_transaction_receipt(txhash) do
         {:ok, receipt} when receipt != nil -> {:ok, receipt}
         _ -> :repeat
       end
@@ -57,8 +56,9 @@ defmodule HonteD.Eth.WaitFor do
 
   defp maybe_mine(false), do: :noop
   defp maybe_mine(true) do
-    {:ok, [addr | _]} = eth_accounts()
-    {:ok, txhash} = eth_send_transaction(%{from: addr, to: addr, value: "0x1"})
+    {:ok, [addr | _]} = Ethereumex.HttpClient.eth_accounts()
+    txmap = %{from: addr, to: addr, value: "0x1"}
+    {:ok, txhash} = Ethereumex.HttpClient.eth_send_transaction(txmap)
     {:ok, _receipt} = receipt(txhash, 1_000)
   end
 end

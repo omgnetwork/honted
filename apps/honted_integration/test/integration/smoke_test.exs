@@ -338,7 +338,8 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, next} = HonteD.Eth.Contract.get_next_epoch_block_number(staking)
     HonteD.Eth.WaitFor.block_height(next + 1, true, 10_000)
     vals = HonteD.Eth.Contract.read_validators(staking)
-    assert [%{:epoch => 1, :validators => [{^amount, _, _}]}] = vals
+    assert [%{:epoch => 1, :validators => [{^amount, tm_pub, _eth_address}]}] = vals
+    assert bit_size(tm_pub) == 32 * 8
   end
 
 end

@@ -16,8 +16,8 @@ defmodule HonteD.Integration do
   """
   def geth do
     IO.puts("integration.geth()")
-    Application.ensure_all_started(:porcelain)
-    Application.ensure_all_started(:ethereumex)
+    _ = Application.ensure_all_started(:porcelain)
+    _ = Application.ensure_all_started(:ethereumex)
     {ref, geth_os_pid, _} = HonteD.Integration.Geth.dev_geth()
     on_exit = fn() ->
       IO.puts("integration.geth on_exit")

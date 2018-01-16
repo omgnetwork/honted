@@ -2,10 +2,9 @@ defmodule HonteD.Eth.Contract do
   @moduledoc """
   Ask staking contract for validator and epoch information.
   """
-  import Ethereumex.HttpClient
 
   def block_height do
-    {:ok, enc_answer} = eth_block_number()
+    {:ok, enc_answer} = Ethereumex.HttpClient.eth_block_number()
     padded = mb_pad_16(enc_answer)
     {:ok, dec} = Base.decode16(padded, case: :lower)
     :binary.decode_unsigned(dec)
@@ -84,7 +83,8 @@ defmodule HonteD.Eth.Contract do
 
   def call_contract(contract, signature, args, return_types) do
     data = signature |> ABI.encode(args) |> Base.encode16
-    {:ok, "0x" <> enc_return} = eth_call(%{to: contract, data: "0x#{data}"})
+    {:ok, "0x" <> enc_return} =
+      Ethereumex.HttpClient.eth_call(%{to: contract, data: "0x#{data}"})
     decode_answer(enc_return, return_types)
   end
 
