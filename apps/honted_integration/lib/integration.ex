@@ -18,10 +18,10 @@ defmodule HonteD.Integration do
     IO.puts("integration.geth()")
     Application.ensure_all_started(:porcelain)
     Application.ensure_all_started(:ethereumex)
-    {ref, geth_os_pid, _} = HonteD.Eth.Geth.dev_geth()
+    {ref, geth_os_pid, _} = HonteD.Integration.Geth.dev_geth()
     on_exit = fn() ->
       IO.puts("integration.geth on_exit")
-      HonteD.Eth.Geth.geth_stop(ref, geth_os_pid)
+      HonteD.Integration.Geth.geth_stop(ref, geth_os_pid)
     end
     {:ok, on_exit}
   end

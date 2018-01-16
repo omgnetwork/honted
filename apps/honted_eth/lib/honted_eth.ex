@@ -33,7 +33,7 @@ defmodule HonteD.Eth do
   end
 
   def handle_call(_, _from, state) do
-    {:reply, {:ok, state.contract}, state}
+    {:reply, {:error, :unknown_call}, state}
   end
 
   def handle_info(:check_sync_state, state) do
