@@ -46,8 +46,8 @@ defmodule HonteD.ABCI do
     diffs = validators_diff(abci_app.consensus_state,
                             abci_app.staking_state,
                             abci_app.initial_validators)
-    new_consensus_state = end_block(abci_app.consensus_state)
-    {:reply, response_end_block(diffs: diffs), %{abci_app | consensus_state: new_consensus_state}}
+    consensus_state = move_to_next_epoch_if_epoch_changed(abci_app.consensus_state)
+    {:reply, response_end_block(diffs: diffs), %{abci_app | consensus_state: consensus_state}}
   end
 
   def handle_call(request_begin_block(header: header(height: height)), _from, abci_app) do
@@ -150,7 +150,7 @@ defmodule HonteD.ABCI do
 
   ### END GenServer
 
-  defp end_block(state) do
+  defp move_to_next_epoch_if_epoch_changed(state) do
     if State.epoch_change?(state) do
       State.not_change_epoch(state)
     else
