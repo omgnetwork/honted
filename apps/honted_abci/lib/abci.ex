@@ -157,6 +157,11 @@ defmodule HonteD.ABCI do
     {:noreply, %{abci_app | staking_state: contract_state}}
   end
 
+  def handle_cast({:eth_validators, map}, abci_app) do
+    IO.puts("ABCI got validator set: #{inspect map}")
+    {:noreply, abci_app}
+  end
+
   ### END GenServer
 
   defp move_to_next_epoch_if_epoch_changed(state) do

@@ -25,6 +25,7 @@ defmodule HonteD.Eth do
         :ignore
       {true, false} ->
         Process.send_after(self(), :check_sync_state, 1000)
+        Process.send_after(self(), :fetch_validators, 10_000)
         {:ok, %__MODULE__{contract: staking}}
       {true, true} ->
         {:stop, :honted_requires_geth_to_be_synchronized}
@@ -43,6 +44,15 @@ defmodule HonteD.Eth do
       false ->
         {:noreply, %{state | failed: 0}}
     end
+  end
+
+  def handle_info(:fetch_validators, state = %{contract: staking}) do
+    validators = HonteD.Eth.Contract.read_validators(staking)
+    {:ok, epoch} = HonteD.Eth.Contract.get_current_epoch(staking)
+    synced = state.failed < state.max
+    contract_state = %{validators: validators, epoch: epoch, synced: synced}
+    GenServer.cast(HonteD.ABCI, {:eth_validators, contract_state})
+    {:noreply, state}
   end
 
   defp syncing? do
