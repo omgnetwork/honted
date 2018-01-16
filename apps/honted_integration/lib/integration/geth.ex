@@ -16,9 +16,7 @@ defmodule HonteD.Integration.Geth do
     #        Same goes for basic driver.
     # Porcelain.Process.signal(pid, :kill)
     Porcelain.Process.stop(pid)
-    cmd = String.to_charlist("kill -9 #{os_pid}")
-    IO.puts("doing this: #{cmd}")
-    :os.cmd(cmd)
+    Porcelain.shell("kill -9 #{os_pid}")
   end
 
   # PRIVATE
@@ -36,9 +34,8 @@ defmodule HonteD.Integration.Geth do
   end
 
   defp geth_os_pids do
-    'pidof geth'
-    |> :os.cmd
-    |> List.to_string
+    %{out: out} = Porcelain.shell("pidof geth")
+    out
     |> String.trim
     |> String.split
   end
