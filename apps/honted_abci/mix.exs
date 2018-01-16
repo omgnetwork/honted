@@ -38,6 +38,7 @@ defmodule HonteD.ABCI.Mixfile do
       {:poison, "~> 3.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
+      {:honted_eth, in_umbrella: true},
       {:honted_lib, in_umbrella: true},
       {:honted_api, in_umbrella: true},
     ]

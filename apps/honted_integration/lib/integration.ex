@@ -12,16 +12,37 @@ defmodule HonteD.Integration do
   end
 
   @doc """
+  Runs a geth dev chain with very specific set of validators
+  """
+  def geth do
+    IO.puts("integration.geth()")
+    Application.ensure_all_started(:porcelain)
+    Application.ensure_all_started(:ethereumex)
+    {ref, geth_os_pid, _} = HonteD.Eth.Geth.dev_geth()
+    {:ok, token, staking} = HonteD.Eth.Contract.deploy_integration(20, 2, 5)
+    Application.put_env(:honted_eth, :token_contract_address, token)
+    Application.put_env(:honted_eth, :staking_contract_address, staking)
+    on_exit = fn() ->
+      IO.puts("integration.geth on_exit")
+      HonteD.Eth.Geth.geth_stop(ref, geth_os_pid)
+    end
+    {:ok, on_exit}
+  end
+
+  @doc """
   Runs a HonteD ABCI app using Porcelain
   """
   def honted do
+    IO.puts("integration.honted()")
     # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
-    our_apps_to_start = [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
+    our_apps_to_start = [:honted_eth, :honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
     started_apps =
       our_apps_to_start
       |> Enum.map(&Application.ensure_all_started/1)
       |> Enum.flat_map(fn {:ok, app_list} -> app_list end) # check if successfully started here!
+    IO.puts("started_apps order: #{inspect started_apps}")
     {:ok, fn ->
+      IO.puts("integration.honted on_exit")
       started_apps
       |> Enum.map(&Application.stop/1)
     end}
@@ -47,6 +68,7 @@ defmodule HonteD.Integration do
     _ = Task.async(fn -> show_tendermint_logs(tendermint_out) end)
 
     {:ok, fn ->
+      IO.puts("integration.tendermint on_exit")
       Porcelain.Process.stop(tendermint_proc)
     end}
   end

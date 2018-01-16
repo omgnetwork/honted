@@ -6,9 +6,8 @@ defmodule HonteD.ABCI.Application do
   def start(_type, _args) do
     abci_port = Application.get_env(:honted_abci, :abci_port)
     children = [
-      :abci_server.child_spec(HonteD.ABCI, abci_port),
       {HonteD.ABCI, name: HonteD.ABCI},
-      # NOTE placeholder: EthereumTracker somewhere here
+      :abci_server.child_spec(HonteD.ABCI, abci_port),
     ]
 
     opts = [strategy: :one_for_one, name: HonteD.ABCI.Supervisor]
