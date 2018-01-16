@@ -39,13 +39,6 @@ defmodule HonteD.Eth.Contract do
     call_contract(staking, "getValidator(uint256,uint256)", [epoch, index], return_types)
   end
 
-  def in_maturity_margin?(staking) do
-    current_height = block_height()
-    {:ok, next} = get_next_epoch_block_number(staking)
-    {:ok, mm} = maturity_margin(staking)
-    current_height > (next - mm)
-  end
-
   def balance_of(token, address) do
     signature = "balanceOf(address)"
     {:ok, [value]} = call_contract(token, signature, [cleanup(address)], [{:uint, 256}])

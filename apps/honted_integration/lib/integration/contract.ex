@@ -38,7 +38,6 @@ defmodule HonteD.Integration.Contract do
   end
 
   def join(staking, addr, tm) do
-    false = in_maturity_margin?(staking)
     transact("join(address)", [cleanup(tm)], addr, staking)
   end
 
