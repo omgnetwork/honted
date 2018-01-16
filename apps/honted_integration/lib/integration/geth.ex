@@ -58,7 +58,7 @@ defmodule HonteD.Integration.Geth do
       IO.puts("returning from waiting")
       :ok
     end
-    HonteD.Eth.WaitFor.function(waiting_task_function, timeout)
+    waiting_task_function |> Task.async |> Task.await(timeout)
     IO.puts("returning from wait_for_start")
   end
 end

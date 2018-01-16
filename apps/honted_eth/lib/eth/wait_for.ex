@@ -4,14 +4,15 @@ defmodule HonteD.Eth.WaitFor do
   """
   import Ethereumex.HttpClient
 
-  def rpc() do
+  def rpc do
     f = fn() ->
       IO.puts("before eth_syncing")
       {:ok, false} = eth_syncing()
       IO.puts("after good eth_syncing")
       {:ok, :ready}
     end
-    function(fn() -> repeat_until_ok(f) end, 10_000)
+    fn() -> repeat_until_ok(f) end
+    |> Task.async |> Task.await(10_000)
   end
 
   def block_height(n, dev \\ false, timeout \\ 10_000) do
@@ -26,8 +27,8 @@ defmodule HonteD.Eth.WaitFor do
           {:ok, height}
       end
     end
-    rf = fn() -> repeat_until_ok(f) end
-    function(rf, timeout)
+    fn() -> repeat_until_ok(f) end
+    |> Task.async |> Task.await(timeout)
   end
 
   def receipt(txhash, timeout) do
@@ -37,14 +38,8 @@ defmodule HonteD.Eth.WaitFor do
         _ -> :repeat
       end
     end
-    rf = fn() -> repeat_until_ok(f) end
-    function(rf, timeout)
-  end
-
-  def function(f, timeout) do
-    f
-    |> Task.async
-    |> Task.await(timeout)
+    fn() -> repeat_until_ok(f) end
+    |> Task.async |> Task.await(timeout)
   end
 
   def repeat_until_ok(f) do
