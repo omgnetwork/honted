@@ -34,21 +34,21 @@ defmodule HonteD.Eth.Contract do
   def approve(token, addr, benefactor, amount) do
     data = ABI.encode("approve(address,uint256)", [cleanup(benefactor), amount]) |> Base.encode16
     {:ok, txhash} = eth_send_transaction(%{from: addr, data: "0x#{data}", to: token})
-    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+    {:ok, _receipt} = WaitFor.receipt(txhash, 10_000)
   end
 
   def deposit(staking, addr, amount) do
     data = ABI.encode("deposit(uint256)", [amount]) |> Base.encode16
     {:ok, txhash} = eth_send_transaction(%{from: addr, data: "0x#{data}", to: staking})
-    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+    {:ok, _receipt} = WaitFor.receipt(txhash, 10_000)
   end
 
   def join(staking, addr, tm) do
     false = in_maturity_margin?(staking)
-    data = ABI.encode("join(address)", [cleanup(addr)]) |> Base.encode16
+    data = ABI.encode("join(address)", [cleanup(tm)]) |> Base.encode16
     four_mil = "0x3D0900"
     {:ok, txhash} = eth_send_transaction(%{from: addr, to: staking, data: "0x#{data}", gas: four_mil})
-    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+    {:ok, _receipt} = WaitFor.receipt(txhash, 10_000)
   end
 
   def mint_omg(token, target, amount) do

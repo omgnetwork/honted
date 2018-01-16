@@ -51,10 +51,10 @@ defmodule HonteD.Eth.WaitFor do
     try do
       {:ok, _} = f.()
     catch
-      something ->
+      _something ->
         Process.sleep(100)
         repeat_until_ok(f)
-      :error, {:badmatch, _} = error ->
+      :error, {:badmatch, _} = _error ->
         Process.sleep(100)
         repeat_until_ok(f)
     end
@@ -64,6 +64,6 @@ defmodule HonteD.Eth.WaitFor do
   defp maybe_mine(true) do
     {:ok, [addr | _]} = eth_accounts()
     {:ok, txhash} = eth_send_transaction(%{from: addr, to: addr, value: "0x1"})
-    {:ok, receipt} = receipt(txhash, 1_000)
+    {:ok, _receipt} = receipt(txhash, 1_000)
   end
 end
