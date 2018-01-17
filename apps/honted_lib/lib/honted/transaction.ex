@@ -69,6 +69,17 @@ defmodule HonteD.Transaction do
     }
   end
 
+  defmodule EpochChange do
+    @moduledoc false
+    defstruct [:nonce, :sender, :epoch_number]
+
+    @type t :: %EpochChange{
+      nonce: HonteD.nonce,
+      sender: HonteD.address,
+      epoch_number: HonteD.epoch_number
+    }
+  end
+
   defmodule SignedTx do
     @moduledoc false
     defstruct [:raw_tx, :signature]
@@ -79,7 +90,7 @@ defmodule HonteD.Transaction do
     }
   end
 
-  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t
+  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t | EpochChange.t
 
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
@@ -186,6 +197,23 @@ defmodule HonteD.Transaction do
        is_binary(privilege) and
        is_boolean(allow) do
     create_encoded(Allow, args)
+  end
+
+  @doc """
+  Creates an Epoch Change transaction, ensures state-less validity and encodes
+  """
+  @spec create_epoch_change([nonce: HonteD.nonce,
+                            sender: HonteD.address,
+                            epoch_number: HonteD.epoch_number]) ::
+    {:ok, EpochChange.t} | {:error, atom}
+  def create_epoch_change([nonce: nonce,
+                    sender: sender,
+                    epoch_number: epoch_number] = args)
+  when is_integer(nonce) and
+       is_binary(sender) and
+       is_integer(epoch_number) and
+       epoch_number > 0 do
+    create_encoded(EpochChange, args)
   end
 
   defp create_encoded(type, args) do

@@ -578,4 +578,70 @@ defmodule HonteD.ABCI.StateTest do
       |> sign(issuer.priv) |> check_tx(state) |> fail?(1, 'unknown_privilege') |> same?(state)
     end
   end
+
+  describe "well formedness of epoch change transactions" do
+    @tag fixtures: [:alice, :empty_state]
+    test "checking epoch change transactions", %{empty_state: state, alice: alice} do
+      #correct
+      create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+      |> sign(alice.priv) |> check_tx(state) |> success?
+
+      #malformed
+      sign("0 EPOCH_CHANGE #{alice.addr} -1", alice.priv)
+      |> check_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+      sign("0 EPOCH_CHANGE #{alice.addr} 1.5", alice.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+      sign("0 EPOCH_CHANGE #{alice.addr} one", alice.priv)
+      |> check_tx(state) |> fail?(1, 'malformed_numbers') |> same?(state)
+    end
+  end
+
+  describe "deliver epoch change transaction," do
+    @tag fixtures: [:alice, :empty_state]
+    test "apply epoch change transaction", %{empty_state: state, alice: alice} do
+      %{state: state} =
+        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+        |> sign(alice.priv) |> deliver_tx(state) |> success?
+
+      query(state, "/contract/epoch_change") |> found?(true)
+      query(state, "/contract/epoch_number") |> found?(1)
+    end
+  end
+
+  describe "check epoch change transaction," do
+    @tag fixtures: [:alice, :empty_state]
+    test "initialize state with no epoch change and epoch number 0", %{empty_state: state} do
+      query(state, "/contract/epoch_change") |> found?(false)
+      query(state, "/contract/epoch_number") |> found?(0)
+    end
+
+    @tag fixtures: [:alice, :empty_state]
+    test "do not apply the same epoch change transaction twice", %{empty_state: state, alice: alice} do
+      %{state: state} =
+        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+        |> sign(alice.priv) |> check_tx(state) |> success?
+
+      create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 1)
+       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_epoch_change')
+    end
+
+    @tag fixtures: [:alice, :empty_state]
+    test "allow for one epoch change transaction in a block", %{empty_state: state, alice: alice} do
+      %{state: state} =
+        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+        |> sign(alice.priv) |> check_tx(state) |> success?
+
+      create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
+      |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'invalid_epoch_change')
+    end
+
+    @tag fixtures: [:alice, :state_no_epoch_change]
+    test "do not apply epoch change when validator block has not passed",
+     %{state_no_epoch_change: state, alice: alice} do
+       create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+       |> sign(alice.priv) |> check_tx(state) |> fail?(1, 'validator_block_has_not_passed')
+       |> same?(state)
+    end
+  end
+
 end

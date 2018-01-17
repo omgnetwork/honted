@@ -21,7 +21,9 @@ defmodule HonteD.ABCI.TestHelpers do
   end
 
   def deliver_tx(signed_tx, state), do: do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
+
   def check_tx(signed_tx, state), do: do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
+
   def do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
     do_tx(request_atom, response_atom, signed_tx, state)
   end
@@ -79,5 +81,15 @@ defmodule HonteD.ABCI.TestHelpers do
   def same?(response, expected_state) do
     assert %{state: ^expected_state} = response
     response
+  end
+
+  def assert_same_elements(l1, l2), do: assert Enum.sort(l1) == Enum.sort(l2)
+
+  def tm_address(number) when is_integer(number) and number < 10  and number > -1 do
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA#{number}"
+  end
+
+  def pub_key(number) do
+    <<1>> <> Base.decode16!(tm_address(number))
   end
 end
