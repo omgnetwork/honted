@@ -38,9 +38,8 @@ defmodule HonteD.Integration.Contract do
   def join(staking, addr, tm_pubkey) when bit_size(tm_pubkey) == 256 do
     transact("join(bytes32)", [tm_pubkey], addr, staking)
   end
-  def join(staking, addr, tm_pubkey) when bit_size(tm_pubkey) == 528 do
-    <<1>> <> raw_tm_pubkey = tm_pubkey |> Base.decode16!
-    join(staking, addr, raw_tm_pubkey)
+  def join(staking, addr, tm_pubkey) when bit_size(tm_pubkey) == 512 do
+    join(staking, addr, tm_pubkey |> Base.decode16!)
   end
 
   def mint_omg(token, target, amount) do

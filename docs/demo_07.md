@@ -43,6 +43,16 @@
 
 # v PREPARATIONS v
 
+# in a separate shell deploy the contracts
+# iex -S mix run -no-start
+{:ok, token, staking} = HonteD.Integration.Contract.deploy_dev(30, 10, 1)
+
+# grab the addresses and configure both nodes with staking contract address
+#         config :honted_eth,
+#          staking_contract_address: ...
+#         config :honted_eth,
+#          enabled: true
+
 alias HonteD.{Crypto, API, Integration, Eth}
 
 {:ok, alice_priv} = Crypto.generate_private_key; {:ok, alice_pub} = Crypto.generate_public_key alice_priv
@@ -50,10 +60,8 @@ alias HonteD.{Crypto, API, Integration, Eth}
 
 # geth --dev --rpc
 # elsewhere
+{:ok, token, staking} =
 
-{:ok, token, staking} = Integration.Contract.deploy_dev(100, 10, 1)
-Application.put_env(:honted_eth, :token_contract_address, token)
-Application.put_env(:honted_eth, :staking_contract_address, staking)
 
 
 {:ok, [alice_ethereum_address | _]} = Ethereumex.HttpClient.eth_accounts()
@@ -71,7 +79,7 @@ Application.put_env(:honted_eth, :staking_contract_address, staking)
 # next do steps to change that to the other validator as follows:
 
 # get the validator pubkey from the priv_validator.json in ~/.tendermint2
-new_validator_pubkey = :todo
+new_validator_pubkey =
 
 {:ok, _} = Integration.Contract.approve(token, alice_ethereum_address, staking, 100)
 {:ok, _} = Integration.Contract.deposit(staking, alice_ethereum_address, 100)
