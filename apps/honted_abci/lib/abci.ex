@@ -25,21 +25,17 @@ defmodule HonteD.ABCI do
             ]
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, :ok, opts)
+    {:ok, staking_state} = HonteD.Eth.contract_state()
+    GenServer.start_link(__MODULE__, [staking_state], opts)
   end
 
   def handle_request(request) do
     GenServer.call(__MODULE__, request)
   end
 
-  def init(:ok, staking_state) do
+  def init([staking_state]) do
     abci_app = %{%__MODULE__{} | staking_state: staking_state}
     {:ok, abci_app}
-  end
-
-  # FIXME: double check if right - we absolutely need to override the default `init` - possibly with an error
-  def init(:ok) do
-    init(:ok, nil)
   end
 
   def handle_call(request_info(version: _), _from, %HonteD.ABCI{} = abci_app) do
