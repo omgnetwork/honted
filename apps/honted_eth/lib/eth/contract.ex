@@ -17,10 +17,11 @@ defmodule HonteD.Eth.Contract do
   end
 
   defp read_validators(staking, current_epoch, max_vals) when current_epoch > 0 do
-    for epoch <- 1..current_epoch do
+    kv = for epoch <- 1..current_epoch do
       get_while = fn(index, acc) -> wrap_while(acc, get_validator(staking, epoch, index)) end
-      %{epoch: epoch, validators: Enum.reduce_while(0..max_vals, [], get_while)}
+      {epoch, Enum.reduce_while(0..max_vals, [], get_while)}
     end
+    Map.new(kv)
   end
   defp read_validators(_staking, _current_epoch, _max_vals) do
     []
@@ -29,8 +30,8 @@ defmodule HonteD.Eth.Contract do
   defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = _value]}) do
     {:halt, acc}
   end
-  defp wrap_while(acc, {:ok, [{_, _, _} = value]}) do
-    {:cont, [value | acc]}
+  defp wrap_while(acc, {:ok, [{stake, tm_pubkey, _} = value]}) do
+    {:cont, [%HonteD.Validator{:stake => stake, :tendermint_address => tm_pubkey} | acc]}
   end
 
   def get_validator(staking, epoch, index) do
