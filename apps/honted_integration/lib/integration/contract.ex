@@ -35,9 +35,12 @@ defmodule HonteD.Integration.Contract do
     transact("deposit(uint256)", [amount], addr, staking)
   end
 
-  def join(staking, addr, tm_pubkey) do
-    # This is not uint256, this is bytes32; identical from PoV of Ethereum's JSONRPC
+  def join(staking, addr, tm_pubkey) when bit_size(tm_pubkey) == 256 do
     transact("join(bytes32)", [tm_pubkey], addr, staking)
+  end
+  def join(staking, addr, tm_pubkey) when bit_size(tm_pubkey) == 528 do
+    <<1>> <> raw_tm_pubkey = tm_pubkey |> Base.decode16!
+    join(staking, addr, raw_tm_pubkey)
   end
 
   def mint_omg(token, target, amount) do
