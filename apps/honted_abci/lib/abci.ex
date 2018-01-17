@@ -159,8 +159,6 @@ defmodule HonteD.ABCI do
 
   ### END GenServer
 
-  defp encode_pub_key(<<1>> <> pub_key), do: Base.encode16(pub_key)
-
   defp move_to_next_epoch_if_epoch_changed(state) do
     if State.epoch_change?(state) do
       State.not_change_epoch(state)
@@ -211,6 +209,8 @@ defmodule HonteD.ABCI do
   end
 
   defp decode_pub_key(pub_key), do: <<1>> <> Base.decode16!(pub_key)
+
+  defp encode_pub_key(<<1>> <> pub_key), do: Base.encode16(pub_key)
 
   defp encode_query_response(object) do
     object
