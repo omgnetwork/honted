@@ -4,6 +4,7 @@ import sys
 from ethereum import utils
 from ethereum.tester import TransactionFailed
 import pytest
+import web3
 from populus.wait import Wait
 
 from omg_contract_codes import OMGTOKEN_CONTRACT_ABI, OMGTOKEN_CONTRACT_BYTECODE
@@ -75,11 +76,16 @@ def get_validators(staking, epoch):
     result = []
     for i in range(0, sys.maxsize**10):
         validator = staking.call().getValidator(epoch, i)
+        # NOTE: if anyone knows an easier way, please come forth
+        validator[1] = web3.Web3.toBytes(hexstr=web3.Web3.fromUtf8(validator[1]))
         owner = validator[2]
         if owner == ZERO_ADDRESS:
             break
         result.append(tuple(validator))
     return result
+
+def to_tm_pubkey(address):
+    return web3.Web3.toBytes(hexstr=(address + "AAAAAAAAAAAAAAAAAAAAAAAA"))
 
 
 @pytest.fixture()
@@ -138,16 +144,16 @@ def do(chain, token, staking):
             assert receipt['gasUsed'] <= 30000
 
         # successful join
-        def join(self, address, tendermint_address=None):
-            if tendermint_address is None:
-                tendermint_address = address
+        def join(self, address, tendermint_pubkey=None):
+            if tendermint_pubkey is None:
+                tendermint_pubkey = to_tm_pubkey(address)
 
             join_filter = staking.on('Join')
             join_filter.get()  # flush
 
             next_epoch = staking.call().getCurrentEpoch() + 1
             receipt = chain.wait.for_receipt(
-                staking.transact({'from': address}).join(tendermint_address))
+                staking.transact({'from': address}).join(tendermint_pubkey))
 
             join_events = join_filter.get()
             assert len(join_events) == 1
@@ -155,7 +161,7 @@ def do(chain, token, staking):
             assert join_events[0]['args']['epoch'] == next_epoch
 
             assert address in [validator[2] for validator in get_validators(staking, next_epoch)]
-            assert tendermint_address in [validator[1] for validator in get_validators(staking, next_epoch)]
+            assert tendermint_pubkey in [validator[1] for validator in get_validators(staking, next_epoch)]
             assert staking.call().deposits(address, 0) == 0  # sucked in all the fresh deposit
             withdraw_epoch = next_epoch + 1 + staking.call().unbondingPeriod()
 
@@ -248,7 +254,7 @@ def test_cant_join_outside_join_window(do, chain, staking, accounts):
     for margin_block in range(maturity_margin):
         jump_to_block(chain, start_block + epoch_length - maturity_margin + margin_block)
         with pytest.raises(TransactionFailed):
-            staking.transact({'from': address}).join(address)
+            staking.transact({'from': address}).join(to_tm_pubkey(address))
     # can join right after, but for _next epoch_
     jump_to_block(chain, start_block + epoch_length + 1)
     do.join(address)
@@ -284,7 +290,7 @@ def test_ejects_smallest_validators(do, chain, staking, token, accounts):
     validators_addresses = [validator[2] for validator in validators]  # just the addresses
     assert len(validators) == max_validators
     assert smallest_validator not in validators_addresses
-    assert (new_amount, new_validator, new_validator) in validators
+    assert (new_amount, to_tm_pubkey(new_validator), new_validator) in validators
 
 def test_cant_enter_if_too_small_to_eject(do, staking, token, accounts):
     max_validators = staking.call().maxNumberOfValidators()
@@ -299,7 +305,7 @@ def test_cant_enter_if_too_small_to_eject(do, staking, token, accounts):
     small_amount = utils.denoms.wei
     do.deposit(small_validator, small_amount)
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': small_validator}).join(small_validator)
+        staking.transact({'from': small_validator}).join(to_tm_pubkey(small_validator))
 
 def test_deposits_accumulate_for_join(chain, do, staking, token, accounts):
     validator = accounts[1]
@@ -340,7 +346,7 @@ def test_can_lookup_validators_from_the_past(do, lots_of_staking_past, chain, st
         assert len(validators) == staking.call().maxNumberOfValidators()
         for idx, validator in enumerate(validators):
             assert validator[0] == MEDIUM_AMOUNT * (epoch + 1)
-            assert validator[1] == accounts[idx]
+            assert validator[1] == to_tm_pubkey(accounts[idx])
             assert validator[2] == accounts[idx]
 
 def test_join_does_continue_in_validating_epoch(do, chain, staking, accounts):
@@ -360,8 +366,8 @@ def test_can_bump_stake_in_continuing(do, chain, staking, accounts):
     do.deposit(validator, SMALL_AMOUNT)
     do.join(validator)
 
-    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, validator, validator)]
-    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT + SMALL_AMOUNT, validator, validator)]
+    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, to_tm_pubkey(validator), validator)]
+    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT + SMALL_AMOUNT, to_tm_pubkey(validator), validator)]
 
 def test_cant_continue_in_unbonding_epoch(do, chain, staking, accounts):
     validator = accounts[0]
@@ -371,7 +377,7 @@ def test_cant_continue_in_unbonding_epoch(do, chain, staking, accounts):
     for block in range(staking.call().unbondingPeriod() * staking.call().epochLength()):
         jump_to_block(chain, bonding_start + block)
         with pytest.raises(TransactionFailed):
-            staking.transact({'from': validator}).join(validator)
+            staking.transact({'from': validator}).join(to_tm_pubkey(validator))
 
 def test_can_withdraw_after_successful_continuation(do, chain, staking, accounts):
     validator = accounts[0]
@@ -395,30 +401,30 @@ def test_sequential_ejects_on_continuation(do, chain, staking, accounts):
     validator1, validator2 = accounts[1:3]
     do.deposit(validator1, MEDIUM_AMOUNT)
     do.join(validator1)
-    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, validator1, validator1)]
+    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, to_tm_pubkey(validator1), validator1)]
 
     # 1 continues to epoch 2
     jump_to_block(chain, staking.call().getNextEpochBlockNumber())
     do.join(validator1)
 
-    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT, validator1, validator1)]
+    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT, to_tm_pubkey(validator1), validator1)]
 
     # 2 ejects 1
     do.deposit(validator2, 2 * MEDIUM_AMOUNT)
     do.join(validator2)
-    assert get_validators(staking, 2) == [(2 * MEDIUM_AMOUNT, validator2, validator2)]
+    assert get_validators(staking, 2) == [(2 * MEDIUM_AMOUNT, to_tm_pubkey(validator2), validator2)]
 
     # 1 ejects 2 back with joint force of 3 * MEDIUM_AMOUNT
     do.deposit(validator1, 2 * MEDIUM_AMOUNT)
     do.join(validator1)
 
-    assert get_validators(staking, 2) == [(3 * MEDIUM_AMOUNT, validator1, validator1)]
+    assert get_validators(staking, 2) == [(3 * MEDIUM_AMOUNT, to_tm_pubkey(validator1), validator1)]
 
     # 2 ejects 1 again with 4 * MEDIUM_AMOUNT
     do.deposit(validator2, 2 * MEDIUM_AMOUNT)
     do.join(validator2)
 
-    assert get_validators(staking, 2) == [(4 * MEDIUM_AMOUNT, validator2, validator2)]
+    assert get_validators(staking, 2) == [(4 * MEDIUM_AMOUNT, to_tm_pubkey(validator2), validator2)]
 
     # withdraws as they're supposed to be - 1 withdraws 3 * MEDIUM_AMOUNT first, then 2 withdraws his stake:
     withdraw_epoch1 = staking.call().getCurrentEpoch() + staking.call().unbondingPeriod() + 1
@@ -448,7 +454,7 @@ def test_can_withdraw_after_ejected_in_non_continuation(do, chain, staking, acco
     # 2 ejects 1
     do.deposit(validator2, 2 * MEDIUM_AMOUNT)
     do.join(validator2)
-    assert get_validators(staking, 1) == [(2 * MEDIUM_AMOUNT, validator2, validator2)]
+    assert get_validators(staking, 1) == [(2 * MEDIUM_AMOUNT, to_tm_pubkey(validator2), validator2)]
 
     # 1 can withdraw immediately
     do.withdraw(validator1, expected_sum=MEDIUM_AMOUNT)
@@ -464,7 +470,7 @@ def test_correct_duplicate_join_of_a_single_validator(do, chain, staking, accoun
     # no duplicates
     assert len(validators) == 1
     # accumulated stake
-    assert validators == [(3 * MEDIUM_AMOUNT, validator, validator)]
+    assert validators == [(3 * MEDIUM_AMOUNT, to_tm_pubkey(validator), validator)]
 
 @pytest.mark.parametrize("epoch_length,maturity_margin,max_validators", [
     (40, 5, 2),
@@ -482,18 +488,18 @@ def test_late_comming_validator_ejects_by_continuing(do, chain, staking, account
     do.deposit(validator3, MEDIUM_AMOUNT)
     do.join(validator1)
     do.join(validator3)
-    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT, validator1, validator1),
-                                          (MEDIUM_AMOUNT, validator3, validator3)]
+    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT, to_tm_pubkey(validator1), validator1),
+                                          (MEDIUM_AMOUNT, to_tm_pubkey(validator3), validator3)]
 
     # 2 ejects by continueing
     do.deposit(validator2, SMALL_AMOUNT)
     do.join(validator2)
-    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT + SMALL_AMOUNT, validator2, validator2),
-                                          (MEDIUM_AMOUNT, validator3, validator3)]
+    assert get_validators(staking, 2) == [(MEDIUM_AMOUNT + SMALL_AMOUNT, to_tm_pubkey(validator2), validator2),
+                                          (MEDIUM_AMOUNT, to_tm_pubkey(validator3), validator3)]
 
     # sanity check: epoch 1 unaffected still
-    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, validator1, validator1),
-                                          (MEDIUM_AMOUNT, validator2, validator2)]
+    assert get_validators(staking, 1) == [(MEDIUM_AMOUNT, to_tm_pubkey(validator1), validator1),
+                                          (MEDIUM_AMOUNT, to_tm_pubkey(validator2), validator2)]
 
 @pytest.mark.parametrize("epoch_length,maturity_margin,max_validators", [
     (40, 5, 2),
@@ -507,17 +513,18 @@ def test_cant_eject_with_equal_deposit(do, chain, staking, accounts):
     do.join(validator2)
     do.deposit(validator3, MEDIUM_AMOUNT)
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': validator3}).join(validator3)
+        staking.transact({'from': validator3}).join(to_tm_pubkey(validator3))
 
-def test_cant_join_with_bad_tendermint_address(do, chain, staking, accounts):
+def test_cant_join_with_bad_tendermint_pubkey(do, chain, staking, accounts):
     validator = accounts[1]
     do.deposit(validator, SMALL_AMOUNT)
+    zero_tm_pubkey = web3.Web3.toBytes(hexstr="0x0000000000000000000000000000000000000000000000000000000000000000")
 
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': validator}).join(ZERO_ADDRESS)
+        staking.transact({'from': validator}).join(zero_tm_pubkey)
 
     # sanity - correct staking works
-    do.join(validator, tendermint_address=validator)
+    do.join(validator, tendermint_pubkey=to_tm_pubkey(validator))
 
 @pytest.mark.parametrize("epoch_length,maturity_margin,max_validators", [
     (20, 1, 1),
@@ -554,7 +561,7 @@ def test_no_ejection_event_without_ejection(do, chain, staking, accounts):
 def test_cant_join_with_zero_stake(do, chain, staking, accounts):
     validator = accounts[1]
     with pytest.raises(TransactionFailed):
-        staking.transact({'from': validator}).join(validator)
+        staking.transact({'from': validator}).join(to_tm_pubkey(validator))
 
 @pytest.mark.slow()
 @pytest.mark.parametrize("epoch_length,maturity_margin,max_validators", [
