@@ -26,12 +26,10 @@ defmodule HonteD.Eth.Contract do
     []
   end
 
-  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = value]}) do
-    IO.puts("zero value: #{inspect value}")
+  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = _value]}) do
     {:halt, acc}
   end
   defp wrap_while(acc, {:ok, [{_, _, _} = value]}) do
-    IO.puts("value: #{inspect value}")
     {:cont, [value | acc]}
   end
 

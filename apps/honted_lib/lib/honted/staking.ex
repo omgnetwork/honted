@@ -7,7 +7,7 @@ defmodule HonteD.Staking do
              :epoch_length,
              :maturity_margin,
              :validators,
-             :synced
+             :synced,
             ]
 
 end
