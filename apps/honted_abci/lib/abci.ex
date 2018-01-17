@@ -37,6 +37,11 @@ defmodule HonteD.ABCI do
     {:ok, abci_app}
   end
 
+  # FIXME: double check if right - we absolutely need to override the default `init` - possibly with an error
+  def init(:ok) do
+    init(:ok, nil)
+  end
+
   def handle_call(request_info(version: _), _from, %HonteD.ABCI{} = abci_app) do
     reply = response_info(last_block_height: 0)
     {:reply, reply, abci_app}
@@ -148,7 +153,7 @@ defmodule HonteD.ABCI do
     {:reply, response_init_chain(), state}
   end
 
-  def handle_cast({:set_staking_state, %Staking{} = contract_state}, _from, %HonteD.ABCI{} = abci_app) do
+  def handle_cast({:set_staking_state, %Staking{} = contract_state}, %HonteD.ABCI{} = abci_app) do
     {:noreply, %{abci_app | staking_state: contract_state}}
   end
 

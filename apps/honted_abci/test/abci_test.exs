@@ -138,7 +138,7 @@ defmodule HonteD.ABCITest do
       state_with_inital_validators = %{state | initial_validators: initial_validators}
       {:noreply, state} =
         HonteD.ABCI.handle_cast({:set_staking_state, staking_state_with_validators},
-          self(), state_with_inital_validators)
+          state_with_inital_validators)
       state
     end
 

@@ -80,7 +80,7 @@ defmodule HonteD.ABCI.Fixtures do
   deffixture state_no_epoch_change(empty_state, staking_state) do
     staking_state_no_epoch_change = %{staking_state | ethereum_block_height: 0}
     {:noreply, state} =
-      HonteD.ABCI.handle_cast({:set_staking_state, staking_state_no_epoch_change}, self(), empty_state)
+      HonteD.ABCI.handle_cast({:set_staking_state, staking_state_no_epoch_change}, empty_state)
     state
   end
 
