@@ -37,21 +37,28 @@
                 --home ~/.tendermint2 \
                 --log_level "*:info"   #* <- this hash-asterisk is to fix an issue with markdown rendering
 
-7. in first of the `iex`es:
+7. in the second of the `iex`es:
 
 ```elixir
 
 # v PREPARATIONS v
 
-import HonteD
+alias HonteD.{Crypto, API, Integration, Eth}
 
 {:ok, alice_priv} = Crypto.generate_private_key; {:ok, alice_pub} = Crypto.generate_public_key alice_priv
 {:ok, alice} = Crypto.generate_address alice_pub
 
-{:ok, token_address, staking_address} = Eth.Contract.deploy_dev(100, 10, 1)
+# geth --dev --rpc
+# elsewhere
 
-alice_ethereum_address = :todo
-Eth.Contract.mint_omg(token_address, alice_ethereum_address, 100)
+{:ok, token, staking} = Integration.Contract.deploy_dev(100, 10, 1)
+Application.put_env(:honted_eth, :token_contract_address, token)
+Application.put_env(:honted_eth, :staking_contract_address, staking)
+
+
+{:ok, [alice_ethereum_address | _]} = Ethereumex.HttpClient.eth_accounts()
+
+{:ok, _} = Integration.Contract.mint_omg(token, alice_ethereum_address, 100)
 
 # v DEMO START HERE v
 
@@ -66,14 +73,18 @@ Eth.Contract.mint_omg(token_address, alice_ethereum_address, 100)
 # get the validator pubkey from the priv_validator.json in ~/.tendermint2
 new_validator_pubkey = :todo
 
-Eth.Contract.approve(token_address, staking_address, 100)
-Eth.Contract.deposit(staking_address, 100)
-Eth.Contract.join(staking_address, new_validator_pubkey)
+{:ok, _} = Integration.Contract.approve(token, alice_ethereum_address, staking, 100)
+{:ok, _} = Integration.Contract.deposit(staking, alice_ethereum_address, 100)
+{:ok, _} = Integration.Contract.join(staking, alice_ethereum_address, new_validator_pubkey)
+
+{:ok, next} = Eth.Contract.get_next_epoch_block_number(staking)
+Eth.WaitFor.block_height(next + 1, true, 10_000)
+
 
 # NOTE: here one should probably double check, if one made it within the join-eject window for epoch 1
 
-{:ok, raw_tx} = create_epoch_change_transaction(alice, 1); {:ok, signature} = sign(raw_tx, alice_priv)
-{:ok, _} = submit_commit raw_tx <> " " <> signature
+{:ok, raw_tx} = API.create_epoch_change_transaction(alice, 1); {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
+{:ok, _} = API.submit_commit raw_tx <> " " <> signature
 
 # see in the logs that the validator has changed to one from ~/.tendermint2/priv_validator.json, as above
 
