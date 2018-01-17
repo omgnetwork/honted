@@ -7,7 +7,15 @@
         cp -r ~/.tendermint1 ~/.tendermint2
         tendermint gen_validator > ~/.tendermint2/priv_validator.json
 
+        cp config/config.exs config/config1.exs
         cp config/config.exs config/config2.exs
+2. Run and keep running somewhere
+        geth --dev --rpc
+
+2. in a separate shell deploy the contracts (shell: `iex -S mix run -no-start`) then leave `iex`
+        {:ok, token, staking} = HonteD.Integration.Contract.deploy_dev(30, 10, 1)
+3. Do the following and run some commands:
+
         # modify config/config2.exs according to ports below, by adding
         #
         config :honted_abci,
@@ -21,7 +29,16 @@
         #
         # at the bottom
 
-        iex -S mix
+        # modify both config/config2.exs and config/config1.exs with the staking contract address and flag
+        #
+        config :honted_eth,
+        staking_contract_address:
+        config :honted_eth,
+        enabled: true
+        #
+        # at the bottom
+
+        iex -S mix run --config config/config1.exs
 
         # elsewhere
         tendermint node --home ~/.tendermint1
@@ -41,25 +58,11 @@
 
 ```elixir
 
-# v PREPARATIONS v
-
-# in a separate shell deploy the contracts
-# iex -S mix run -no-start
-{:ok, token, staking} = HonteD.Integration.Contract.deploy_dev(30, 10, 1)
-
-# grab the addresses and configure both nodes with staking contract address
-#         config :honted_eth,
-#          staking_contract_address: ...
-#         config :honted_eth,
-#          enabled: true
-
 alias HonteD.{Crypto, API, Integration, Eth}
 
 {:ok, alice_priv} = Crypto.generate_private_key; {:ok, alice_pub} = Crypto.generate_public_key alice_priv
 {:ok, alice} = Crypto.generate_address alice_pub
 
-# geth --dev --rpc
-# elsewhere
 {:ok, token, staking} =
 
 
@@ -96,4 +99,5 @@ Eth.WaitFor.block_height(next + 1, true, 10_000)
 
 # see in the logs that the validator has changed to one from ~/.tendermint2/priv_validator.json, as above
 
+# ALICE is validating now, and BOB observes that!
 ```
