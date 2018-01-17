@@ -145,8 +145,9 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_init_chain(validators: validators), _from, %HonteD.ABCI{} = abci_app) do
     initial_validators =
-      for validator(power: power, pub_key: pub_key) <- validators do
-        %Validator{stake: power, tendermint_address: pub_key}
+      # FIXME: proper encoding here as well
+      for validator(power: power, pub_key: <<1>> <> pub_key) <- validators do
+        %Validator{stake: power, tendermint_address: Base.encode16(pub_key)}
       end
 
     state = %{abci_app | initial_validators: initial_validators}
@@ -177,9 +178,13 @@ defmodule HonteD.ABCI do
         next_epoch_validators = staking_state.validators[next_epoch]
 
         validators_diff(current_epoch_validators, next_epoch_validators)
+        # FIXME: proper and dry decode/encode functions (from abci_server's validator to our validator)
+        # FIXME: DRY this and below
+        |> Enum.map(fn {pub_key, power} -> validator(pub_key: <<1>> <> Base.decode16!(pub_key), power: power) end)
       epoch_change ->
         next_epoch_validators = staking_state.validators[next_epoch]
         validators_diff(initial_validators, next_epoch_validators)
+        |> Enum.map(fn {pub_key, power} -> validator(pub_key: <<1>> <> Base.decode16!(pub_key), power: power) end)
       true ->
         []
     end
@@ -198,6 +203,7 @@ defmodule HonteD.ABCI do
     Enum.map(removed_validators, &({&1, 0}))
   end
 
+  # FIXME: I think these 2 functions will need to be restructured somehow, so that the encoding/decoding is readable
   defp tendermint_addresses(validators), do: Enum.map(validators, &(&1.tendermint_address))
 
   defp next_validators(validators), do: Enum.map(validators, &({&1.tendermint_address, &1.stake}))
