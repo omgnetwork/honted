@@ -27,10 +27,11 @@ defmodule HonteD.Eth.Contract do
     []
   end
 
-  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = _value]}) do
+  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = value]}) do
     {:halt, acc}
   end
-  defp wrap_while(acc, {:ok, [{stake, tm_pubkey, _} = value]}) do
+  defp wrap_while(acc, {:ok, [{stake, tm_pubkey_raw, _} = value]}) do
+    tm_pubkey = tm_pubkey_raw |> Base.encode16(case: :upper)
     {:cont, [%HonteD.Validator{:stake => stake, :tendermint_address => tm_pubkey} | acc]}
   end
 
