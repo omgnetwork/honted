@@ -84,4 +84,12 @@ defmodule HonteD.ABCI.TestHelpers do
   end
 
   def assert_same_elements(l1, l2), do: assert Enum.sort(l1) == Enum.sort(l2)
+
+  def tm_address(number) when is_integer(number) and number < 10  and number > -1 do
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA#{number}"
+  end
+
+  def pub_key(number) do
+    <<1>> <> Base.decode16!(tm_address(number))
+  end
 end

@@ -89,38 +89,38 @@ defmodule HonteD.ABCITest do
   describe "end block" do
 
     deffixture initial_validators do
-      [%Validator{stake: 1, tendermint_address: "tm_addr_1"},
-       %Validator{stake: 1, tendermint_address: "tm_addr_2"},
+      [%Validator{tendermint_address: tm_address(1), stake: 1},
+       %Validator{tendermint_address: tm_address(2), stake: 1},
       ]
     end
 
     deffixture epoch_1_validators do
-      [%Validator{stake: 1, tendermint_address: "tm_addr_2"},
-       %Validator{stake: 1, tendermint_address: "tm_addr_3"},
-       %Validator{stake: 1, tendermint_address: "tm_addr_4"},
+      [%Validator{tendermint_address: tm_address(2), stake: 1},
+       %Validator{tendermint_address: tm_address(3), stake: 1},
+       %Validator{tendermint_address: tm_address(4), stake: 1},
       ]
     end
 
     deffixture epoch_2_validators do
-      [%Validator{stake: 10, tendermint_address: "tm_addr_2"},
-       %Validator{stake: 2, tendermint_address: "tm_addr_4"},
-       %Validator{stake: 1, tendermint_address: "tm_addr_5"},
+      [%Validator{tendermint_address: tm_address(2), stake: 10},
+       %Validator{tendermint_address: tm_address(4), stake: 2},
+       %Validator{tendermint_address: tm_address(5), stake: 1},
       ]
     end
 
     deffixture validators_diffs_1 do
-      [{"tm_addr_1", 0},
-       {"tm_addr_2", 1},
-       {"tm_addr_3", 1},
-       {"tm_addr_4", 1},
+      [validator(pub_key: pub_key(1), power: 0),
+       validator(pub_key: pub_key(2), power: 1),
+       validator(pub_key: pub_key(3), power: 1),
+       validator(pub_key: pub_key(4), power: 1),
       ]
     end
 
     deffixture validators_diffs_2 do
-      [{"tm_addr_2", 10},
-       {"tm_addr_3", 0},
-       {"tm_addr_4", 2},
-       {"tm_addr_5", 1},
+      [validator(pub_key: pub_key(2), power: 10),
+       validator(pub_key: pub_key(3), power: 0),
+       validator(pub_key: pub_key(4), power: 2),
+       validator(pub_key: pub_key(5), power: 1),
       ]
     end
 
@@ -182,11 +182,11 @@ defmodule HonteD.ABCITest do
   describe "init chain request" do
     @tag fixtures: [:empty_state]
     test "sets initial validators", %{empty_state: state} do
-      {stake, tendermint_address} = {1, "tm_addr_1"}
+      {stake, pub_key} = {1, pub_key(1)}
       {:reply, _, state} =
-        handle_call(request_init_chain(validators: [validator(power: stake, pub_key: tendermint_address)]),
+        handle_call(request_init_chain(validators: [validator(power: stake, pub_key: pub_key)]),
                     nil, state)
-      assert state.initial_validators == [%Validator{stake: stake, tendermint_address: tendermint_address}]
+      assert state.initial_validators == [%Validator{stake: stake, tendermint_address: tm_address(1)}]
     end
   end
 
