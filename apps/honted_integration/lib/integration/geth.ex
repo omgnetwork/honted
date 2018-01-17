@@ -43,20 +43,6 @@ defmodule HonteD.Integration.Geth do
   end
 
   defp wait_for_geth_start(geth_out) do
-    wait_for_start(geth_out, "IPC endpoint opened", 3000)
-  end
-
-  defp wait_for_start(outstream, look_for, timeout) do
-    IO.puts("waiting for: #{inspect look_for}")
-    # Monitors the stdout coming out of a process for signal of successful startup
-    waiting_task_function = fn ->
-      _ = outstream
-      |> Stream.take_while(fn line ->
-         not String.contains?(line, look_for)
-      end)
-      |> Enum.to_list
-      :ok
-    end
-    waiting_task_function |> Task.async |> Task.await(timeout)
+    HonteD.Integration.wait_for_start(geth_out, "IPC endpoint opened", 3000)
   end
 end
