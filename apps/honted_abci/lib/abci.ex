@@ -145,7 +145,6 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_init_chain(validators: validators), _from, %HonteD.ABCI{} = abci_app) do
     initial_validators =
-      # FIXME: proper encoding here as well
       for validator(power: power, pub_key: pub_key) <- validators do
         %Validator{stake: power, tendermint_address: encode_pub_key(pub_key)}
       end
@@ -202,7 +201,6 @@ defmodule HonteD.ABCI do
              fn tm_addr -> validator(pub_key: decode_pub_key(tm_addr), power: 0) end)
   end
 
-  # FIXME: I think these 2 functions will need to be restructured somehow, so that the encoding/decoding is readable
   defp tendermint_addresses(validators), do: Enum.map(validators, &(&1.tendermint_address))
 
   defp next_validators(validators) do
