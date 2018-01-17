@@ -326,7 +326,7 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, token, staking} = HonteD.Integration.Contract.deploy_integration(8, 2, 5)
     Application.put_env(:honted_eth, :token_contract_address, token)
     Application.put_env(:honted_eth, :staking_contract_address, staking)
-    tm = token
+    tm_pubkey = <<1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2>>
     assert [] = HonteD.Eth.Contract.read_validators(staking)
     # limitation: in integration tests all addresses must be controlled by local geth node
     {:ok, [alice_addr | _]} = Ethereumex.HttpClient.eth_accounts()
@@ -334,12 +334,12 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, _} = HonteD.Integration.Contract.mint_omg(token, alice_addr, amount)
     {:ok, _} = HonteD.Integration.Contract.approve(token, alice_addr, staking, amount)
     {:ok, _} = HonteD.Integration.Contract.deposit(staking, alice_addr, amount)
-    {:ok, _} = HonteD.Integration.Contract.join(staking, alice_addr, tm)
+    {:ok, _} = HonteD.Integration.Contract.join(staking, alice_addr, tm_pubkey)
     {:ok, next} = HonteD.Eth.Contract.get_next_epoch_block_number(staking)
     HonteD.Eth.WaitFor.block_height(next + 1, true, 10_000)
     vals = HonteD.Eth.Contract.read_validators(staking)
-    assert [%{:epoch => 1, :validators => [{^amount, tm_pub, _eth_address}]}] = vals
-    assert bit_size(tm_pub) == 32 * 8
+    assert [%{:epoch => 1, :validators => [{^amount, tm_pubkey, _eth_address}]}] = vals
+    assert bit_size(tm_pubkey) == 32 * 8
   end
 
 end

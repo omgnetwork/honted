@@ -1,5 +1,5 @@
 %{"abci_server": {:git, "https://github.com/KrzysiekJ/abci_server.git", "104f464061160d89b018878c4ed68e2659eea86b", []},
-  "abi": {:git, "https://github.com/omisego/abi.git", "c95cce6244371dd8fcb2f81fc9d4b9998b31efbe", [branch: "fix_types"]},
+  "abi": {:git, "https://github.com/omisego/abi.git", "48cbbd119df1e63878895a60b6e9d4f4989ac97b", [branch: "add_bytes32"]},
   "bimap": {:hex, :bimap, "0.1.1", "f0406e59f65ba903af678383d2356d0a6e59fb794adc1a7dd32bd8fabe0f028f", [], [], "hexpm"},
   "binary": {:hex, :binary, "0.0.4", "dd077db70c0ded3e85c132b802338e14b80694684a7e2277666bfa4004b7fa66", [], [], "hexpm"},
   "bunt": {:hex, :bunt, "0.2.0", "951c6e801e8b1d2cbe58ebbd3e616a869061ddadcc4863d0a2182541acae9a38", [], [], "hexpm"},

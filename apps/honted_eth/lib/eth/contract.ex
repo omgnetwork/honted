@@ -26,15 +26,17 @@ defmodule HonteD.Eth.Contract do
     []
   end
 
-  defp wrap_while(acc, {:ok, [{0, _tm_addr, _eth_addr}]}) do
+  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = value]}) do
+    IO.puts("zero value: #{inspect value}")
     {:halt, acc}
   end
   defp wrap_while(acc, {:ok, [{_, _, _} = value]}) do
+    IO.puts("value: #{inspect value}")
     {:cont, [value | acc]}
   end
 
   def get_validator(staking, epoch, index) do
-    return_types = [{:tuple, [{:uint, 256}, :address, :address]}]
+    return_types = [{:tuple, [{:uint, 256}, :bytes32, :address]}]
     call_contract(staking, "getValidator(uint256,uint256)", [epoch, index], return_types)
   end
 
