@@ -10,7 +10,7 @@ defmodule HonteD.Eth.ContractBehavior do
   @type stake :: pos_integer
 
   @callback block_height() :: non_neg_integer()
-  @callback syncing? :: boolean()
+  @callback syncing?() :: boolean()
   @callback read_validators(address) :: %{pos_integer() => [%HonteD.Validator{}]}
   @callback get_validator(address, epoch, index) :: {:ok, [{stake, bytes32, address}]}
   @callback balance_of(address, address) :: {:ok, non_neg_integer}
