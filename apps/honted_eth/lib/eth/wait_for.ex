@@ -5,9 +5,7 @@ defmodule HonteD.Eth.WaitFor do
   
   def rpc do
     f = fn() ->
-      IO.puts("before eth_syncing")
       {:ok, false} = Ethereumex.HttpClient.eth_syncing()
-      IO.puts("after good eth_syncing")
       {:ok, :ready}
     end
     fn() -> repeat_until_ok(f) end
@@ -17,7 +15,6 @@ defmodule HonteD.Eth.WaitFor do
   def block_height(n, dev \\ false, timeout \\ 10_000) do
     f = fn() ->
       height = HonteD.Eth.Contract.block_height()
-      IO.puts("current height: #{inspect height}; n: #{n}")
       case height < n do
         true ->
           _ = maybe_mine(dev)

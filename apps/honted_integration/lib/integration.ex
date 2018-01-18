@@ -11,35 +11,30 @@ defmodule HonteD.Integration do
     Temp.mkdir!(%{prefix: "honted_tendermint_test_homedir"})
   end
 
-  @doc """
-  Runs a geth dev chain with very specific set of validators
-  """
-  def geth do
-    IO.puts("integration.geth()")
-    _ = Application.ensure_all_started(:porcelain)
-    _ = Application.ensure_all_started(:ethereumex)
-    {ref, geth_os_pid, _} = HonteD.Integration.Geth.dev_geth()
-    on_exit = fn() ->
-      IO.puts("integration.geth on_exit")
-      HonteD.Integration.Geth.geth_stop(ref, geth_os_pid)
-    end
-    {:ok, on_exit}
-  end
+  # @doc """
+  # Runs a geth dev chain with very specific set of validators
+  # """
+  # def geth do
+  #   _ = Application.ensure_all_started(:porcelain)
+  #   _ = Application.ensure_all_started(:ethereumex)
+  #   {ref, geth_os_pid, _} = HonteD.Integration.Geth.dev_geth()
+  #   on_exit = fn() ->
+  #     HonteD.Integration.Geth.geth_stop(ref, geth_os_pid)
+  #   end
+  #   {:ok, on_exit}
+  # end
 
   @doc """
   Runs a HonteD ABCI app using Porcelain
   """
   def honted do
-    IO.puts("integration.honted()")
     # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
     our_apps_to_start = [:honted_eth, :honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
     started_apps =
       our_apps_to_start
       |> Enum.map(&Application.ensure_all_started/1)
       |> Enum.flat_map(fn {:ok, app_list} -> app_list end) # check if successfully started here!
-    IO.puts("started_apps order: #{inspect started_apps}")
     {:ok, fn ->
-      IO.puts("integration.honted on_exit")
       started_apps
       |> Enum.reverse()
       |> Enum.map(&Application.stop/1)

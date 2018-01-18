@@ -16,7 +16,6 @@ defmodule HonteD.Integration.Contract do
     _ = Application.ensure_all_started(:ethereumex)
     token_bc = File.read!(root <> "contracts/omg_token_bytecode.hex")
     staking_bc = staking_bytecode(root <> "populus/build/contracts.json")
-    _ = IO.puts("token: #{inspect bit_size(token_bc)}, staking: #{inspect bit_size(staking_bc)}")
     {:ok, [addr | _]} = Ethereumex.HttpClient.eth_accounts()
     {:ok, token_address} = deploy_contract(addr, token_bc, [], [])
     {:ok, staking_address} = deploy_contract(addr, staking_bc,
