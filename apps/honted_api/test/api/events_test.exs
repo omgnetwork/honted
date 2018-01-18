@@ -267,17 +267,29 @@ defmodule HonteD.API.EventsTest do
   describe "Subscribes and unsubscribes are handled." do
     @tag fixtures: [:server]
     test "Manual unsubscribe.", %{server: server} do
-      pid = client(fn() -> refute_receive(_, @timeout) end)
-      assert {:error, :notfound} = status_filter(server, "not filter_id")
-      {:ok, filter_id, _} = nsfilter(server, pid, address1())
       addr1 = address1()
+      parent = self()
+      pid = client(fn() ->
+         {:ok, filter_id, _} = nsfilter(server, self(), addr1)
+         send(parent, filter_id)
+         receive do :drop_filter ->
+           :ok = drop_filter(server, filter_id)
+           send(parent, :filter_dropped)
+         end
+         refute_receive(_, @timeout)
+       end)
+      filter_id = receive do filter_id -> filter_id end
+
+      assert {:error, :notfound} = status_filter(server, "not filter_id")
       notify_woc(server, %HonteD.API.Events.NewBlock{height: 1})
       assert {:ok, [^addr1]} = status_filter(server, filter_id)
-      :ok = drop_filter(server, filter_id)
+
+      send(pid, :drop_filter)
+      receive do :filter_dropped -> :ok end
       assert {:error, :notfound} = status_filter(server, filter_id)
 
       # won't be notified
-      {e1, _} = event_send(address1(), nil)
+      {e1, _} = event_send(addr1, nil)
       notify_woc(server, e1)
       join()
     end
@@ -285,20 +297,27 @@ defmodule HonteD.API.EventsTest do
     @tag fixtures: [:server]
     test "Automatic unsubscribe/cleanup.", %{server: server} do
       addr1 = address1()
+      parent = self()
       pid1 = client(fn() ->
+        {:ok, filter_id1, _} = nsfilter(server, self(), addr1)
+        send(parent, {:child1, filter_id1})
         assert_receive(:stop1, @timeout)
       end)
-      {:ok, filter_id1, height1} = nsfilter(server, pid1, addr1)
       pid2 = client(fn() ->
+        {:ok, filter_id2, _} = nsfilter(server, self(), addr1)
+        send(parent, {:child2, filter_id2})
         assert_receive(:stop2, @timeout)
       end)
-      {:ok, filter_id2, height2} = nsfilter(server, pid2, addr1)
-      notify_woc(server, %HonteD.API.Events.NewBlock{height: height1})
+
+      filter_id1 = receive do {:child1, filter_id1} -> filter_id1 end
+      notify_woc(server, %HonteD.API.Events.NewBlock{height: 0})
       assert {:ok, [^addr1]} = status_filter(server, filter_id1)
       send(pid1, :stop1)
       join(pid1)
       assert {:error, :notfound} = status_filter(server, filter_id1)
-      notify_woc(server, %HonteD.API.Events.NewBlock{height: height2})
+
+      filter_id2 = receive do {:child2, filter_id2} -> filter_id2 end
+      notify_woc(server, %HonteD.API.Events.NewBlock{height: 1})
       assert {:ok, [^addr1]} = status_filter(server, filter_id2)
       send(pid2, :stop2)
       join()
