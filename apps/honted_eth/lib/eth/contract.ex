@@ -3,11 +3,29 @@ defmodule HonteD.Eth.Contract do
   Ask staking contract for validator and epoch information.
   """
 
+  @behaviour HonteD.Eth.ContractBehavior
+
   def block_height do
     {:ok, enc_answer} = Ethereumex.HttpClient.eth_block_number()
     padded = mb_pad_16(enc_answer)
     {:ok, dec} = Base.decode16(padded, case: :lower)
     :binary.decode_unsigned(dec)
+  end
+
+  @spec syncing? :: boolean()
+  def syncing? do
+    try do
+      sync = Ethereumex.HttpClient.eth_syncing()
+      case sync do
+        {:ok, syncing} when is_boolean(syncing) -> syncing
+        {:ok, _} -> true
+      end
+    catch
+      _other ->
+        true
+      _class, _type ->
+        true
+    end
   end
 
   def read_validators(staking) do
@@ -27,10 +45,10 @@ defmodule HonteD.Eth.Contract do
     []
   end
 
-  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = value]}) do
+  defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = _value]}) do
     {:halt, acc}
   end
-  defp wrap_while(acc, {:ok, [{stake, tm_pubkey_raw, _} = value]}) do
+  defp wrap_while(acc, {:ok, [{stake, tm_pubkey_raw, _} = _value]}) do
     tm_pubkey = tm_pubkey_raw |> Base.encode16(case: :upper)
     {:cont, [%HonteD.Validator{:stake => stake, :tendermint_address => tm_pubkey} | acc]}
   end
@@ -78,19 +96,19 @@ defmodule HonteD.Eth.Contract do
     call_contract_value(staking, "unbondingPeriod()")
   end
 
-  def call_contract_value(staking, signature) do
+  defp call_contract_value(staking, signature) do
     {:ok, [value]} = call_contract(staking, signature, [], [{:uint, 256}])
     {:ok, value}
   end
 
-  def call_contract(contract, signature, args, return_types) do
+  defp call_contract(contract, signature, args, return_types) do
     data = signature |> ABI.encode(args) |> Base.encode16
     {:ok, "0x" <> enc_return} =
       Ethereumex.HttpClient.eth_call(%{to: contract, data: "0x#{data}"})
     decode_answer(enc_return, return_types)
   end
 
-  def decode_answer(enc_return, return_types) do
+  defp decode_answer(enc_return, return_types) do
     return =
       enc_return
       |> Base.decode16!(case: :lower)
@@ -101,16 +119,7 @@ defmodule HonteD.Eth.Contract do
   defp cleanup("0x" <> hex), do: hex |> String.upcase |> Base.decode16!
   defp cleanup(other), do: other
 
-  def ether, do: trunc(:math.pow(10, 18))
-
-  def eth_hex(num) when is_number(num) do
-    hex = [trunc(num)]
-      |> ABI.TypeEncoder.encode_raw([{:uint, 256}])
-      |> Base.encode16(case: :lower)
-    "0x" <> hex
-  end
-
-  def mb_pad_16("0x" <> hex) do
+  defp mb_pad_16("0x" <> hex) do
     len = trunc(bit_size(hex) / 8)
     evenodd = rem(len, 2)
     case evenodd do
