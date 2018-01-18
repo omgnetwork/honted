@@ -52,30 +52,27 @@ defmodule HonteD.EthTest do
 
   describe "Eth server correctly processes startup conditions." do
     test "It can be disabled via config." do
-      :ok = Application.put_env(:honted_eth, :enabled, false)
-      assert :ignore = GenServer.start_link(HonteD.Eth, %HonteD.Eth{}, [])
+      assert :ignore = GenServer.start_link(HonteD.Eth, %HonteD.Eth{enabled: false}, [])
     end
 
     test "It crashes on start if geth is not synchronized." do
-      :ok = Application.put_env(:honted_eth, :enabled, true)
       Process.flag(:trap_exit, true)
-      assert {:error, _} = GenServer.start_link(HonteD.Eth, %HonteD.Eth{}, [])
+      assert {:error, _} = GenServer.start_link(HonteD.Eth, %HonteD.Eth{enabled: true}, [])
     end
 
     test "Starts if geth is synchronized." do
-      :ok = Application.put_env(:honted_eth, :enabled, true)
-      state = %HonteD.Eth{api: (get_mock() |> mock_synced_geth())}
+      state = %HonteD.Eth{enabled: true, api: (get_mock() |> mock_synced_geth())}
       assert {:ok, _} = GenServer.start_link(HonteD.Eth, state, [])
     end
 
     test "Eth updates ABCI and replies when asked for contract state" do
-      :ok = Application.put_env(:honted_eth, :enabled, true)
       mock =
         get_mock()
         |> mock_synced_geth()
         |> mock_epoch_zero()
       Process.register(self(), HonteD.ABCI)
-      state = %HonteD.Eth{api: mock,
+      state = %HonteD.Eth{enabled: true,
+                          api: mock,
                           refresh_period: 10}
       assert {:ok, _} = GenServer.start_link(HonteD.Eth, state, [name: HonteD.Eth])
       {:ok, _} = HonteD.Eth.contract_state()
@@ -84,13 +81,13 @@ defmodule HonteD.EthTest do
     end
 
     test "Eth detects geth changes in geth sync status." do
-      :ok = Application.put_env(:honted_eth, :enabled, true)
       mock =
         get_mock()
         |> mock_epoch_zero()
         |> mock_failing_geth()
       Process.register(self(), HonteD.ABCI)
-      state = %HonteD.Eth{api: mock,
+      state = %HonteD.Eth{enabled: true,
+                          api: mock,
                           failed: 0,
                           max: 2,
                           refresh_period: 25,

@@ -66,7 +66,6 @@ defmodule HonteD.Integration do
     _ = Task.async(fn -> show_tendermint_logs(tendermint_out) end)
 
     {:ok, fn ->
-      IO.puts("integration.tendermint on_exit")
       Porcelain.Process.stop(tendermint_proc)
     end}
   end

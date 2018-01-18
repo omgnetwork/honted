@@ -22,8 +22,6 @@ defmodule HonteD.Integration.Contract do
     {:ok, staking_address} = deploy_contract(addr, staking_bc,
       [epoch_length, maturity_margin, token_address, max_validators],
       [{:uint, 256}, {:uint, 256}, :address, {:uint, 256}])
-    Application.put_env(:honted_eth, :token_contract_address, token_address)
-    Application.put_env(:honted_eth, :staking_contract_address, staking_address)
     {:ok, token_address, staking_address}
   end
 
