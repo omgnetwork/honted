@@ -35,7 +35,6 @@ defmodule HontedEth.Mixfile do
       {:abi, git: "https://github.com/omisego/abi.git", branch: "add_bytes32"},
       {:ethereumex, git: "https://github.com/omisego/ethereumex.git", branch: "fix_spec", override: true},
       {:porcelain, "~> 2.0"},
-      {:eth, "~> 0.1.0"} # , only: [:test, :dev]
     ]
   end
 end
