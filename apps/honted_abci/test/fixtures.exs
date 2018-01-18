@@ -17,7 +17,7 @@ defmodule HonteD.ABCI.Fixtures do
   end
 
   deffixture empty_state(staking_state) do
-    {:ok, state} = HonteD.ABCI.init(:ok, staking_state)
+    {:ok, state} = HonteD.ABCI.init([staking_state])
     state
   end
 

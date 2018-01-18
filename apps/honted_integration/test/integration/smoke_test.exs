@@ -90,7 +90,6 @@ defmodule HonteD.Integration.SmokeTest do
 
   @tag fixtures: [:tendermint, :websocket, :apis_caller]
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
-    IO.puts("sm test 1")
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
     {:ok, issuer} = Crypto.generate_address(issuer_pub)
@@ -318,28 +317,42 @@ defmodule HonteD.Integration.SmokeTest do
       "source" => ^filter_id,
       "height" => ^committed_at_height
     } = TestWebsocket.recv!(websocket)
-    IO.puts("sm test1 ended")
-
-  @tag fixtures: [:geth, :honted, :tendermint, :apis_caller]
-  test "integration with geth, ethereum and staking contract" do
-    # epoch zero, new validators are yet to join staking
-    {:ok, token, staking} = HonteD.Integration.Contract.deploy_integration(8, 2, 5)
-    Application.put_env(:honted_eth, :token_contract_address, token)
-    Application.put_env(:honted_eth, :staking_contract_address, staking)
-    tm_pubkey = <<1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2>>
-    assert [] = HonteD.Eth.Contract.read_validators(staking)
-    # limitation: in integration tests all addresses must be controlled by local geth node
-    {:ok, [alice_addr | _]} = Ethereumex.HttpClient.eth_accounts()
-    amount = 100
-    {:ok, _} = HonteD.Integration.Contract.mint_omg(token, alice_addr, amount)
-    {:ok, _} = HonteD.Integration.Contract.approve(token, alice_addr, staking, amount)
-    {:ok, _} = HonteD.Integration.Contract.deposit(staking, alice_addr, amount)
-    {:ok, _} = HonteD.Integration.Contract.join(staking, alice_addr, tm_pubkey)
-    {:ok, next} = HonteD.Eth.Contract.get_next_epoch_block_number(staking)
-    HonteD.Eth.WaitFor.block_height(next + 1, true, 10_000)
-    vals = HonteD.Eth.Contract.read_validators(staking)
-    assert %{1 => [%HonteD.Validator{:stake => ^amount, :tendermint_address => tm_pubkey}]} = vals
-    assert bit_size(tm_pubkey) == 32 * 8
   end
+
+  @tag fixtures: [:tendermint, :apis_caller]
+  test "incorrect calls to websockets should return sensible response not crash", %{apis_caller: apis_caller} do
+    # bad method
+    {:error, %{"data" => %{"method" => "token_inf"}, "message" => "Method not found"}} = apis_caller.(:token_inf, %{token: ""})
+
+    # bad params
+    {:error, %{"data" => %{"msg" => "Please provide parameter `token` of type `:binary`",
+                           "name" => "token",
+                           "type" => "binary"
+                         },
+               "message" => "Invalid params"}
+     } = apis_caller.(:token_info, %{toke: ""})
+  end
+
+  # @tag fixtures: [:geth, :honted, :tendermint, :apis_caller]
+  # test "integration with geth, ethereum and staking contract" do
+  #   # epoch zero, new validators are yet to join staking
+  #   {:ok, token, staking} = HonteD.Integration.Contract.deploy_integration(8, 2, 5)
+  #   Application.put_env(:honted_eth, :token_contract_address, token)
+  #   Application.put_env(:honted_eth, :staking_contract_address, staking)
+  #   tm_pubkey = <<1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2>>
+  #   assert [] = HonteD.Eth.Contract.read_validators(staking)
+  #   # limitation: in integration tests all addresses must be controlled by local geth node
+  #   {:ok, [alice_addr | _]} = Ethereumex.HttpClient.eth_accounts()
+  #   amount = 100
+  #   {:ok, _} = HonteD.Integration.Contract.mint_omg(token, alice_addr, amount)
+  #   {:ok, _} = HonteD.Integration.Contract.approve(token, alice_addr, staking, amount)
+  #   {:ok, _} = HonteD.Integration.Contract.deposit(staking, alice_addr, amount)
+  #   {:ok, _} = HonteD.Integration.Contract.join(staking, alice_addr, tm_pubkey)
+  #   {:ok, next} = HonteD.Eth.Contract.get_next_epoch_block_number(staking)
+  #   HonteD.Eth.WaitFor.block_height(next + 1, true, 10_000)
+  #   vals = HonteD.Eth.Contract.read_validators(staking)
+  #   assert %{1 => [%HonteD.Validator{:stake => ^amount, :tendermint_address => tm_pubkey}]} = vals
+  #   assert bit_size(tm_pubkey) == 32 * 8
+  # end
 
 end
