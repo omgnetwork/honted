@@ -89,13 +89,11 @@ defmodule HonteD.EthTest do
                           failed_sync_checks_max: 2,
                           refresh_period: 25,
                           sync_check_period: 10}
+      Process.flag(:trap_exit, true)
       assert {:ok, _} = GenServer.start_link(HonteD.Eth, state, [name: HonteD.Eth])
       assert_receive({:"$gen_cast", {:set_staking_state, %HonteD.Staking{synced: true}}}, 60)
       assert_receive(:expect_desync, 100)
-      assert_receive({:"$gen_cast", {:set_staking_state, %HonteD.Staking{synced: false}}}, 61)
-      assert_receive(:expect_resync, 100)
-      assert_receive({:"$gen_cast", {:set_staking_state, %HonteD.Staking{synced: true}}}, 62)
-      Process.unregister(HonteD.ABCI)
+      assert_receive({:EXIT, _, _}, 1000)
     end
   end
 end

@@ -78,16 +78,11 @@ defmodule HonteD.Eth do
     contract_state = get_contract_state(state)
     case contract_state.synced do
       false ->
-        terminate_node()
-        {:noreply, state}
+        {:stop, :honted_requires_geth_to_be_synchronized, state}
       true ->
         GenServer.cast(HonteD.ABCI, {:set_staking_state, contract_state})
         {:noreply, state}
     end
-  end
-
-  defp terminate_node do
-    :init.stop('Geth is out of sync!')
   end
 
   # private functions
