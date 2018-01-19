@@ -4,8 +4,8 @@ defmodule HonteD.Integration.Geth do
   """
 
   def start do
-    # FIXME: Warnings produced here are result of Temp+Porcelain.Process being broken
-    # FIXME: Dropping Temp or using Porcelain.Result instead of Process prevents warnings
+    # NOTE: Warnings produced here are result of Temp+Porcelain.Process being broken
+    # NOTE: Dropping Temp or using Porcelain.Result instead of Process prevents warnings
     Temp.track!
     homedir = Temp.mkdir!(%{prefix: "honted_eth_test_homedir"})
     res = launch("geth --dev --rpc --datadir #{homedir} 2>&1")
@@ -14,9 +14,8 @@ defmodule HonteD.Integration.Geth do
   end
 
   def stop(pid, os_pid) do
-    # FIXME: goon is broken, and because of that signal does not work and we do kill -9 instead
-    #        Same goes for basic driver.
-    # Porcelain.Process.signal(pid, :kill)
+    # NOTE: `goon` is broken, and because of that signal does not work and we do kill -9 instead
+    #       Same goes for basic driver.
     Porcelain.Process.stop(pid)
     Porcelain.shell("kill -9 #{os_pid}")
   end
