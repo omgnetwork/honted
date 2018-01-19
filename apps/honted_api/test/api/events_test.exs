@@ -279,9 +279,6 @@ defmodule HonteD.API.EventsTest do
          refute_receive(_, @timeout)
        end)
       filter_id = receive do filter_id -> filter_id end
-
-      assert {:error, :notfound} = status_filter(server, "not filter_id")
-      notify_woc(server, %HonteD.API.Events.NewBlock{height: 1})
       assert {:ok, [^addr1]} = status_filter(server, filter_id)
 
       send(pid, :drop_filter)
