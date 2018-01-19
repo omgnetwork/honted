@@ -102,6 +102,40 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, bob_pub} = Crypto.generate_public_key(bob_priv)
     {:ok, bob} = Crypto.generate_address(bob_pub)
 
+    # BROADCAST_TX_* SEMANTICS CHECKS
+
+    # submit_commit should do CheckTx and fail
+    {:ok, raw_tx} = API.create_create_token_transaction(bob)
+    no_signature_tx = raw_tx
+    assert {:error, %{reason: :check_tx_failed}} = API.submit_commit(no_signature_tx)
+
+    # submit_sync should do CheckTx and fail
+    assert {:error, %{reason: :submit_failed}} = API.submit_sync(no_signature_tx)
+
+    # submit_async does no checks, should return tx id and indicate success
+    assert {:ok, %{tx_hash: hash}} = API.submit_async(no_signature_tx)
+    assert {:error, _} = API.tx(hash)
+
+    token_creation = fn() ->
+      {:ok, raw_tx} = API.create_create_token_transaction(bob)
+      {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
+      raw_tx <> " " <> signature
+    end
+
+    # submit_commit succeeds
+    assert {:ok, %{tx_hash: hash}} = token_creation.() |> API.submit_commit()
+    assert {:ok, _} = API.tx(hash)
+
+    # submit_sync does checkTx and succeeds
+    assert {:ok, %{tx_hash: _}} = token_creation.() |> API.submit_sync()
+
+    Process.sleep(2000)
+    # submit_async does not do full checkTx end, should return tx id
+    assert {:ok, %{tx_hash: hash}} = token_creation.() |> API.submit_async()
+    # tx should be mined after some time
+    Process.sleep(2000)
+    assert {:ok, _} = API.tx(hash)
+
     # CREATING TOKENS
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
 
@@ -115,14 +149,13 @@ defmodule HonteD.Integration.SmokeTest do
     assert {:ok,
       %{
         committed_in: _,
-        duplicate: false,
         tx_hash: _some_hash
       }
-    } = API.submit_transaction(full_transaction)
+    } = API.submit_commit(full_transaction)
 
     # duplicate
     assert {:error, %{raw_result: _}}
-      = API.submit_transaction(full_transaction)
+      = API.submit_commit(full_transaction)
 
     # sane invalid transaction response
     assert {:error,
@@ -133,7 +166,7 @@ defmodule HonteD.Integration.SmokeTest do
         reason: :check_tx_failed,
         tx_hash: _
       }
-    } = API.submit_transaction(raw_tx)
+    } = API.submit_commit(raw_tx)
 
     # LISTING TOKENS
     assert {:ok, [asset]} = API.tokens_issued_by(issuer)
@@ -155,7 +188,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
 
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
 
     assert {:ok, @supply} = API.query_balance(asset, alice)
 
@@ -181,7 +214,7 @@ defmodule HonteD.Integration.SmokeTest do
     )
 
     {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
-    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_commit(raw_tx <> " " <> signature)
 
     # check event
     assert %{
@@ -238,14 +271,14 @@ defmodule HonteD.Integration.SmokeTest do
     )
 
     {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
 
     # SIGNOFF
 
     {:ok, hash} = API.Tools.get_block_hash(send_height)
     {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, bob, issuer)
     {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
-    {:ok, %{committed_in: last_height}} = API.submit_transaction(raw_tx <> " " <> signature)
+    {:ok, %{committed_in: last_height}} = API.submit_commit(raw_tx <> " " <> signature)
 
     assert %{
       "transaction" => %{
