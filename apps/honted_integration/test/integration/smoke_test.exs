@@ -123,7 +123,7 @@ defmodule HonteD.Integration.SmokeTest do
     end
 
     # submit_commit succeeds
-    assert {:ok, %{tx_hash: hash}} = token_creation.() |>  API.submit_commit()
+    assert {:ok, %{tx_hash: hash}} = token_creation.() |> API.submit_commit()
     assert {:ok, _} = API.tx(hash)
 
     # submit_sync does checkTx and succeeds

@@ -6,6 +6,7 @@ defmodule HonteD.API.Application do
   def start(_type, _args) do
     children = [
       {HonteD.API.Events.Eventer, name: HonteD.API.Events.Eventer},
+      {HonteD.API.TendermintRPC.Websocket, name: HonteD.API.TendermintRPC.Websocket}
     ]
 
     opts = [strategy: :one_for_one, name: HonteD.API.Supervisor]

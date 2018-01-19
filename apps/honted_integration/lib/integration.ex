@@ -23,6 +23,7 @@ defmodule HonteD.Integration do
       |> Enum.flat_map(fn {:ok, app_list} -> app_list end) # check if successfully started here!
     {:ok, fn ->
       started_apps
+      |> Enum.reverse()
       |> Enum.map(&Application.stop/1)
     end}
   end
