@@ -11,18 +11,18 @@ defmodule HonteD.Integration do
     Temp.mkdir!(%{prefix: "honted_tendermint_test_homedir"})
   end
 
-  # @doc """
-  # Runs a geth dev chain with very specific set of validators
-  # """
-  # def geth do
-  #   _ = Application.ensure_all_started(:porcelain)
-  #   _ = Application.ensure_all_started(:ethereumex)
-  #   {ref, geth_os_pid, _} = HonteD.Integration.Geth.dev_geth()
-  #   on_exit = fn() ->
-  #     HonteD.Integration.Geth.geth_stop(ref, geth_os_pid)
-  #   end
-  #   {:ok, on_exit}
-  # end
+  @doc """
+  Runs a geth dev chain with very specific set of validators
+  """
+  def geth do
+    _ = Application.ensure_all_started(:porcelain)
+    _ = Application.ensure_all_started(:ethereumex)
+    {ref, geth_os_pid, _} = HonteD.Integration.Geth.start()
+    on_exit = fn() ->
+      HonteD.Integration.Geth.stop(ref, geth_os_pid)
+    end
+    {:ok, on_exit}
+  end
 
   @doc """
   Runs a HonteD ABCI app using Porcelain

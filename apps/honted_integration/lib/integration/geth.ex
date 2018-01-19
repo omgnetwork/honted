@@ -3,17 +3,17 @@ defmodule HonteD.Integration.Geth do
   Helper module for deployment of contracts to dev geth.
   """
 
-  def dev_geth do
+  def start do
     # FIXME: Warnings produced here are result of Temp+Porcelain.Process being broken
     # FIXME: Dropping Temp or using Porcelain.Result instead of Process prevents warnings
     Temp.track!
     homedir = Temp.mkdir!(%{prefix: "honted_eth_test_homedir"})
-    res = geth("geth --dev --rpc --datadir #{homedir} 2>&1")
+    res = launch("geth --dev --rpc --datadir #{homedir} 2>&1")
     {:ok, :ready} = HonteD.Integration.WaitFor.eth_rpc()
     res
   end
 
-  def geth_stop(pid, os_pid) do
+  def stop(pid, os_pid) do
     # FIXME: goon is broken, and because of that signal does not work and we do kill -9 instead
     #        Same goes for basic driver.
     # Porcelain.Process.signal(pid, :kill)
@@ -22,7 +22,7 @@ defmodule HonteD.Integration.Geth do
   end
 
   # PRIVATE
-  defp geth(cmd) do
+  defp launch(cmd) do
     geth_pids = geth_os_pids()
     geth_proc = %Porcelain.Process{err: nil, out: geth_out} = Porcelain.spawn_shell(
       cmd,

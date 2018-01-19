@@ -19,12 +19,10 @@ defmodule HonteD.Integration.Fixtures do
     :ok
   end
 
-  # deffixture geth() do
-  #   :erlang.error(:just_dont)
-  #   Application.put_env(:honted_eth, :enabled, true)
-  #   {:ok, exit_fn} = Integration.geth()
-  #   on_exit exit_fn
-  #   :ok
-  # end
+  deffixture geth() do
+    {:ok, exit_fn} = Integration.geth()
+    on_exit exit_fn
+    :ok
+  end
 
 end
