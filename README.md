@@ -37,14 +37,8 @@ When running `integration` tests, remember to have `tendermint` and `tm-bench` b
 
 In the same setup as for the Integration tests, run e.g.:
 ```
-mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100)'
+mix run apps/honted_integration/scripts/performance.exs --nstreams 2 --fill-in 200 --duration 4
 ```
-
-for more details see the `moduledoc` therein.
-
-**NOTE** for performance test to run, you need to switch to a fork of tendermint:
-https://github.com/omisego/tendermint/tree/avoid_possible_race_checktx_commit.
-Otherwise you'll get weird `:invalid_nonce` errors sometimes
 
 ## Using the APIs
 

@@ -16,7 +16,7 @@ import HonteD.Crypto
 
 {:ok, raw_tx} = create_create_token_transaction(alice)
 {:ok, signature} = sign(raw_tx, alice_priv)
-{:ok, hash} = submit_commit raw_tx <> " " <> signature
+{:ok, hash} = submit_transaction raw_tx <> " " <> signature
 
 # wait
 
@@ -29,17 +29,17 @@ raw_tx <> " " <> signature
 
 # try invalid operations using json rpc
 # http --json localhost:4000 method=ubmit_transaction params:='{"transaction": ""}' jsonrpc=2.0 id=1
-# http --json localhost:4000 method=submit_commit params:='{"transactio": ""}' jsonrpc=2.0 id=1
-# http --json localhost:4000 method=submit_commit params:='{"transaction": ""}' jsonrpc=2.0 id=1
+# http --json localhost:4000 method=submit_transaction params:='{"transactio": ""}' jsonrpc=2.0 id=1
+# http --json localhost:4000 method=submit_transaction params:='{"transaction": ""}' jsonrpc=2.0 id=1
 # paste transaction - fire twice to see handling of duplicates and waiting for commit, and return data
-# http --json localhost:4000 method=submit_commit params:='{"transaction": ""}' jsonrpc=2.0 id=1
+# http --json localhost:4000 method=submit_transaction params:='{"transaction": ""}' jsonrpc=2.0 id=1
 
-submit_commit raw_tx <> " " <> signature
+submit_transaction raw_tx <> " " <> signature
 
 
 # a send transaction, that will be signed off
 {:ok, raw_tx} = create_send_transaction(asset, 5, alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
-{:ok, %{tx_hash: tx_hash}} = submit_commit raw_tx <> " " <> signature
+{:ok, %{tx_hash: tx_hash}} = submit_transaction raw_tx <> " " <> signature
 
 # see not signed off yet
 tx(tx_hash)
@@ -49,17 +49,17 @@ tx(tx_hash)
 
 # still won't be signed off
 {:ok, raw_tx} = create_sign_off_transaction(height - 1, "abcd", alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
-submit_commit raw_tx <> " " <> signature
+submit_transaction raw_tx <> " " <> signature
 
 tx(tx_hash)
 
 # invalid sign-off
 {:ok, raw_tx} = create_sign_off_transaction(height - 2, "abcd", alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
-submit_commit raw_tx <> " " <> signature
+submit_transaction raw_tx <> " " <> signature
 
 # this should successfully finalize the above send
 {:ok, raw_tx} = create_sign_off_transaction(height, "abcd", alice, alice); {:ok, signature} = sign(raw_tx, alice_priv)
-submit_commit raw_tx <> " " <> signature
+submit_transaction raw_tx <> " " <> signature
 
 tx(tx_hash)
 ```
