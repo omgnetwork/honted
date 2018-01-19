@@ -208,6 +208,8 @@ defmodule HonteD.ABCI do
             end)
   end
 
+  # NOTE: <<1>> in this decode/encode functions, is tendermint/crypto's EC type 0x01, the only one we support now
+  #       c.f. HonteStaking.sol function join
   defp decode_pub_key(pub_key), do: <<1>> <> Base.decode16!(pub_key)
 
   defp encode_pub_key(<<1>> <> pub_key), do: Base.encode16(pub_key)

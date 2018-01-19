@@ -89,6 +89,7 @@ contract HonteStaking {
 
   /** @dev Will attempt to join the next epoch for validation using fresh deposit and current stake (if available)
     * @param tendermintAddress the public address of the tendermint validator and receiver of fees earned
+    *                          NOTE: this assumes tendermint/crypto's EC type 0x01 is used
     */
   function join(address tendermintAddress)
     public
