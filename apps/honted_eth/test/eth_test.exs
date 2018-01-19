@@ -1,11 +1,8 @@
 defmodule HonteD.EthTest do
   use ExUnit.Case
-  doctest HonteD.Eth
 
   use ExUnit.Case, async: false
   import Mox
-
-  @moduletag :eth
 
   defp get_mock do
     set_mox_global()
@@ -88,8 +85,8 @@ defmodule HonteD.EthTest do
       Process.register(self(), HonteD.ABCI)
       state = %HonteD.Eth{enabled: true,
                           api: mock,
-                          failed: 0,
-                          max: 2,
+                          failed_sync_checks: 0,
+                          failed_sync_checks_max: 2,
                           refresh_period: 25,
                           sync_check_period: 10}
       assert {:ok, _} = GenServer.start_link(HonteD.Eth, state, [name: HonteD.Eth])
