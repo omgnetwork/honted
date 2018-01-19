@@ -14,6 +14,13 @@ defmodule HonteD.Eth.Contract do
     :binary.decode_unsigned(dec)
   end
 
+  @doc """
+  Check if geth is syncing.
+
+  `eth_syncing` might crash because of temporary closed port (geth does this)
+  or ethereumex being down. Those behaviors are essentially equivalent to
+  geth being out-of-sync for us.
+  """
   @spec syncing? :: boolean()
   def syncing? do
     try do
