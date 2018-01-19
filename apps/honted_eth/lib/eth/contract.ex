@@ -37,6 +37,7 @@ defmodule HonteD.Eth.Contract do
   end
 
   defp read_validators(staking, current_epoch, max_vals) when current_epoch > 0 do
+    # Validators will be there since epoch 1; for epoch 0 we get set of validators from genesis file.
     kv = for epoch <- 1..current_epoch do
       get_while = fn(index, acc) -> wrap_while(acc, get_validator(staking, epoch, index)) end
       {epoch, Enum.reduce_while(0..max_vals, [], get_while)}
