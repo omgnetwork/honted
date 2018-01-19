@@ -5,9 +5,11 @@ defmodule HonteD.Eth.Contract do
 
   @behaviour HonteD.Eth.ContractBehavior
 
+  require Integer
+
   def block_height do
-    {:ok, enc_answer} = Ethereumex.HttpClient.eth_block_number()
-    padded = mb_pad_16(enc_answer)
+    {:ok, "0x" <> enc_answer} = Ethereumex.HttpClient.eth_block_number()
+    padded = pad_to_even(enc_answer)
     {:ok, dec} = Base.decode16(padded, case: :lower)
     :binary.decode_unsigned(dec)
   end
@@ -119,12 +121,10 @@ defmodule HonteD.Eth.Contract do
   defp cleanup("0x" <> hex), do: hex |> String.upcase |> Base.decode16!
   defp cleanup(other), do: other
 
-  defp mb_pad_16("0x" <> hex) do
-    len = trunc(bit_size(hex) / 8)
-    evenodd = rem(len, 2)
-    case evenodd do
-      0 -> hex
-      1 -> "0" <> hex
+  defp pad_to_even(hex) do
+    case Integer.is_odd(byte_size(hex)) do
+      false -> hex
+      true -> "0" <> hex
     end
   end
 end
