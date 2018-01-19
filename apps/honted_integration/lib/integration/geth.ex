@@ -9,7 +9,7 @@ defmodule HonteD.Integration.Geth do
     Temp.track!
     homedir = Temp.mkdir!(%{prefix: "honted_eth_test_homedir"})
     res = geth("geth --dev --rpc --datadir #{homedir} 2>&1")
-    {:ok, :ready} = HonteD.Eth.WaitFor.rpc()
+    {:ok, :ready} = HonteD.Integration.WaitFor.eth_rpc()
     res
   end
 

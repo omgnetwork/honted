@@ -89,7 +89,7 @@ new_validator_pubkey =
 {:ok, _} = Integration.Contract.join(staking, alice_ethereum_address, new_validator_pubkey)
 
 {:ok, next} = Eth.Contract.get_next_epoch_block_number(staking)
-Eth.WaitFor.block_height(next + 1, true, 10_000)
+HonteD.Integration.WaitFor.eth_block_height(next + 1, true, 10_000)
 
 
 # NOTE: here one should probably double check, if one made it within the join-eject window for epoch 1

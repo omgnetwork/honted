@@ -2,7 +2,7 @@ defmodule HonteD.Integration.Contract do
   @moduledoc """
   Helper for staking contract operations in integration/tests/dev.
   """
-  alias HonteD.Eth.WaitFor, as: WaitFor
+  alias HonteD.Integration.WaitFor, as: WaitFor
 
   def deploy_dev(epoch_length, maturity_margin, max_validators) do
     deploy("", epoch_length, maturity_margin, max_validators)
@@ -51,7 +51,7 @@ defmodule HonteD.Integration.Contract do
     gas = "0x3D0900"
     {:ok, txhash} =
       Ethereumex.HttpClient.eth_send_transaction(%{from: from, to: contract, data: "0x#{data}", gas: gas})
-    {:ok, _receipt} = WaitFor.receipt(txhash, timeout)
+    {:ok, _receipt} = WaitFor.eth_receipt(txhash, timeout)
   end
 
   defp deploy_contract(addr, bytecode, types, args) do
@@ -59,7 +59,7 @@ defmodule HonteD.Integration.Contract do
     four_mil = "0x3D0900"
     txmap = %{from: addr, data: "0x" <> bytecode <> enc_args, gas: four_mil}
     {:ok, txhash} = Ethereumex.HttpClient.eth_send_transaction(txmap)
-    {:ok, receipt} = WaitFor.receipt(txhash, 10_000)
+    {:ok, receipt} = WaitFor.eth_receipt(txhash, 10_000)
     %{"contractAddress" => contract_address} = receipt
     {:ok, contract_address}
   end
