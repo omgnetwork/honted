@@ -4,18 +4,14 @@ defmodule HonteD.Integration.Contract do
   """
   alias HonteD.Integration.WaitFor, as: WaitFor
 
-  def deploy_dev(epoch_length, maturity_margin, max_validators) do
-    deploy("", epoch_length, maturity_margin, max_validators)
-  end
-
-  def deploy_integration(epoch_length, maturity_margin, max_validators) do
-    deploy("../../", epoch_length, maturity_margin, max_validators)
-  end
-
-  def deploy(root, epoch_length, maturity_margin, max_validators) do
+  @doc """
+  Deploy OMG token and staking contracts on Ethereum chain. Useful in :dev and :test environments.
+  """
+  def deploy(epoch_length, maturity_margin, max_validators) do
+    path = get_path_to_project_root()
     _ = Application.ensure_all_started(:ethereumex)
-    token_bc = File.read!(root <> "contracts/omg_token_bytecode.hex")
-    staking_bc = staking_bytecode(root <> "populus/build/contracts.json")
+    token_bc = File.read!(path <> "contracts/omg_token_bytecode.hex")
+    staking_bc = staking_bytecode(path <> "populus/build/contracts.json")
     {:ok, [addr | _]} = Ethereumex.HttpClient.eth_accounts()
     {:ok, token_address} = deploy_contract(addr, token_bc, [], [])
     {:ok, staking_address} = deploy_contract(addr, staking_bc,
@@ -77,5 +73,11 @@ defmodule HonteD.Integration.Contract do
       |> File.read!()
       |> Poison.decode!()
     String.replace(bytecode, "0x", "")
+  end
+
+  # In runtime working directory depends on the way application was started.
+  # `mix test` sets working directory to $ROOT/apps/$APP_CURRENTLY_BEING_TESTED/
+  def get_path_to_project_root do
+    Application.get_env(:honted_integration, :relative_path_to_root, "")
   end
 end
