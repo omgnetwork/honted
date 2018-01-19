@@ -12,7 +12,7 @@
         
         {:ok, raw_tx} = create_create_token_transaction(alice)
         {:ok, signature} = sign(raw_tx, alice_priv)
-        {:ok, hash} = submit_commit raw_tx <> " " <> signature
+        {:ok, hash} = submit_transaction raw_tx <> " " <> signature
         
         # v START DEMO HERE v
         
@@ -20,7 +20,7 @@
         
         {:ok, raw_tx} = create_issue_transaction(asset, 5, alice, alice)
         {:ok, signature} = sign(raw_tx, alice_priv)
-        submit_commit raw_tx <> " " <> signature
+        submit_transaction raw_tx <> " " <> signature
         
         # wait
 
@@ -41,4 +41,4 @@
         
         {:ok, raw_tx} = create_send_transaction(asset, 5, alice, alice)
         {:ok, signature} = sign(raw_tx, alice_priv)
-        submit_commit raw_tx <> " " <> signature
+        submit_transaction raw_tx <> " " <> signature
