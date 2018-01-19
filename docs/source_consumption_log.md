@@ -24,11 +24,9 @@ Identifies each module of pre-existing source code used in developing source cod
   * `plug`, Apache 2.0, https://hex.pm/packages/plug
   * `poison`, CC0-1.0, https://hex.pm/packages/poison
   * `ranch`, ISC, https://hex.pm/packages/ranch
-  * `tesla`, MIT, https://hex.pm/packages/tesla
   * `qex`, MIT, https://hex.pm/packages/qex
   * `mox`, Apache 2.0, https://hex.pm/packages/mox
   * `excoveralls`, MIT, https://hex.pm/packages/excoveralls
-  * `exprof`, MIT, https://hex.pm/packages/exprof
   * `eep`, MIT, https://github.com/virtan/eep
 * `tendermint`, Apache 2.0, https://github.com/tendermint/tendermint
 

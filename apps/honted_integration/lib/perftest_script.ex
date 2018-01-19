@@ -5,11 +5,11 @@ defmodule HonteD.PerftestScript do
   Usage examples:
   ```
   mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100)'
-  mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, %{profiling: fprof})'
+  mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100, %{profiling: :fprof})'
   mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100, %{homedir_size: true})'
   ```
 
-  Available profilers: `:fprof`, `:eep`, `:eprof`
+  Available profilers: `:fprof`, `:eep`
 
   NOTE: keep this as thin as reasonably possible, this is not tested (excluded in coveralls.json)
   """

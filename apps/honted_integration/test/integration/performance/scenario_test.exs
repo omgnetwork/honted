@@ -1,23 +1,23 @@
-defmodule HonteD.Performance.ScenarioTest do
+defmodule HonteD.Integration.Performance.ScenarioTest do
   @moduledoc """
   Unit test for performance scenario generation.
   Check is done on abci.state level - no IO is involved.
   """
 
-  alias HonteD.ABCI.State, as: State
-  import HonteD.Performance.Scenario
+  alias HonteD.ABCI.State
+  alias HonteD.Integration.Performance.Scenario
 
   use ExUnit.Case, async: true
 
   def run(scenario, n) do
     state =
       scenario
-      |> get_setup()
+      |> Scenario.get_setup()
       |> List.flatten()
       |> Enum.reduce(State.empty(), &apply_tx/2)
 
     scenario
-    |> get_send_txs()
+    |> Scenario.get_send_txs()
     |> hd()
     |> Enum.take(n)
     |> Enum.reduce(state, &apply_tx/2)
@@ -35,48 +35,47 @@ defmodule HonteD.Performance.ScenarioTest do
 
   describe "Test scenario generation correctness." do
     test "Scenario executes: setup and load from one of the senders" do
-      run(HonteD.Performance.Scenario.new(2, 10), 10)
+      run(Scenario.new(2, 10), 10)
     end
 
     test "Scenario.new/2 crashes for strange values." do
-      catch_error(HonteD.Performance.Scenario.new(10, 0))
+      catch_error(Scenario.new(10, 0))
     end
 
     test "Can generate empty scenarios with Scenario.new/2" do
-      empty = HonteD.Performance.Scenario.new(0, 10)
+      empty = Scenario.new(0, 10)
 
-      assert get_setup(empty) == []
-      assert get_senders(empty) == []
-      assert get_send_txs(empty) == []
+      assert Scenario.get_setup(empty) == []
+      assert Scenario.get_senders(empty) == []
+      assert Scenario.get_send_txs(empty) == []
     end
 
     test "Scenarios are deterministic." do
-      scenario1 = HonteD.Performance.Scenario.new(2, 10)
-      run1 = Enum.take(hd(get_send_txs(scenario1)), 10)
-      scenario2 = HonteD.Performance.Scenario.new(2, 10)
-      run2 = Enum.take(hd(get_send_txs(scenario2)), 10)
+      scenario1 = Scenario.new(2, 10)
+      run1 = Enum.take(hd(Scenario.get_send_txs(scenario1)), 10)
+      scenario2 = Scenario.new(2, 10)
+      run2 = Enum.take(hd(Scenario.get_send_txs(scenario2)), 10)
       assert run1 == run2
     end
 
     test "Scenarios are not identical." do
-      scenario1 = HonteD.Performance.Scenario.new(2, 10)
-      run1 = Enum.take(hd(get_send_txs(scenario1)), 10)
-      scenario3 = HonteD.Performance.Scenario.new(3, 10)
-      run3 = Enum.take(hd(get_send_txs(scenario3)), 10)
+      scenario1 = Scenario.new(2, 10)
+      run1 = Enum.take(hd(Scenario.get_send_txs(scenario1)), 10)
+      scenario3 = Scenario.new(3, 10)
+      run3 = Enum.take(hd(Scenario.get_send_txs(scenario3)), 10)
       assert run1 != run3
     end
 
     test "Scenario can skip transactions and remain correct" do
-      scenario = HonteD.Performance.Scenario.new(2, 10)
+      scenario = Scenario.new(2, 10)
       to_skip = 100
       state = run(scenario, to_skip)
 
       scenario
-      |> get_send_txs(skip_per_stream: to_skip)
+      |> Scenario.get_send_txs(skip_per_stream: to_skip)
       |> hd()
       |> Enum.take(200)
       |> Enum.reduce(state, &apply_tx/2)
-
     end
   end
 

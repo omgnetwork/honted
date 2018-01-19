@@ -26,16 +26,17 @@ Without the overhead of profiling, the txs processed (_Intel® Core™ i5-7200U 
 
 ### CPU load
 
-1. Tesla's `'Elixir.HonteD.API.TendermintRPC',client,0}` isn't a burden: `286.370` out of `531801.077` in `{'Elixir.HonteD.API',submit_sync,1}`. Likely it only creates a function returning the client.
+1. (formerly used) Tesla's `'Elixir.HonteD.API.TendermintRPC',client,0}` isn't a burden: `286.370` out of `531801.077` in `{'Elixir.HonteD.API',submit_sync,1}`. Likely it only creates a function returning the client.
   - **NOTE** it has been removed in subsequent optimizations, now using persistent Websocket connection
-2. in `{'Elixir.HonteD.API.TendermintRPC',broadcast_tx_sync,2}` mostly `Tesla` and `http` request handling
+2. in `{'Elixir.HonteD.API.TendermintRPC',broadcast_tx_sync,2}` mostly (former) `Tesla` and `http` request handling
   - see NOTE above, not any more
 3. `{'Elixir.HonteD.Performance.Scenario','-prepare_send_streams/4-fun-0-',5}` takes `2787.796` which is small but noticeable if compared to time spent with `ABCI`. Most of this is spent in creating and signing transactions (equal because both are mocks - hash functions)
 6. After
-   - changing `http` communication with Tendermint RPC to `websockets`
+   - changing `http` communication with Tendermint RPC from `Tesla` http to `websockets`
    - diversifying the receivers and making the state fill more
 
-   the code handling transactions breaks down as follows (majority of time spent using our silly-state-hashing):
+   the code handling transactions breaks down as follows (majority of time spent using our silly-state-hashing)
+   (**NOTE** these are `fprof` results, refer to [`fprof` documentation](http://erlang.org/doc/man/fprof.html) for interpretation guidelines):
           { {'Elixir.HonteD.ABCI',handle_call,3},       12302,45333.018,  103.391},     %
           [{{'Elixir.HonteD.TxCodec',decode,1},         12152, 1448.985,   44.439},
            {{'Elixir.HonteD.ABCI',generic_handle_tx,2}, 12152, 3935.379,   43.704},

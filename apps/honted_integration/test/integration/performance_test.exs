@@ -1,6 +1,6 @@
 defmodule HonteD.Integration.PerformanceTest do
   @moduledoc """
-  This is an integration test of the performance testing device.
+  Integration test of the performance testing device.
 
   NOTE that this doesn't test performance. It tests the preformance test
   """
@@ -34,8 +34,7 @@ defmodule HonteD.Integration.PerformanceTest do
 
   @tag fixtures: [:tendermint]
   test "performance test should run with fill in", %{} do
-    opts = %{profiling: nil}
-    result = Performance.run(@nstreams, @fill_in, @duration, opts)
+    result = Performance.run(@nstreams, @fill_in, @duration)
 
     result
     |> check_if_tm_bench_printed
@@ -45,7 +44,6 @@ defmodule HonteD.Integration.PerformanceTest do
   test "smoke test profilers", %{} do
 
     various_profilers = [%{profiling: :fprof},
-                         %{profiling: :eprof},
                          %{profiling: :eep}, ]
 
     fn ->

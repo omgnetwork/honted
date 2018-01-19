@@ -1,9 +1,9 @@
-defmodule HonteD.Performance.Scenario do
+defmodule HonteD.Integration.Performance.Scenario do
   @moduledoc """
   Generating test scenarios for performance tests - mainly streams of transactions and other useful data
   """
 
-  defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :no_receivers, :failure_rate]
+  defstruct [:issuers, :create_token_txs, :tokens, :issue_txs, :holders_senders, :n_receivers, :failure_rate]
 
   import HonteD.Crypto
   import HonteD.Transaction
@@ -28,33 +28,35 @@ defmodule HonteD.Performance.Scenario do
   Each sender corresponds to one token and one issue transaction. Transactions for load phase
   of the test can be taken from streams in send_txs. Transaction validity is independent from
   global ordering of transactions.
-  """
-  def new(no_senders, no_receivers, failure_rate \\ 0.1)
 
-  def new(no_senders, no_receivers, failure_rate)
+  NOTE: failure rate is unsupported for now, but leaving the argument to demonstrate intention
+  """
+  def new(n_senders, n_receivers, failure_rate \\ 0.0)
+
+  def new(n_senders, n_receivers, 0.0 = failure_rate)
   when
   0 <= failure_rate and
   failure_rate < 1 and
-  no_senders > 0 and
-  no_receivers > 0 do
+  n_senders > 0 and
+  n_receivers > 0 do
     # Seed with hardcoded value instead of time-based value
     # This ensures determinism of the scenario generation process.
     _ = :rand.seed(:exs1024s, {123, 123_534, 345_345})
-    issuers = Enum.map 1..no_senders, &generate_keys/1
+    issuers = Enum.map(1..n_senders, &generate_keys/1)
     {tokens, create_token_txs} = Enum.unzip(Enum.map(issuers, &create_token/1))
-    holders_senders = Enum.map(1..no_senders, &generate_keys/1)
+    holders_senders = Enum.map(1..n_senders, &generate_keys/1)
     issue_txs = Enum.map(:lists.zip3(issuers, tokens, holders_senders), &issue_token/1)
     %__MODULE__{issuers: issuers, create_token_txs: create_token_txs, tokens: tokens,
                 holders_senders: holders_senders, issue_txs: issue_txs,
-                no_receivers: no_receivers, failure_rate: failure_rate
+                n_receivers: n_receivers, failure_rate: failure_rate
     }
   end
 
   # NOTE need this, since thanks to Elixir's range support (1..0 == [0, 1]), we can't have it in the general clause
-  def new(0, no_receivers, failure_rate) do
+  def new(0, n_receivers, 0.0 = failure_rate) do
     %__MODULE__{issuers: [], create_token_txs: [], tokens: [],
                 holders_senders: [], issue_txs: [],
-                no_receivers: no_receivers, failure_rate: failure_rate
+                n_receivers: n_receivers, failure_rate: failure_rate
     }
   end
 
@@ -71,19 +73,21 @@ defmodule HonteD.Performance.Scenario do
   def get_send_txs(model, [skip_per_stream: skip_per_stream]) do
     prepare_send_streams(model.holders_senders,
                          model.tokens,
-                         model.no_receivers,
+                         model.n_receivers,
                          model.failure_rate,
                          skip_per_stream)
   end
   def get_send_txs(model), do: get_send_txs(model, skip_per_stream: 0)
 
-  defp prepare_send_streams(holders_senders, tokens, no_receivers, _failure_rate, skip_per_stream) do
+  defp prepare_send_streams(holders_senders, tokens, n_receivers, _failure_rate, skip_per_stream) do
     args = Enum.zip(holders_senders, tokens)
     for {sender, token} <- args do
       transaction_generator = fn(nonce) ->
-        receiver = current_receiver(nonce, no_receivers)
+        receiver = current_receiver(nonce, n_receivers)
         {:ok, tx} = create_send([nonce: nonce, asset: token, amount: @normal_amount,
                                  from: sender.addr, to: receiver])
+
+        # NOTE: the boolean here signals expected success/failure. For now always success (failure rate unsupported)
         {{true, signed_tx(tx, sender)}, nonce + 1}
       end
 
@@ -92,9 +96,9 @@ defmodule HonteD.Performance.Scenario do
     end
   end
 
-  defp current_receiver(number, no_receivers) do
+  defp current_receiver(number, n_receivers) do
     number
-    |> Integer.mod(no_receivers)
+    |> Integer.mod(n_receivers)
     |> Integer.to_string
     |> String.pad_leading(37, "c")
     |> Kernel.<>("pub")
