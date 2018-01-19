@@ -30,13 +30,14 @@ defmodule HonteD.API.TendermintRPC do
       {:ok, nil}
     end
 
+    @spec call_method(atom, [{atom, binary | integer | boolean}]) :: map
     def call_method(method, params) do
       GenServer.call(__MODULE__, {:call_method, method, params}, @rpc_timeout)
     end
 
     def handle_call({:call_method, method, params}, _from, websocket) do
       # connect on very first request
-      websocket = if websocket == nil, do: Websocket.connect!, else: websocket
+      websocket = if websocket == nil, do: connect!(), else: websocket
 
       # do request
       case sendrecv!(websocket, method, params) do
@@ -45,12 +46,12 @@ defmodule HonteD.API.TendermintRPC do
       end
     end
 
-    def connect!() do
+    defp connect!() do
       rpc_port = Application.get_env(:honted_api, :tendermint_rpc_port)
       Socket.Web.connect!("localhost", rpc_port, path: "/websocket")
     end
 
-    def send!(websocket, method, params) when is_atom(method) and is_map(params) do
+    defp send!(websocket, method, params) when is_atom(method) and is_map(params) do
       encoded_message = Poison.encode!(%{jsonrpc: "2.0", id: "0", method: method, params: params})
       websocket
       |> Socket.Web.send!({
@@ -59,7 +60,7 @@ defmodule HonteD.API.TendermintRPC do
       })
     end
 
-    def recv!(websocket) do
+    defp recv!(websocket) do
       case Socket.Web.recv!(websocket) do
         {:text, response} -> {:ok, response}
         {:close, reason, _}  -> {:error, {:socket_closed, reason}}
@@ -69,9 +70,9 @@ defmodule HonteD.API.TendermintRPC do
       end
     end
 
-    def sendrecv!(websocket, method, params) when is_atom(method) and is_list(params) do
-      :ok = Websocket.send!(websocket, method, Map.new(params))
-      Websocket.recv!(websocket)
+    defp sendrecv!(websocket, method, params) when is_atom(method) and is_list(params) do
+      :ok = send!(websocket, method, Map.new(params))
+      recv!(websocket)
     end
   end
 

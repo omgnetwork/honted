@@ -31,7 +31,7 @@ defmodule HonteD.API.Tools do
 
   @doc """
   Enriches the standards Tendermint tx information with a HonteD-specific status flag
-    :failed, :pending, :committed, :finalized, :committed_unknown
+    :failed, :committed, :finalized, :committed_unknown
   """
   def append_status(tx_info, client) do
     tx_info
@@ -59,10 +59,7 @@ defmodule HonteD.API.Tools do
   defp get_tx_tendermint_status(tx_info) do
     case tx_info do
       %{"height" => _, "tx_result" => %{"code" => 0, "data" => "", "log" => ""}} -> :committed
-      # NOTE not sure the following scenarios are possible!
-      %{"tx_result" => %{"code" => 0, "data" => "", "log" => ""}} -> :pending
-      # successful look up of failed tx
-      %{"tx_result" => _} -> :failed
+      %{"tx_result" => _} -> :failed # successful look up of failed tx
     end
   end
 

@@ -139,12 +139,12 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
 
-      # NOTE: deliver_tx should not crash here: this is intended version. Please restore
+      # FIXME: deliver_tx should not crash here: this is intended version. Please restore
       #  next line after allowing :ResponseDeliverTx to return non-zero error codes.
       # create_sign_off(params) |> deliver_tx(state)
 
       raw_tx = create_sign_off(params)
-      # NOTE: but deliver_tx still crashes and we want to be sure that nothing was emitted anyway:
+      # FIXME: but deliver_tx still crashes and we want to be sure that nothing was emitted anyway:
       assert_raise(MatchError, fn() -> deliver_tx(raw_tx, state) end)
       join(server_pid)
     end

@@ -5,7 +5,7 @@ defmodule HonteD.ABCI.StateTest do
   # NOTE: we can't enforce this here, because of the keyword-list-y form of create_x calls
   # credo:disable-for-this-file Credo.Check.Refactor.PipeChainStart
 
-  # NOTE: It is better to be consistent and to test using only deliverTx and not checkTx here
+  # FIXME: It is better to be consistent and to test using only deliverTx and not checkTx here
   # unfortunately not possible until deliverTx is crashing on bad input.
 
   use ExUnitFixtures
