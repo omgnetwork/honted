@@ -25,4 +25,13 @@ infeasible to give block provisions. As such HonteD only has transaction fees.
 
 ## Fee Distribution
 
-There are two sep
+Fees are distributed evenly between all validators. An extension to this is 
+that the proposer of every block receives 5% extra fees if he includes 100%
+of signatures from the rest of the validators. This creates a trade-off
+between waiting for more signatures and timing out from the proposal round.
+It incentives validators to create stronger connectivity between themselves
+as well as helps to prevent censorship since it puts an economic cost on it.
+// TODO: How to retrieve the block proposer and signatures for each block.
+// Cosmos hub will do this and we can reuse the logic.
+
+
