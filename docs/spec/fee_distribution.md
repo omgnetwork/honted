@@ -34,4 +34,9 @@ as well as helps to prevent censorship since it puts an economic cost on it.
 // TODO: How to retrieve the block proposer and signatures for each block.
 // Cosmos hub will do this and we can reuse the logic.
 
-
+## TODO
+* spec out the data structures to distribute the fees
+* explain how users can withdraw fees by submitting proofs of delegation from
+  Ethereum
+* consider using the Plasma design to make the withdrawal easier
+* ensure that it is of reasonable complexity
