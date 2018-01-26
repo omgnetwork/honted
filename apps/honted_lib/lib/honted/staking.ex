@@ -6,7 +6,8 @@ defmodule HonteD.Staking do
              :start_block,
              :epoch_length,
              :maturity_margin,
-             :validators
+             :validators,
+             :synced,
             ]
 
 end
