@@ -31,7 +31,7 @@ Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean
 
 **NOTE** Integration tests require `tm-bench` to be installed: `go get -u github.com/tendermint/tools/tm-bench`, possibly a `glide install` will be necessary
 
-When running `integration` tests, remember to have `tendermint` and `tm-bench` binaries reachable in your `$PATH`.
+When running `integration` tests, remember to have `tendermint`, `tm-bench`, and `geth` binaries reachable in your `$PATH`.
 
 ### Performance test - quick guide
 
@@ -69,6 +69,7 @@ See the apps' respective `moduledoc`'s' for their respective overviews and docum
 The general idea of the apps responsibilities is:
   - `honted_abci` - talks to Tendermint core and maintains the state, including validator selection and tracking the staking mechanism on Ethereum
   - `honted_api` - main entrypoint to the functionality. Interacts with the blockchain via Tendermint APIs
+  - `honted_eth` - fetches information about validators set from Ethereum and feeds it into `honted_abci`
   - `honted_integration` - just for integration/performance testing
   - `honted_jsonrpc` - a JSONRPC 2.0 gateway to `honted_api` - automatically exposed via `ExposeSpec`
   - `honted_ws` - a Websockets gateway to `honted_api` - automatically exposed via `ExposeSpec`
