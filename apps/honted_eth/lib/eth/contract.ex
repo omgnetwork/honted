@@ -39,20 +39,27 @@ defmodule HonteD.Eth.Contract do
 
   def read_validators(staking) do
     {:ok, current} = get_current_epoch(staking)
+    {:ok, neh} = get_next_epoch_block_number(staking)
+    {:ok, mm} = maturity_margin(staking)
+    bh = block_height()
+    max_epoch = case (neh - mm < bh) and (bh < neh) do
+                  true -> current + 1
+                  false -> current
+                end
     {:ok, max_vals} = max_number_of_validators(staking)
-    read_validators(staking, current, max_vals)
+    read_validators(staking, max_epoch, max_vals)
   end
 
-  defp read_validators(staking, current_epoch, max_vals) when current_epoch > 0 do
+  defp read_validators(staking, max_epoch, max_vals) when max_epoch > 0 do
     # Validators will be there since epoch 1; for epoch 0 we get set of validators from genesis file.
-    kv = for epoch <- 1..current_epoch do
+    kv = for epoch <- 1..max_epoch do
       get_while = fn(index, acc) -> wrap_while(acc, get_validator(staking, epoch, index)) end
       {epoch, Enum.reduce_while(0..max_vals, [], get_while)}
     end
     Map.new(kv)
   end
   defp read_validators(_staking, _current_epoch, _max_vals) do
-    []
+    %{}
   end
 
   defp wrap_while(acc, {:ok, [{0, _tm_pubkey, _eth_addr} = _value]}) do
