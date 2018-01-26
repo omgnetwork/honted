@@ -28,3 +28,7 @@ erl_crash.dump
 *.pyc
 
 populus/build/
+
+*.trace
+callgrind.out.*
+*.log

@@ -12,11 +12,24 @@ defmodule HonteD.Integration do
   end
 
   @doc """
+  Runs a geth dev chain with very specific set of validators
+  """
+  def geth do
+    _ = Application.ensure_all_started(:porcelain)
+    _ = Application.ensure_all_started(:ethereumex)
+    {ref, geth_os_pid, _} = HonteD.Integration.Geth.start()
+    on_exit = fn() ->
+      HonteD.Integration.Geth.stop(ref, geth_os_pid)
+    end
+    {:ok, on_exit}
+  end
+
+  @doc """
   Runs a HonteD ABCI app using Porcelain
   """
   def honted do
     # handles a setup/teardown of our apps, that talk to similarly setup/torndown tendermint instances
-    our_apps_to_start = [:honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
+    our_apps_to_start = [:honted_eth, :honted_api, :honted_abci, :honted_ws, :honted_jsonrpc]
     started_apps =
       our_apps_to_start
       |> Enum.map(&Application.ensure_all_started/1)

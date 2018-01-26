@@ -6,6 +6,8 @@ defmodule HonteD.TxCodec do
   """
   alias HonteD.Transaction
 
+  @signature_length 64
+
   def decode(line) do
     with :ok <- valid_size?(line),
          do: do_decode(line)
@@ -20,14 +22,14 @@ defmodule HonteD.TxCodec do
   # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   defp do_decode(line) do
     case String.split(line) do
-      [nonce, "CREATE_TOKEN", issuer, signature] when byte_size(signature) == 64 ->
+      [nonce, "CREATE_TOKEN", issuer, signature] when byte_size(signature) == @signature_length ->
         case Integer.parse(nonce) do
           {int_nonce, ""} -> {:ok, %Transaction.CreateToken{nonce: int_nonce,
                                                             issuer: issuer}
                                    |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "ISSUE", asset, amount, dest, issuer, signature] when byte_size(signature) == 64 ->
+      [nonce, "ISSUE", asset, amount, dest, issuer, signature] when byte_size(signature) == @signature_length ->
         case {Integer.parse(amount), Integer.parse(nonce)} do
           {{int_amount, ""}, {int_nonce, ""}} -> {:ok, %Transaction.Issue{nonce: int_nonce,
                                                                           asset: asset,
@@ -37,7 +39,7 @@ defmodule HonteD.TxCodec do
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "SEND", asset, amount, from, to, signature] when byte_size(signature) == 64 ->
+      [nonce, "SEND", asset, amount, from, to, signature] when byte_size(signature) == @signature_length ->
         case {Integer.parse(amount), Integer.parse(nonce)} do
           {{int_amount, ""}, {int_nonce, ""}} -> {:ok, %Transaction.Send{nonce: int_nonce,
                                                                          asset: asset,
@@ -47,7 +49,7 @@ defmodule HonteD.TxCodec do
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "SIGN_OFF", height, hash, sender, signoffer, signature] when byte_size(signature) == 64 ->
+      [nonce, "SIGN_OFF", height, hash, sender, signoffer, signature] when byte_size(signature) == @signature_length ->
         case {Integer.parse(height), Integer.parse(nonce)} do
           {{int_height, ""}, {int_nonce, ""}} -> {:ok, %Transaction.SignOff{nonce: int_nonce,
                                                                             height: int_height,
@@ -57,7 +59,7 @@ defmodule HonteD.TxCodec do
                                                        |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
-      [nonce, "ALLOW", allower, allowee, privilege, allow, signature] when byte_size(signature) == 64 and
+      [nonce, "ALLOW", allower, allowee, privilege, allow, signature] when byte_size(signature) == @signature_length and
                                                                            allow in ["true", "false"] ->
         case Integer.parse(nonce) do
           {int_nonce, ""} -> {:ok, %Transaction.Allow{nonce: int_nonce,
@@ -68,9 +70,18 @@ defmodule HonteD.TxCodec do
                                                       |> with_signature(signature)}
           _ -> {:error, :malformed_numbers}
         end
+      [nonce, "EPOCH_CHANGE", sender, epoch_number, signature] when byte_size(signature) == @signature_length ->
+        case {Integer.parse(nonce), Integer.parse(epoch_number)} do
+          {{int_nonce, ""}, {int_epoch_number, ""}} -> {:ok, %Transaction.EpochChange{nonce: int_nonce,
+                                                      sender: sender,
+                                                      epoch_number: int_epoch_number}
+                                                      |> with_signature(signature)}
+          _ -> {:error, :malformed_numbers}
+        end
       _ -> {:error, :malformed_transaction}
     end
   end
+
   def decode!(line) do
     {:ok, decoded} = decode(line)
     decoded
@@ -99,6 +110,10 @@ defmodule HonteD.TxCodec do
   end
   def encode(%Transaction.Allow{nonce: nonce, allower: allower, allowee: allowee, privilege: privilege, allow: allow}) do
     {nonce, :allow, allower, allowee, privilege, allow}
+    |> _encode
+  end
+  def encode(%Transaction.EpochChange{nonce: nonce, sender: sender, epoch_number: epoch_number}) do
+    {nonce, :epoch_change, sender, epoch_number}
     |> _encode
   end
 

@@ -5,11 +5,19 @@ defmodule HonteD.ABCI.Fixtures do
   use ExUnitFixtures.FixtureModule
 
   import HonteD.Transaction
-
   import HonteD.ABCI.TestHelpers
 
-  deffixture empty_state do
-    {:ok, state} = HonteD.ABCI.init(:ok)
+  deffixture staking_state do
+    %HonteD.Staking{
+      ethereum_block_height: 10,
+      start_block: 0,
+      epoch_length: 2,
+      maturity_margin: 1
+    }
+  end
+
+  deffixture empty_state(staking_state) do
+    {:ok, state} = HonteD.ABCI.init([staking_state])
     state
   end
 
@@ -68,4 +76,12 @@ defmodule HonteD.ABCI.Fixtures do
   deffixture some_block_hash do
     "ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD"
   end
+
+  deffixture state_no_epoch_change(empty_state, staking_state) do
+    staking_state_no_epoch_change = %{staking_state | ethereum_block_height: 0}
+    {:noreply, state} =
+      HonteD.ABCI.handle_cast({:set_staking_state, staking_state_no_epoch_change}, empty_state)
+    state
+  end
+
 end

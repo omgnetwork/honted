@@ -9,6 +9,9 @@ defmodule HonteD.Integration.SmokeTest do
   use ExUnitFixtures
   use ExUnit.Case, async: false
 
+  alias HonteD.Eth.Contract, as: CRead
+  alias HonteD.Integration.Contract, as: CWrite
+
   alias HonteD.{Crypto, API}
 
   @supply 5
@@ -298,5 +301,35 @@ defmodule HonteD.Integration.SmokeTest do
                          },
                "message" => "Invalid params"}
      } = apis_caller.(:token_info, %{toke: ""})
+  end
+
+  @tag fixtures: [:geth]
+  test "Contract can be read", %{} do
+    epoch = 10
+    amount = 100
+    assert CRead.block_height()
+    assert {:ok, token, staking} = CWrite.deploy(epoch, 5, 2)
+    assert {:ok, 0} = CRead.get_current_epoch(staking)
+    assert {:ok, ^epoch} = CRead.epoch_length(staking)
+    assert {:ok, next_epoch} = CRead.get_next_epoch_block_number(staking)
+    assert {:ok, mm} = CRead.maturity_margin(staking)
+    {:ok, [addr | _]} = Ethereumex.HttpClient.eth_accounts()
+    assert CWrite.mint_omg(token, addr, amount)
+    assert CWrite.approve(token, addr, staking, amount)
+    assert CWrite.deposit(staking, addr, amount)
+    assert {:ok, ^amount} = CRead.balance_of(token, staking)
+    tm_pubkey = "FEFB8740A301134C7762E38241B59FC8181D982A1DE629F7168622A863E9BCAA"
+    assert %{} =
+      CRead.read_validators(staking)
+    assert next_epoch - mm > CRead.block_height()
+    assert CWrite.join(staking, addr, tm_pubkey)
+    assert %{} =
+      CRead.read_validators(staking)
+    assert HonteD.Integration.WaitFor.eth_block_height(next_epoch - mm + 1, true)
+    assert %{1 => [%HonteD.Validator{:stake => ^amount, :tendermint_address => ^tm_pubkey}]} =
+      CRead.read_validators(staking)
+    assert HonteD.Integration.WaitFor.eth_block_height(next_epoch + 1, true)
+    assert %{1 => [%HonteD.Validator{:stake => ^amount, :tendermint_address => ^tm_pubkey}]} =
+      CRead.read_validators(staking)
   end
 end

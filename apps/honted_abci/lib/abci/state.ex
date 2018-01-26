@@ -3,10 +3,17 @@ defmodule HonteD.ABCI.State do
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
   alias HonteD.Transaction
+  alias HonteD.Staking
 
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
+  @epoch_number_key "contract/epoch_number"
+  # indicates that epoch change is in progress, is set to true in epoch change transaction
+  # and set to false when state is processed in EndBlock
+  @epoch_change_key "contract/epoch_change"
 
-  def empty, do: %{}
+  def initial do
+    %{@epoch_number_key => 0, @epoch_change_key => false}
+  end
 
   def get(state, key) do
     case state[key] do
@@ -64,11 +71,38 @@ defmodule HonteD.ABCI.State do
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Allow{} = tx}) do
-
     with :ok <- nonce_valid?(state, tx.allower, tx.nonce),
          do: {:ok, state
                    |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)
                    |> bump_nonce_after(tx)}
+  end
+
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx},
+   %Staking{} = staking_state) do
+    with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
+         :ok <- validator_block_passed?(staking_state, state[@epoch_number_key]),
+         :ok <- epoch_valid?(state, tx.epoch_number),
+         do: {:ok, state
+                   |> apply_epoch_change
+                   |> bump_nonce_after(tx)}
+  end
+
+  def validator_block_passed?(staking, epoch) do
+    # We enumerate epochs starting from 0
+    # Calculating validator block height is based on HonteStaking Ethereum contract
+    # Keep the logic consistent with contract code
+    validator_block =
+      staking.start_block + staking.epoch_length * (epoch + 1) - staking.maturity_margin
+    if validator_block <= staking.ethereum_block_height do
+      :ok
+    else
+      {:error, :validator_block_has_not_passed}
+    end
+  end
+
+  defp epoch_valid?(state, epoch_number) do
+    is_next_epoch = state[@epoch_number_key] == epoch_number - 1
+    if is_next_epoch and not state[@epoch_change_key], do: :ok, else: {:error, :invalid_epoch_change}
   end
 
   defp account_has_at_least?(state, key_src, amount) do
@@ -148,6 +182,12 @@ defmodule HonteD.ABCI.State do
     |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
+  defp apply_epoch_change(state) do
+    state
+    |> Map.put(@epoch_change_key, true)
+    |> Map.update!(@epoch_number_key, &(&1 + 1))
+  end
+
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)
     state
@@ -164,6 +204,18 @@ defmodule HonteD.ABCI.State do
   defp scan_potential_issued(unfiltered_tokens, state, issuer) do
     unfiltered_tokens
     |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+  end
+
+  def epoch_change?(state) do
+    state[@epoch_change_key]
+  end
+
+  def not_change_epoch(state) do
+    Map.put(state, @epoch_change_key, false)
+  end
+
+  def epoch_number(state) do
+    state[@epoch_number_key]
   end
 
 end

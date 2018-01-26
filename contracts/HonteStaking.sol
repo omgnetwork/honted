@@ -21,7 +21,7 @@ contract HonteStaking {
 
   struct validator {
     uint256 stake;
-    address tendermintAddress;
+    bytes32 tendermintPubkey;
     address owner;
     bool isContinuing;
   }
@@ -88,14 +88,15 @@ contract HonteStaking {
   }
 
   /** @dev Will attempt to join the next epoch for validation using fresh deposit and current stake (if available)
-    * @param tendermintAddress the public address of the tendermint validator and receiver of fees earned
+    * @param tendermintPubkey the public address of the tendermint validator and receiver of fees earned
+    *                          NOTE: this assumes tendermint/crypto's EC type 0x01 is used
     */
-  function join(address tendermintAddress)
+  function join(bytes32 tendermintPubkey)
     public
   {
     // Checks to make sure the tendermint address isn't null which could be an easy error
     //
-    require(tendermintAddress != 0x0);
+    require(tendermintPubkey != 0x0);
 
     uint256 currentEpoch         = getCurrentEpoch();
     uint256 nextEpoch            = currentEpoch.add(1);
@@ -127,7 +128,7 @@ contract HonteStaking {
     }
 
     // want to give the possibility of updating the tendermint address regardless
-    validatorSets[nextEpoch][newValidatorPosition].tendermintAddress = tendermintAddress;
+    validatorSets[nextEpoch][newValidatorPosition].tendermintPubkey = tendermintPubkey;
 
     // Creates/updates withdraw - combines the fresh deposit with the currently validating stake
     //
@@ -163,18 +164,18 @@ contract HonteStaking {
      * @param epoch the validating epoch queried
      * @param validatorIdx the index of the queried validator slot (must be in 0:maxNumberOfValidators)
      * @return stake returned validator's stake in smallest token denomination
-     * @return tendermintAddress the validators public address of the tendermint validator
+     * @return tendermintPubkey the validators public address of the tendermint validator
      * @return owner the validators address on ethereum, 0x0 if the slot is empty
      */
    function getValidator(uint256 epoch, uint256 validatorIdx)
      public
      view
-     returns (uint256 stake, address tendermintAddress, address owner)
+     returns (uint256 stake, bytes32 tendermintPubkey, address owner)
    {
      validator memory queriedValidator = validatorSets[epoch][validatorIdx];
 
      stake = queriedValidator.stake;
-     tendermintAddress = queriedValidator.tendermintAddress;
+     tendermintPubkey = queriedValidator.tendermintPubkey;
      owner = queriedValidator.owner;
    }
 

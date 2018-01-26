@@ -3,3 +3,13 @@ Function homedir/0 has no local return
 The pattern {'ok', _dir_path@1} can never match the type {'error',<<_:152>>}
 The call 'Elixir.Temp':mkdir(<<_:80>>) will never return since it differs in the 1st argument from the success typing arguments: ('nil' | maybe_improper_list() | map())
 Function setup_and_run/3 has no local return
+Function setup_and_run/4 has no local return
+Unknown function fprof:analyse/1
+Unknown function fprof:apply/3
+Unknown function fprof:profile/0
+Function geth/0 has no local return
+The created fun has no local return
+Function start/0 has no local return
+Function launch/1 will never be called
+Function geth_os_pids/0 will never be called
+Function wait_for_geth_start/1 will never be called
