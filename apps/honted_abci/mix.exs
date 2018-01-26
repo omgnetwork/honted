@@ -36,6 +36,8 @@ defmodule HonteD.ABCI.Mixfile do
       {:ojson, "~> 1.0.0"},
       {:bimap, "~> 0.1.1"},
       {:poison, "~> 3.1"},
+      {:ex_rlp, "~> 0.1.0"},
+      {:keccakf1600, "~> 2.0.0", hex: :keccakf1600_orig},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_eth, in_umbrella: true},
