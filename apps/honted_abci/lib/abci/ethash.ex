@@ -3,98 +3,85 @@ defmodule HonteD.ABCI.Ethash do
   Validates proof of work for Ethereum block
   """
   use Bitwise
-  @hash_length 32
-  @nonce_length 8
 
-  @word_bytes 4
-  @dataset_bytes_init 1073741824 # 2^30
-  @dataset_bytes_growth 8388608 # 2^23
-  @cache_bytes_init 16777216 # 2^24
-  @cache_bytes_growth 131072 # 2^17
-  @cache_multiplayer 1024
-  @epoch_length 30000
-  @mix_bytes 128
+  alias HonteD.HonteD.ABCI.EthashUtils
+
+  @fnv_prime 16777619
+  @base_32 4294967296 # 2^32
   @hash_bytes 64
   @dataset_parents 256
-  @cache_rounds 3
+  @dataset_mix_range 16 # @hash_bytes / @word_bytes
+  @mix_hashes 2 # @mix_bytes / @hash_bytes
+  @words 32 # @mix_bytes / @word_bytes
   @accesses 64
 
-  def make_cache(cache_size, seed) do
-    n = div(cache_size, @hash_bytes)
-    initial = initial_cache(n, seed)
-    memo_hash_rounds(initial, 1, @cache_rounds)
+  def hashimoto_light(full_size, cache, header, nonce) do
+    hashimoto(header, nonce, full_size, fn x -> calc_dataset_item(cache, x) end)
   end
 
-  defp memo_hash_rounds(cache, round_number, max_rounds) do
-    if round_number > max_rounds do
-      cache
-    else
-      memo_hash_rounds(memo_hash(cache, 1), round_number + 1, max_rounds)
-    end
+  defp hashimoto(header, nonce, full_size, dataset_lookup) do
+    n = div(full_size, @hash_bytes)
+    nonce_le = nonce_little_endian(nonce)
+
+    seed = EthashUtils.keccak_512(header <> nonce_le)
+    compressed_mix =
+      seed
+      |> List.duplicate(@mix_hashes)
+      |> List.flatten
+      |> mix_in_dataset(seed, dataset_lookup, n, 0)
+      |> compress([])
+    [mix_digest: EthashUtils.encode_ints(compressed_mix),
+     result: EthashUtils.encode_ints(EthashUtils.keccak_256(seed ++ compressed_mix))]
   end
 
-  defp memo_hash(cache, i) do
-    if i == length(cache) do
-      cache
-    else
-      memo_hash(memo_hash_i(cache, i), i + 1)
-    end
+  defp mix_in_dataset(mix, _seed, _dataset_lookup, _n, @accesses), do: mix
+  defp mix_in_dataset(mix, seed, dataset_lookup, n, round) do
+    p = (fnv(round ^^^ Enum.at(seed, 0), Enum.at(mix, rem(round, @words)))
+         |> rem(div(n, @mix_hashes))) * @mix_hashes
+    new_data = get_new_data([], p, dataset_lookup, 0)
+    mix = Enum.zip(mix, new_data)
+          |> Enum.map(&HonteD.ABCI.Ethash.fnv/2)
+    mix_in_dataset(mix, seed, dataset_lookup, n, round + 1)
   end
 
-  defp memo_hash_i(cache, i) do
+  defp get_new_data(acc, _p, _dataset_lookup, @mix_hashes), do: Enum.reverse(acc)
+  defp get_new_data(acc, p, dataset_lookup, round) do
+    get_new_data([dataset_lookup.(p + round) ++ acc], p, dataset_lookup, round + 1)
+  end
+
+  defp compress([], compressed_mix), do: Enum.reverse(compressed_mix)
+  defp compress(mix, compressed_mix) do
+    [m1, m2, m3, m4 | tail] = mix
+    c = fnv(m1, m2)
+        |> fnv(m3)
+        |> fnv(m4)
+    compress(tail, [c | compressed_mix])
+  end
+
+  defp nonce_little_endian(nonce) do
+    <<Integer.parse(nonce, 16) :: little-64>>
+  end
+
+  defp calc_dataset_item(cache, i) do
     n = length(cache)
-    v = cache
-        |> Enum.at(i)
-        |> Enum.at(0)
-        |> rem(length(cache))
-    j = rem(i - 1 + n, n)
-    cache_i = Enum.zip(Enum.at(cache, j), Enum.at(cache, v))
-              |> Enum.map(fn {a, b} -> a ^^^ b end)
-    Enum.replace_at(cache, i, cache_i)
+    [head | tail] = Enum.at(cache, rem(i, n))
+    initial = EthashUtils.keccak_512([head ^^^ i | tail])
+
+    mix(cache, i, initial, 0)
+    |> EthashUtils.keccak_512
   end
 
-  defp initial_cache(n, seed) when is_binary(seed) do
-    initial_cache(n - 1, [HonteD.ABCI.EthashUtils.keccak_512(seed)])
-  end
-  defp initial_cache(0, acc) when is_list(acc), do: Enum.reverse(acc)
-  defp initial_cache(n, acc) when is_list(acc) do
-    [head | _] = acc
-    initial_cache(n - 1, [HonteD.ABCI.EthashUtils.keccak_512(head) | acc])
-  end
-
-  defp cache_size(block_number) do
-    size = @cache_bytes_init + @cache_bytes_growth * div(block_number, @epoch_length) - @hash_bytes
-    get_cache_size(size)
+  defp mix(_cache, _i, current_mix, @dataset_parents), do: current_mix
+  defp mix(cache, i, current_mix, round) do
+    cache_index = fnv(i ^^^ round, current_mix[rem(round, @dataset_mix_range)])
+    current_mix =
+      Enum.zip(current_mix, Enum.at(cache, rem(cache_index, length(cache))))
+      |> Enum.map(fn {a, b} -> fnv(a, b) end)
+    mix(cache, i, current_mix, round + 1)
   end
 
-  defp get_cache_size(current_size) do
-    if prime?(div(current_size, @mix_bytes)) do
-      current_size
-    else
-      get_cache_size(current_size - 2 * @mix_bytes)
-    end
+  defp fnv(v1, v2) do
+    rem((v1 * @fnv_prime) ^^^ v2, @base_32)
   end
-
-  defp get_seed(block_number) do
-    initial_seed =
-      <<0>>
-      |> List.duplicate(32)
-      |> Enum.reduce(&<>/2)
-    hash_rounds = div(block_number, @epoch_length)
-    [1..hash_rounds]
-    |> List.foldl(initial_seed, fn(_, seed) -> :keccakf1600.sha3_256(seed) end)
-  end
-
-  defp prime?(1), do: false
-  defp prime?(num) when num > 1 and num < 4, do: true
-  defp prime?(num) do
-    upper_bound = round(Float.floor(:math.pow(num, 0.5)))
-    [2..upper_bound]
-    |> Enum.any(fn n -> rem(num, n) == 0 end)
-  end
-
-  defp pow(n, k), do: pow(n, k, 1)
-  defp pow(_, 0, acc), do: acc
-  defp pow(n, k, acc), do: pow(n, k - 1, n * acc)
 
 end
