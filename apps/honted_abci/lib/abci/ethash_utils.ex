@@ -29,14 +29,35 @@ defmodule HonteD.ABCI.EthashUtils do
     decode_ints(binary_hash)
   end
 
-  defp encode_ints(ints) do
+  def encode_ints(ints) do
     ints
     |> Enum.map(&encode_int/1)
+    |> Enum.reverse
     |> Enum.reduce(&<>/2)
   end
 
   def keccak_256(ints) do
     hash(fn b -> :keccakf1600.sha3_256(b) end, ints)
+  end
+
+  def pow(n, k), do: pow(n, k, 1)
+  def pow(_, 0, acc), do: acc
+  def pow(n, k, acc), do: pow(n, k - 1, n * acc)
+
+  def e_prime(x, y) do
+    if prime?(div(x, y)) do
+      x
+    else
+      e_prime(x - 2 * y, y)
+    end
+  end
+
+  def prime?(1), do: false
+  def prime?(num) when num > 1 and num < 4, do: true
+  def prime?(num) do
+    upper_bound = round(Float.floor(:math.pow(num, 0.5)))
+    2..upper_bound
+    |> Enum.all?(fn n -> rem(num, n) != 0 end)
   end
 
 end
