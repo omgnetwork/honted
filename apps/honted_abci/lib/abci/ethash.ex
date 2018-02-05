@@ -4,7 +4,7 @@ defmodule HonteD.ABCI.Ethash do
   """
   use Bitwise
 
-  alias HonteD.HonteD.ABCI.EthashUtils
+  alias HonteD.ABCI.EthashUtils
 
   @fnv_prime 16777619
   @base_32 4294967296 # 2^32
@@ -20,6 +20,7 @@ defmodule HonteD.ABCI.Ethash do
   end
 
   defp hashimoto(header, nonce, full_size, dataset_lookup) do
+    IO.puts("hashimoto started")
     n = div(full_size, @hash_bytes)
     nonce_le = nonce_little_endian(nonce)
 
@@ -36,21 +37,25 @@ defmodule HonteD.ABCI.Ethash do
 
   defp mix_in_dataset(mix, _seed, _dataset_lookup, _n, @accesses), do: mix
   defp mix_in_dataset(mix, seed, dataset_lookup, n, round) do
+    IO.puts("mixing in dataset")
+    IO.puts(round)
     p = (fnv(round ^^^ Enum.at(seed, 0), Enum.at(mix, rem(round, @words)))
          |> rem(div(n, @mix_hashes))) * @mix_hashes
     new_data = get_new_data([], p, dataset_lookup, 0)
     mix = Enum.zip(mix, new_data)
-          |> Enum.map(&HonteD.ABCI.Ethash.fnv/2)
+          |> Enum.map(fn {a, b} -> fnv(a, b) end)
     mix_in_dataset(mix, seed, dataset_lookup, n, round + 1)
   end
 
   defp get_new_data(acc, _p, _dataset_lookup, @mix_hashes), do: Enum.reverse(acc)
   defp get_new_data(acc, p, dataset_lookup, round) do
-    get_new_data([dataset_lookup.(p + round) ++ acc], p, dataset_lookup, round + 1)
+    get_new_data(dataset_lookup.(p + round) ++ acc, p, dataset_lookup, round + 1)
   end
 
   defp compress([], compressed_mix), do: Enum.reverse(compressed_mix)
   defp compress(mix, compressed_mix) do
+    IO.puts("compressing")
+    IO.puts(length(mix))
     [m1, m2, m3, m4 | tail] = mix
     c = fnv(m1, m2)
         |> fnv(m3)
@@ -59,12 +64,13 @@ defmodule HonteD.ABCI.Ethash do
   end
 
   defp nonce_little_endian(nonce) do
-    <<Integer.parse(nonce, 16) :: little-64>>
+    {val, _} = Integer.parse(nonce, 16)
+    <<val :: little-64>>
   end
 
-  defp calc_dataset_item(cache, i) do
-    n = length(cache)
-    [head | tail] = Enum.at(cache, rem(i, n))
+  def calc_dataset_item(cache, i) do
+    n = map_size(cache)
+    [head | tail] = cache[rem(i, n)]
     initial = EthashUtils.keccak_512([head ^^^ i | tail])
 
     mix(cache, i, initial, 0)
@@ -73,9 +79,9 @@ defmodule HonteD.ABCI.Ethash do
 
   defp mix(_cache, _i, current_mix, @dataset_parents), do: current_mix
   defp mix(cache, i, current_mix, round) do
-    cache_index = fnv(i ^^^ round, current_mix[rem(round, @dataset_mix_range)])
+    cache_index = fnv(i ^^^ round, Enum.at(current_mix, rem(round, @dataset_mix_range)))
     current_mix =
-      Enum.zip(current_mix, Enum.at(cache, rem(cache_index, length(cache))))
+      Enum.zip(current_mix, cache[rem(cache_index, map_size(cache))])
       |> Enum.map(fn {a, b} -> fnv(a, b) end)
     mix(cache, i, current_mix, round + 1)
   end
