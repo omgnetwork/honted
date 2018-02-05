@@ -60,4 +60,24 @@ defmodule HonteD.ABCI.EthashUtils do
     |> Enum.all?(fn n -> rem(num, n) != 0 end)
   end
 
+  def big_endian_to_int(big_endian_bytes) do
+    big_endian_to_int(big_endian_bytes, 0)
+  end
+  defp big_endian_to_int(<<byte>>, acc), do: acc * 256 + byte
+  defp big_endian_to_int(<<byte>> <> tail, acc) do
+    big_endian_to_int(tail, 256 * acc + byte)
+  end
+
+  def hash_to_bytes(hash) do
+    hash_to_bytes(hash, [])
+  end
+  defp hash_to_bytes("", acc) do
+    Enum.reverse(acc)
+    |> :binary.list_to_bin
+  end
+  defp hash_to_bytes(<<digit1 :: bytes-size(1)>> <> <<digit2 :: bytes-size(1)>> <> rest, acc) do
+    {byte, _} = Integer.parse(digit1 <> digit2, 16)
+    hash_to_bytes(rest, [byte | acc])
+  end
+
 end

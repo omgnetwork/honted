@@ -32,3 +32,6 @@ populus/build/
 *.trace
 callgrind.out.*
 *.log
+
+#Rust target
+/apps/honted_abci/native/ethashcache/target/
