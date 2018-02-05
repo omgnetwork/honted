@@ -11,6 +11,7 @@
   "dialyxir": {:hex, :dialyxir, "0.5.1", "b331b091720fd93e878137add264bac4f644e1ddae07a70bf7062c7862c4b952", [:mix], [], "hexpm"},
   "eep": {:git, "https://github.com/virtan/eep.git", "8f6e5e3ade0606390d928830db61350a5451dda8", []},
   "ethereumex": {:git, "https://github.com/omisego/ethereumex.git", "fd362fb4399fb882880c22b48b68af1539358c97", [branch: "fix_spec"]},
+  "ex_rlp": {:hex, :ex_rlp, "0.2.1", "bd320900d6316cdfe01d365d4bda22eb2f39b359798daeeffd3bd1ca7ba958ec", [:mix], [], "hexpm"},
   "ex_unit_fixtures": {:hex, :ex_unit_fixtures, "0.3.1", "8ea3fcf6973529c016792b9a424d9e94101e9f7f01a111bd41a2d4e13cc5fa59", [:mix], [], "hexpm"},
   "excoveralls": {:hex, :excoveralls, "0.8.0", "99d2691d3edf8612f128be3f9869c4d44b91c67cec92186ce49470ae7a7404cf", [:mix], [{:exjsx, ">= 3.0.0", [hex: :exjsx, repo: "hexpm", optional: false]}, {:hackney, ">= 0.12.0", [hex: :hackney, repo: "hexpm", optional: false]}], "hexpm"},
   "exjsx": {:hex, :exjsx, "4.0.0", "60548841e0212df401e38e63c0078ec57b33e7ea49b032c796ccad8cde794b5c", [:mix], [{:jsx, "~> 2.8.0", [hex: :jsx, repo: "hexpm", optional: false]}], "hexpm"},

@@ -72,7 +72,9 @@ defmodule HonteD.ABCITest do
   describe "generic transaction checks" do
     @tag fixtures: [:empty_state]
     test "too large transactions throw", %{empty_state: state} do
-      String.duplicate("a", 512)
+      String.duplicate("a", 1024)
+      |> ExRLP.encode()
+      |> Base.encode16()
       |> deliver_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
     end
   end

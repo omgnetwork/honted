@@ -32,6 +32,9 @@ defmodule HonteD.Transaction.Validation do
          :ok <- signed?(raw_tx, signature),
          do: :ok
   end
+  def valid_signed?(_) do
+    {:error, :missing_signature}
+  end
 
   def sender(%CreateToken{issuer: sender}), do: sender
   def sender(%Issue{issuer: sender}), do: sender

@@ -1,4 +1,4 @@
-defmodule CryptoTest do
+defmodule HonteD.CryptoTest do
   use ExUnit.Case, async: true
   @moduledoc """
   Consider removing if brittle - testing implementation details
@@ -13,7 +13,7 @@ defmodule CryptoTest do
     {:ok, pub} = Crypto.generate_public_key(priv)
     {:ok, address} = Crypto.generate_address(pub)
 
-    {:ok, signature} = Crypto.sign("message", priv)
+    signature = Crypto.signature("message", priv)
     assert {:ok, true} == Crypto.verify("message", signature, address)
     assert {:ok, false} == Crypto.verify("message2", signature, address)
   end

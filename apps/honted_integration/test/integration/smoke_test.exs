@@ -123,8 +123,7 @@ defmodule HonteD.Integration.SmokeTest do
 
     token_creation = fn() ->
       {:ok, raw_tx} = API.create_create_token_transaction(bob)
-      {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
-      raw_tx <> " " <> signature
+      Crypto.sign(raw_tx, bob_priv)
     end
 
     # submit_commit succeeds
@@ -148,8 +147,7 @@ defmodule HonteD.Integration.SmokeTest do
     assert {:ok, raw_tx} == apis_caller.(:create_create_token_transaction, %{issuer: issuer})
 
     # TRANSACTION SUBMISSIONS
-    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    full_transaction = raw_tx <> " " <> signature
+    full_transaction = Crypto.sign(raw_tx, issuer_priv)
 
     assert {:ok,
       %{
@@ -167,7 +165,7 @@ defmodule HonteD.Integration.SmokeTest do
       %{
         code: 1,
         data: "",
-        log: "malformed_transaction",
+        log: "missing_signature",
         reason: :check_tx_failed,
         tx_hash: _
       }
@@ -192,8 +190,8 @@ defmodule HonteD.Integration.SmokeTest do
       %{asset: asset, amount: @supply, to: alice, issuer: issuer}
     )
 
-    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
+    signed = Crypto.sign(raw_tx, issuer_priv)
+    {:ok, _} = API.submit_commit(signed)
 
     assert {:ok, @supply} = API.query_balance(asset, alice)
 
@@ -218,8 +216,8 @@ defmodule HonteD.Integration.SmokeTest do
       %{asset: asset, amount: 5, from: alice, to: bob}
     )
 
-    {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
-    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_commit(raw_tx <> " " <> signature)
+    signed = Crypto.sign(raw_tx, alice_priv)
+    {:ok, %{tx_hash: tx_hash, committed_in: send_height}} = API.submit_commit(signed)
 
     # check event
     assert %{
@@ -244,7 +242,7 @@ defmodule HonteD.Integration.SmokeTest do
         "height" => ^committed_at_height,
         "index" => _,
         "proof" => _,
-        "tx" => decoded_tx,
+        "tx" => encoded_tx,
         "tx_result" => %{"code" => 0, "data" => "", "log" => ""}
       } = tx_query_result
     } = API.tx(tx_hash)
@@ -252,8 +250,8 @@ defmodule HonteD.Integration.SmokeTest do
     # check consistency of api exposers
     assert {:ok, TestWebsocket.codec(tx_query_result)} == apis_caller.(:tx, %{hash: tx_hash})
 
-    # readable form of transactions in response
-    assert String.starts_with?(decoded_tx, "0 SEND #{asset} 5 #{alice} #{bob}")
+    # tx in response can be decoded
+    assert encoded_tx |> Base.decode16!() |> HonteD.TxCodec.decode!()
 
     # TOKEN INFO
     assert {
@@ -278,15 +276,15 @@ defmodule HonteD.Integration.SmokeTest do
       %{allower: issuer, allowee: bob, privilege: "signoff", allow: true}
     )
 
-    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
+    signed = Crypto.sign(raw_tx, issuer_priv)
+    {:ok, _} = API.submit_commit(signed)
 
     # SIGNOFF
 
     {:ok, hash} = API.Tools.get_block_hash(send_height)
     {:ok, raw_tx} = API.create_sign_off_transaction(send_height, hash, bob, issuer)
-    {:ok, signature} = Crypto.sign(raw_tx, bob_priv)
-    {:ok, %{committed_in: last_height}} = API.submit_commit(raw_tx <> " " <> signature)
+    signed = Crypto.sign(raw_tx, bob_priv)
+    {:ok, %{committed_in: last_height}} = API.submit_commit(signed)
 
     assert %{
       "transaction" => %{
@@ -412,9 +410,9 @@ defmodule HonteD.Integration.SmokeTest do
     Process.sleep(1000) # wait till honted_eth pulls in contract state
 
     {:ok, raw_tx} = API.create_epoch_change_transaction(alice, 1)
-    {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
+    signed_tx = Crypto.sign(raw_tx, alice_priv)
 
-    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
+    {:ok, _} = API.submit_commit(signed_tx)
 
     # TODO: this is the proper check for validator set change. Since `validators` endpoint doesn't return the effective
     # validator set, we can't use this now

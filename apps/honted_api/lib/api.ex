@@ -8,7 +8,7 @@ defmodule HonteD.API do
   use HonteD.API.ExposeSpec
 
   alias HonteD.API.{Tendermint, Tools}
-  alias HonteD.{Transaction}
+  alias HonteD.{Transaction, TxCodec}
 
   @type tx_status :: :failed | :committed | :finalized | :committed_unknown
 
@@ -20,7 +20,9 @@ defmodule HonteD.API do
   def create_create_token_transaction(issuer) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, issuer),
-         do: Transaction.create_create_token(nonce: nonce, issuer: issuer)
+         {:ok, tx} <- Transaction.create_create_token(nonce: nonce, issuer: issuer) do
+      {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
   end
 
   @doc """
@@ -35,11 +37,10 @@ defmodule HonteD.API do
   def create_issue_transaction(asset, amount, to, issuer) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, issuer),
-         do: Transaction.create_issue(nonce: nonce,
-                                      asset: asset,
-                                      amount: amount,
-                                      dest: to,
-                                      issuer: issuer)
+         {:ok, tx} <- Transaction.create_issue(nonce: nonce, asset: asset, amount: amount, dest: to,
+           issuer: issuer) do
+      {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
   end
 
   @doc """
@@ -50,11 +51,10 @@ defmodule HonteD.API do
   def create_send_transaction(asset, amount, from, to) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, from),
-         do: Transaction.create_send(nonce: nonce,
-                                     asset: asset,
-                                     amount: amount,
-                                     from: from,
-                                     to: to)
+         {:ok, tx} <- Transaction.create_send(nonce: nonce, asset: asset, amount: amount,
+           from: from, to: to) do
+      {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
   end
 
   @doc """
@@ -66,11 +66,10 @@ defmodule HonteD.API do
   def create_sign_off_transaction(height, hash, sender, signoffer) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
-         do: Transaction.create_sign_off(nonce: nonce,
-                                         height: height,
-                                         hash: hash,
-                                         sender: sender,
-                                         signoffer: signoffer)
+         {:ok, tx} <- Transaction.create_sign_off(nonce: nonce, height: height, hash: hash,
+           sender: sender, signoffer: signoffer) do
+      {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
   end
 
   @doc """
@@ -82,11 +81,10 @@ defmodule HonteD.API do
   def create_allow_transaction(allower, allowee, privilege, allow) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, allower),
-         do: Transaction.create_allow(nonce: nonce,
-                                      allower: allower,
-                                      allowee: allowee,
-                                      privilege: privilege,
-                                      allow: allow)
+         {:ok, tx} <- Transaction.create_allow(nonce: nonce, allower: allower, allowee: allowee,
+           privilege: privilege, allow: allow) do
+          {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
   end
 
   @doc """
@@ -97,9 +95,10 @@ defmodule HonteD.API do
   def create_epoch_change_transaction(sender, epoch_number) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
-         do: Transaction.create_epoch_change(nonce: nonce,
-                                             sender: sender,
-                                             epoch_number: epoch_number)
+         {:ok, tx} <- Transaction.create_epoch_change(nonce: nonce, sender: sender,
+         epoch_number: epoch_number) do
+      {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
   end
 
   @doc """
@@ -109,6 +108,7 @@ defmodule HonteD.API do
                                                         committed_in: non_neg_integer}} | {:error, map}
   def submit_commit(transaction) do
     client = Tendermint.RPC.client()
+    transaction = Base.decode16!(transaction)
     rpc_response = Tendermint.RPC.broadcast_tx_commit(client, transaction)
     case rpc_response do
       # successes / no-ops
@@ -131,6 +131,7 @@ defmodule HonteD.API do
   @spec submit_sync(transaction :: binary) :: {:ok, %{tx_hash: binary}} | {:error, map}
   def submit_sync(transaction) do
     client = Tendermint.RPC.client()
+    transaction = Base.decode16!(transaction)
     rpc_response = Tendermint.RPC.broadcast_tx_sync(client, transaction)
     case rpc_response do
       # successes / no-ops
@@ -150,6 +151,7 @@ defmodule HonteD.API do
   @spec submit_async(transaction :: binary) :: {:ok, %{tx_hash: binary}} | {:error, map}
   def submit_async(transaction) do
     client = Tendermint.RPC.client()
+    transaction = Base.decode16!(transaction)
     rpc_response = Tendermint.RPC.broadcast_tx_async(client, transaction)
     case rpc_response do
       # successes / no-ops
@@ -207,7 +209,7 @@ defmodule HonteD.API do
     case rpc_response do
       # successes (incl.successful look up of failed tx)
       {:ok, tx_info} -> {:ok, tx_info
-                              |> Tools.append_status(client)}
+                              |> Tools.append_status(client) |> Tools.encode_tx()}
       # failures
       result ->
         {:error, %{reason: :unknown_error, raw_result: inspect result}} # NOTE not able to handle "not found"!
