@@ -34,4 +34,5 @@
   "socket": {:hex, :socket, "0.3.12", "4a6543815136503fee67eff0932da1742fad83f84c49130c854114153cc549a6", [:mix], [], "hexpm"},
   "ssl_verify_fun": {:hex, :ssl_verify_fun, "1.1.1", "28a4d65b7f59893bc2c7de786dec1e1555bd742d336043fe644ae956c3497fbe", [:make, :rebar], [], "hexpm"},
   "temp": {:hex, :temp, "0.4.4", "da4524a102db9431f96b2b244777017eb077df3db344957cd1d10705feb25337", [:mix], [], "hexpm"},
+  "tesla": {:hex, :tesla, "0.8.0", "7ab982acda2d049b3810065b22a86602223dc191e612dd129ed4feeefce7993a", [:mix], [{:exjsx, ">= 0.1.0", [hex: :exjsx, repo: "hexpm", optional: true]}, {:fuse, "~> 2.4", [hex: :fuse, repo: "hexpm", optional: true]}, {:hackney, "~> 1.6", [hex: :hackney, repo: "hexpm", optional: true]}, {:ibrowse, "~> 4.2", [hex: :ibrowse, repo: "hexpm", optional: true]}, {:mime, "~> 1.0", [hex: :mime, repo: "hexpm", optional: false]}, {:poison, ">= 1.0.0", [hex: :poison, repo: "hexpm", optional: true]}], "hexpm"},
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.3.1", "a1f612a7b512638634a603c8f401892afbf99b8ce93a45041f8aaca99cadb85e", [:rebar3], [], "hexpm"}}
