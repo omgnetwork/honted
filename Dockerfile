@@ -20,9 +20,9 @@ RUN set -xe && \
     glide install && \
     go install ./cmd/tendermint
 
-# TODO: need to force an old version of tendermint, fix after T474 is resolved
+# TODO: need to force an old version of tendermint, fix after T629 is resolved
 RUN set -xe && \
-    git -C $GOPATH/src/github.com/tendermint/tendermint checkout v0.11.1 && \
+    git -C $GOPATH/src/github.com/tendermint/tendermint checkout v0.14.0 && \
     cd $GOPATH/src/github.com/tendermint/tendermint && \
     glide install && \
     go install ./cmd/tendermint
@@ -32,13 +32,6 @@ RUN set -xe && \
 
 RUN set -xe && \
     go get github.com/tendermint/tools/tm-bench || \
-    cd $GOPATH/src/github.com/tendermint/tools/tm-bench && \
-    glide install && \
-    go install .
-
-# TODO: need to force an old version of tm-bench, fix after T474 is resolved
-RUN set -xe && \
-    git -C $GOPATH/src/github.com/tendermint/tools checkout v1.0.0 && \
     cd $GOPATH/src/github.com/tendermint/tools/tm-bench && \
     glide install && \
     go install .
@@ -56,5 +49,10 @@ WORKDIR /app
 
 RUN set -xe && \
     mix deps.get
+
+RUN set -xe && \
+    MIX_ENV=test mix compile
+RUN set -xe && \
+    mix compile
 
 CMD ["mix", "run", "--no-halt"]
