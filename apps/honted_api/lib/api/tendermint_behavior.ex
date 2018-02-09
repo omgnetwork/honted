@@ -17,5 +17,6 @@ defmodule HonteD.API.TendermintBehavior do
   @callback abci_query(client_ref, data, path) :: result
   @callback tx(client_ref, hash) :: result
   @callback block(client_ref, height :: pos_integer) :: result
+  @callback block_results(client_ref, height :: pos_integer) :: result
 
 end

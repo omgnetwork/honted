@@ -8,6 +8,7 @@ defmodule HonteD.Integration.Fixtures do
   end
 
   deffixture tendermint(homedir, honted) do
+    _ = honted # prevent warnings
     {:ok, exit_fn} = Integration.tendermint(homedir)
     on_exit exit_fn
     :ok

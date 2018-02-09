@@ -124,6 +124,13 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_block
   end
 
+  @impl true
+  def block_results(nil, height) do
+    :block_results
+    |> Websocket.call_method([height: height])
+    |> decode_jsonrpc
+  end
+
   ### private - tendermint rpc's specific encoding/decoding
 
   defp decode_jsonrpc(response) do
