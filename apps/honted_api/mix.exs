@@ -28,7 +28,6 @@ defmodule HonteD.API.Mixfile do
 
   defp deps do
     [
-      {:tesla, "~>0.8.0"},
       {:plug, "~> 1.3"},
       {:poison, "~> 3.1"},
       {:bimap, "~> 0.1.1"},

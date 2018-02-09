@@ -21,10 +21,10 @@ To run two Tendermint nodes and to ABCI servers on same machine do following.
         {:ok, bob_priv} = generate_private_key
         {:ok, bob_pub} = generate_public_key bob_priv
         {:ok, bob} = generate_address bob_pub
-        submit_transaction("ISSUE asset 5 #{alice}")
+        submit_commit("ISSUE asset 5 #{alice}")
         
         raw_tx = create_send_transaction("asset", 1, alice, bob)
         {:ok, signature} = sign(raw_tx, alice_priv)
-        submit_transaction raw_tx <> " " <> signature
+        submit_commit raw_tx <> " " <> signature
         
         query_balance("asset", alice)
