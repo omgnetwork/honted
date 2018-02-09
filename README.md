@@ -6,7 +6,12 @@ Only **Linux** platforms supported now. Known to work with Ubuntu 16.04
 
 Install [Elixir](http://elixir-lang.github.io/install.html#unix-and-unix-like).
 
-Install [Tendermint](https://tendermint.com/downloads). **NOTE** we require Tendermint `v0.14.0` and this in turn requires `golang` > `v1.9` (works with `v1.9.2`). In order to do that, `git checkout` the above tag for Tendermint repo in your `$GOPATH`, then (optionally) `glide install` and `go install github.com/tendermint/tendermint/cmd/tendermint`.
+Install [Tendermint](https://tendermint.com/downloads). **NOTE** we require Tendermint `v0.15` and this in turn requires `golang` > `v1.9` (works with `v1.9.2`).
+
+If a newer version installs by default, `git checkout v0.15.0` for Tendermint repo in your `$GOPATH`, then (optionally) `glide install` and `go install github.com/tendermint/tendermint/cmd/tendermint`.
+
+**NOTE** To avoid an random `invalid_nonce` error in performance test and `mix --include integration` tests, install a patched `v0.15` version of Tendermint:
+`git checkout 57cc8ab977c9917dd6026c9a9caf9c96ca07a8ed`, then install as above.
 
   - `git clone ...` - clone this repo
   - `mix deps.get`

@@ -1,4 +1,5 @@
-%{"abci_server": {:git, "https://github.com/KrzysiekJ/abci_server.git", "104f464061160d89b018878c4ed68e2659eea86b", []},
+%{
+  "abci_server": {:git, "https://github.com/KrzysiekJ/abci_server.git", "ee7e1674064899488e23e191064d4085ac2b11c9", []},
   "abi": {:git, "https://github.com/omisego/abi.git", "48cbbd119df1e63878895a60b6e9d4f4989ac97b", [branch: "add_bytes32"]},
   "bimap": {:hex, :bimap, "0.1.1", "f0406e59f65ba903af678383d2356d0a6e59fb794adc1a7dd32bd8fabe0f028f", [:mix], [], "hexpm"},
   "binary": {:hex, :binary, "0.0.4", "dd077db70c0ded3e85c132b802338e14b80694684a7e2277666bfa4004b7fa66", [:mix], [], "hexpm"},
@@ -35,4 +36,5 @@
   "ssl_verify_fun": {:hex, :ssl_verify_fun, "1.1.1", "28a4d65b7f59893bc2c7de786dec1e1555bd742d336043fe644ae956c3497fbe", [:make, :rebar], [], "hexpm"},
   "temp": {:hex, :temp, "0.4.4", "da4524a102db9431f96b2b244777017eb077df3db344957cd1d10705feb25337", [:mix], [], "hexpm"},
   "tesla": {:hex, :tesla, "0.8.0", "7ab982acda2d049b3810065b22a86602223dc191e612dd129ed4feeefce7993a", [:mix], [{:exjsx, ">= 0.1.0", [hex: :exjsx, repo: "hexpm", optional: true]}, {:fuse, "~> 2.4", [hex: :fuse, repo: "hexpm", optional: true]}, {:hackney, "~> 1.6", [hex: :hackney, repo: "hexpm", optional: true]}, {:ibrowse, "~> 4.2", [hex: :ibrowse, repo: "hexpm", optional: true]}, {:mime, "~> 1.0", [hex: :mime, repo: "hexpm", optional: false]}, {:poison, ">= 1.0.0", [hex: :poison, repo: "hexpm", optional: true]}], "hexpm"},
-  "unicode_util_compat": {:hex, :unicode_util_compat, "0.3.1", "a1f612a7b512638634a603c8f401892afbf99b8ce93a45041f8aaca99cadb85e", [:rebar3], [], "hexpm"}}
+  "unicode_util_compat": {:hex, :unicode_util_compat, "0.3.1", "a1f612a7b512638634a603c8f401892afbf99b8ce93a45041f8aaca99cadb85e", [:rebar3], [], "hexpm"},
+}

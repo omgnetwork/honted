@@ -12,7 +12,7 @@ defmodule HonteD.Integration.VersionTest do
     )
     version_output
     |> String.trim
-    |> Version.match?("~> 0.14.0")
+    |> Version.match?("~> 0.15")
     |> assert
   end
 end
