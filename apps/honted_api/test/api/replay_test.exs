@@ -62,9 +62,7 @@ defmodule HonteD.API.ReplayTest do
 
   defp signed_send(num) do
     {tx, _} = event_send(address1(), "nil", "asset", num)
-    raw_tx = HonteD.TxCodec.encode(tx)
-    {:ok, signature} = HonteD.Crypto.sign(raw_tx, "fake_sig")
-    "#{raw_tx} #{signature}"
+    HonteD.TxCodec.encode(tx)
   end
 
   describe "Historical transactions can be replayed." do

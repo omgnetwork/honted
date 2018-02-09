@@ -8,15 +8,14 @@ defmodule HonteD.API.Events.Replay do
   require Logger
   alias HonteD.API.Events.Eventer, as: Eventer
 
-  defp iterate_block({block, results}, ad_hoc_subscription, ad_hoc_filters) do
+  defp iterate_block({block, results}, subscription, filters) do
     height = get_in(block, ["block", "header", "height"])
 
     block
     |> get_in(["block", "data", "txs"])
     |> Stream.map(&HonteD.TxCodec.decode!/1)
-    |> Stream.map(&(&1.raw_tx))
     |> drop_failed_txs(results)
-    |> Stream.map(fn tx -> Eventer.do_notify(:committed, tx, height, ad_hoc_subscription, ad_hoc_filters) end)
+    |> Stream.map(&(Eventer.do_notify(:committed, &1, height, subscription, filters)))
     |> Enum.each(fn :ok -> true end)
   end
 

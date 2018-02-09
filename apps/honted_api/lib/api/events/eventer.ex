@@ -52,6 +52,18 @@ defmodule HonteD.API.Events.Eventer do
     }
   end
 
+  defmodule TransactionEvent do
+    @moduledoc """
+    Transaction and it's tendermint-hash bound together
+    """
+    defstruct [:tx, :hash]
+  end
+
+  @type transaction_event :: %TransactionEvent{
+    tx: HonteD.Transaction.t,
+    hash: binary,
+  }
+
   def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
   end
@@ -64,11 +76,13 @@ defmodule HonteD.API.Events.Eventer do
     }
   end
 
-  @spec do_notify(:finalized | :committed, HonteD.Transaction.t, pos_integer, State.subs, State.filters)
+  @spec do_notify(:finalized | :committed, transaction_event, pos_integer, State.subs, State.filters)
     :: :ok
-  def do_notify(finality_status, event_content, event_height, subs, filters) do
-    event_topics = event_topics_for(event_content)
+  def do_notify(finality_status, %HonteD.Transaction.SignedTx{} = signed, event_height, subs, filters) do
+    event_content = %TransactionEvent{tx: signed.raw_tx, hash: signed |> HonteD.TxCodec.encode |> HonteD.API.Tendermint.Tx.hash}
+    event_topics = event_topics_for(signed.raw_tx)
     pids = subscribed(event_topics, subs, filters)
+
     _ = Logger.debug(fn -> "do_notify: #{inspect event_topics} #{inspect finality_status}, " <>
                            "#{inspect event_content}, pid: #{inspect pids}" end)
     for {filter_id, pid} <- pids do
@@ -78,9 +92,9 @@ defmodule HonteD.API.Events.Eventer do
     :ok
   end
 
-  defp message(finality_status, height, filter_id, %HonteD.Transaction.Send{} = event_content)
+  defp message(finality_status, height, filter_id, %TransactionEvent{tx: %HonteD.Transaction.Send{}} = event_tx)
   when finality_status in [:committed, :finalized] do
-    %{source: filter_id, height: height, finality: finality_status, transaction: event_content}
+    %{source: filter_id, height: height, finality: finality_status, transaction: event_tx}
   end
 
   def stream_end_msg(filter_id) do
@@ -93,9 +107,9 @@ defmodule HonteD.API.Events.Eventer do
   def init([]), do: {:ok, %State{}}
   def init([%{tendermint: module}]), do: {:ok, %State{tendermint: module}}
 
-  def handle_cast({:event, %HonteD.Transaction.Send{} = event}, state) do
-    state = insert_committed(event, state)
-    do_notify(:committed, event, state.height, state.subs, state.filters)
+  def handle_cast({:event, %HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{}} = signed}, state) do
+    state = insert_committed(signed, state)
+    do_notify(:committed, signed, state.height, state.subs, state.filters)
     {:noreply, state}
   end
 
@@ -104,7 +118,7 @@ defmodule HonteD.API.Events.Eventer do
     {:noreply, %{state | height: event.height}}
   end
 
-  def handle_cast({:event_context, %HonteD.Transaction.SignOff{} = event, tokens}, state)
+  def handle_cast({:event_context, %HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.SignOff{} = event}, tokens}, state)
   when is_list(tokens) do
     case check_valid_signoff?(event, state.tendermint) do
       true ->
@@ -255,7 +269,7 @@ defmodule HonteD.API.Events.Eventer do
       do: Transaction.Finality.valid_signoff?(event.hash, blockhash)
   end
 
-  defp get_token(%HonteD.Transaction.Send{} = event) do
+  defp get_token(%HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{} = event}) do
     event.asset
   end
 

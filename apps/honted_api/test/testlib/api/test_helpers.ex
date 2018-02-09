@@ -10,12 +10,14 @@ defmodule HonteD.API.TestHelpers do
     # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
     tx = %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
-    {tx, receivable_for(tx, fid, height)}
+    signed = %HonteD.Transaction.SignedTx{raw_tx: tx, signature: "F47485AD4B907207D6D05B7265D6B91B47985BFB2C694C7A9AC20D83Dfakesig"}
+    {signed, receivable_for(signed, fid, height)}
   end
 
   def event_sign_off(send_receivables, height \\ 1) do
     tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height)}
-    {tx, receivable_finalized(send_receivables)}
+    signed = %HonteD.Transaction.SignedTx{raw_tx: tx, signature: "F47485AD4B907207D6D05B7265D6B91B47985BFB2C694C7A9AC20D83Dfakesig"}
+    {signed, receivable_finalized(send_receivables)}
   end
 
   def event_sign_off_bad_hash(send_receivables, height \\ 1) do
@@ -29,8 +31,13 @@ defmodule HonteD.API.TestHelpers do
   @doc """
   Prepared based on documentation of HonteD.API.Events.notify
   """
-  def receivable_for(%HonteD.Transaction.Send{} = tx, fid, height) do
-    {:event, %{height: height, finality: :committed, source: fid, transaction: tx}}
+  def receivable_for(%HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{} = tx} = signed, fid, height) do
+    # FIXME: this hash is copy-pasted - what to do about this testing?
+    event = %HonteD.API.Events.Eventer.TransactionEvent{tx: tx,
+                                                        hash: signed
+                                                              |> HonteD.TxCodec.encode
+                                                              |> HonteD.API.Tendermint.Tx.hash}
+    {:event, %{height: height, finality: :committed, source: fid, transaction: event}}
   end
 
   def receivable_finalized(list) when is_list(list) do
