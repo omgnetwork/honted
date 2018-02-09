@@ -28,9 +28,17 @@ defmodule HonteD.ABCI.EventsTest do
           spawn_link(fn ->
             refute_receive(_, @timeout)
           end)
-        expected_message ->
+        expected_predicate when is_function(expected_predicate) ->
           spawn_link(fn ->
-            assert_receive({:"$gen_cast", ^expected_message}, @timeout)
+            received_cast = receive do
+              {:"$gen_cast", received_message} -> received_message
+            after
+              @timeout -> assert false
+            end
+
+            received_cast
+            |> expected_predicate.()
+            |> assert
           end)
       end
       # plug the proces where the Eventer Genserver is expected
@@ -43,9 +51,11 @@ defmodule HonteD.ABCI.EventsTest do
     @tag fixtures: [:server_spawner, :empty_state, :issuer]
     test "create token transaction emits events", %{empty_state: state, issuer: issuer, server_spawner: server_spawner} do
       params = [nonce: 0, issuer: issuer.addr]
-      server_pid = server_spawner.({
-        :event,
-        struct(HonteD.Transaction.CreateToken, params)})
+      server_pid = server_spawner.(
+        fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
+          raw_tx == struct(HonteD.Transaction.CreateToken, params)
+        end
+      )
 
       params |> create_create_token |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
@@ -55,9 +65,11 @@ defmodule HonteD.ABCI.EventsTest do
     test "issue transaction emits events", %{state_with_token: state, asset: asset, alice: alice, issuer: issuer,
                                              server_spawner: server_spawner} do
       params = [nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr]
-      server_pid = server_spawner.({
-        :event,
-        struct(HonteD.Transaction.Issue, params)})
+      server_pid = server_spawner.(
+        fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
+          raw_tx == struct(HonteD.Transaction.Issue, params)
+        end
+      )
 
       params |> create_issue |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
@@ -67,9 +79,11 @@ defmodule HonteD.ABCI.EventsTest do
     test "send transaction emits events", %{state_alice_has_tokens: state, asset: asset, alice: alice, bob: bob,
                                             server_spawner: server_spawner} do
       params = [nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr]
-      server_pid = server_spawner.({
-        :event,
-        struct(HonteD.Transaction.Send, params)})
+      server_pid = server_spawner.(
+        fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
+          raw_tx == struct(HonteD.Transaction.Send, params)
+        end
+      )
 
       params |> create_send |> sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
@@ -84,11 +98,11 @@ defmodule HonteD.ABCI.EventsTest do
         setup_params |> create_allow |> sign(issuer.priv) |> deliver_tx(state)
 
       params = [nonce: 0, height: 1, hash: hash, sender: alice.addr, signoffer: issuer.addr]
-      server_pid = server_spawner.({
-        :event_context,
-        struct(HonteD.Transaction.SignOff, params),
-        [asset]
-      })
+      server_pid = server_spawner.(
+        fn {:event_context, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}, [^asset]} ->
+          raw_tx == struct(HonteD.Transaction.SignOff, params)
+        end
+      )
 
       params |> create_sign_off |> sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
@@ -98,9 +112,11 @@ defmodule HonteD.ABCI.EventsTest do
     test "allow transaction emits events", %{empty_state: state, issuer: issuer, alice: alice,
                                              server_spawner: server_spawner} do
       params = [nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true]
-      server_pid = server_spawner.({
-        :event,
-        struct(HonteD.Transaction.Allow, params)})
+      server_pid = server_spawner.(
+        fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
+          raw_tx == struct(HonteD.Transaction.Allow, params)
+        end
+      )
 
       params |> create_allow |> sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)

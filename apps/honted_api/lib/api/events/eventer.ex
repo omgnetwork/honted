@@ -79,7 +79,9 @@ defmodule HonteD.API.Events.Eventer do
   @spec do_notify(:finalized | :committed, transaction_event, pos_integer, State.subs, State.filters)
     :: :ok
   def do_notify(finality_status, %HonteD.Transaction.SignedTx{} = signed, event_height, subs, filters) do
-    event_content = %TransactionEvent{tx: signed.raw_tx, hash: signed |> HonteD.TxCodec.encode |> HonteD.API.Tendermint.Tx.hash}
+    event_content = %TransactionEvent{tx: signed.raw_tx, hash: signed
+                                                               |> HonteD.TxCodec.encode
+                                                               |> HonteD.API.Tendermint.Tx.hash}
     event_topics = event_topics_for(signed.raw_tx)
     pids = subscribed(event_topics, subs, filters)
 
@@ -118,7 +120,9 @@ defmodule HonteD.API.Events.Eventer do
     {:noreply, %{state | height: event.height}}
   end
 
-  def handle_cast({:event_context, %HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.SignOff{} = event}, tokens}, state)
+  def handle_cast({:event_context,
+                   %HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.SignOff{} = event}, tokens},
+                  state)
   when is_list(tokens) do
     case check_valid_signoff?(event, state.tendermint) do
       true ->

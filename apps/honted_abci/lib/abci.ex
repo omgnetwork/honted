@@ -80,7 +80,7 @@ defmodule HonteD.ABCI do
     # there's a chore to fix that
     {:ok, decoded} = HonteD.TxCodec.decode(tx)
     {:ok, new_consensus_state} = handle_tx(abci_app, decoded, &(&1.consensus_state))
-    HonteD.ABCI.Events.notify(new_consensus_state, decoded.raw_tx)
+    HonteD.ABCI.Events.notify(new_consensus_state, decoded)
     {:reply, response_deliver_tx(code: code(:ok)), %{abci_app | consensus_state: new_consensus_state}}
   end
 
