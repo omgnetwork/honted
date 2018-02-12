@@ -20,9 +20,30 @@ defmodule HonteD.ABCI.TestHelpers do
     "#{raw_tx} #{signature}"
   end
 
-  def deliver_tx(signed_tx, state), do: do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
+  @doc """
+  Utility to deliver a transaction and do basic checks
 
-  def check_tx(signed_tx, state), do: do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
+  It also checks the assumption, that considerin a prior commit, deliver_tx would behave on par with check_tx
+  for all transactions
+
+  NOTE: In case transaction validity starts to differ between deliver and check, this fails and needs to be reworked
+  """
+  def deliver_tx(signed_tx, state) do
+    %{state: checkable_state} = commit(state)
+
+    deliver_result = do_tx(:RequestDeliverTx, :ResponseDeliverTx, signed_tx, state)
+    check_result = do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, checkable_state)
+    check_deliver_tx_parity(deliver_result, check_result)
+    deliver_result
+  end
+
+  @doc """
+  Utility to check a transaction and to basic checks. Notice that his doesn't do the parity check,
+  since DeliverTx has side effects (event message)
+  """
+  def check_tx(signed_tx, state) do
+    do_tx(:RequestCheckTx, :ResponseCheckTx, signed_tx, state)
+  end
 
   def do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
     do_tx(request_atom, response_atom, signed_tx, state)
@@ -40,6 +61,16 @@ defmodule HonteD.ABCI.TestHelpers do
   defp check_response(response_atom, reply) do
     assert {^response_atom, code, data, log, tags} = reply
     %{state: nil, code: code, data: data, log: log, gas: nil, fee: nil, tags: tags}
+  end
+
+  defp check_deliver_tx_parity(deliver_result, check_result) do
+    assert deliver_result.code == check_result.code
+    assert deliver_result.data == check_result.data
+    assert deliver_result.log == check_result.log
+    # NOTE: breaching of the "test via public API" rule, but this is the easiest way of testing behavior:
+    #       "checktx and delivertx share the same state-modifying semantics"
+    #       Rethink, in case this proves cumbersome
+    assert deliver_result.state.consensus_state == check_result.state.local_state
   end
 
   def commit(%{state: state}), do: commit(state)
