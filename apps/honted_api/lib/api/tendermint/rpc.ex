@@ -1,4 +1,4 @@
-defmodule HonteD.API.TendermintRPC do
+defmodule HonteD.API.Tendermint.RPC do
   @moduledoc """
   Wraps Tendermints RPC to allow to broadcast transactions from Elixir functions, inter alia
 
@@ -13,7 +13,7 @@ defmodule HonteD.API.TendermintRPC do
     - additional decoding depending on the particular request/response (the `case do`)
   """
 
-  @behaviour HonteD.API.TendermintBehavior
+  @behaviour HonteD.API.Tendermint.RPCBehavior
 
   defmodule Websocket do
     @moduledoc """

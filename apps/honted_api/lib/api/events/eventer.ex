@@ -21,7 +21,7 @@ defmodule HonteD.API.Events.Eventer do
                monitors: Map.new(),
                committed: Map.new(),
                height: 0,
-               tendermint: HonteD.API.TendermintRPC,
+               tendermint: HonteD.API.Tendermint.RPC,
               ]
     @typedoc """
     Many-to-many relation between lists of topics and subscribers' pids.

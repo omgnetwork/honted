@@ -1,7 +1,7 @@
 defmodule HonteD.API.ReplayTest do
   @moduledoc """
   Test replaying of transactions. This is separated from Events tests because of need to mock
-  TendermintRPC API globally.
+  Tendermint.RPC API globally.
   """
 
   import HonteD.API.TestHelpers

@@ -1,4 +1,4 @@
-defmodule HonteD.API.TendermintBehavior do
+defmodule HonteD.API.Tendermint.RPCBehavior do
   @moduledoc """
   Interface of Tendermint's RPC api
   """
