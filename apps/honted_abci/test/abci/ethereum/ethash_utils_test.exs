@@ -1,11 +1,11 @@
-defmodule HonteD.ABCI.EthashUtilsTest do
+defmodule HonteD.ABCI.Ethereum.EthashUtilsTest do
   @moduledoc """
   Tests if EthashUtils methods work
   """
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
-  alias HonteD.ABCI.EthashUtils
+  alias HonteD.ABCI.Ethereum.EthashUtils
 
   describe "encode_int" do
     test "should encode integer to 4 bytes little-endian", %{} do
@@ -91,8 +91,8 @@ defmodule HonteD.ABCI.EthashUtilsTest do
 
   describe "hash_to_bytes" do
     test "converts hash to bytes", %{} do
-      assert EthashUtils.hash_to_bytes("ac2d") == <<172, 45>>
-      assert EthashUtils.hash_to_bytes("1eefe3932cc6281323cba77e2f2866cebd2b134083e86c235b88f900bf04ccf1") ==
+      assert EthashUtils.hex_to_bytes("ac2d") == <<172, 45>>
+      assert EthashUtils.hex_to_bytes("1eefe3932cc6281323cba77e2f2866cebd2b134083e86c235b88f900bf04ccf1") ==
         <<30, 239, 227, 147, 44, 198, 40, 19, 35, 203, 167, 126, 47, 40,
           102, 206, 189, 43, 19, 64, 131, 232, 108, 35, 91, 136, 249, 0,
           191, 4, 204, 241>>

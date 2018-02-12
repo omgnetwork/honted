@@ -1,10 +1,10 @@
-defmodule HonteD.ABCI.Ethash do
+defmodule HonteD.ABCI.Ethereum.Ethash do
   @moduledoc """
-  Validates proof of work for Ethereum block
+  Implements Ethash.
   """
   use Bitwise
 
-  alias HonteD.ABCI.EthashUtils
+  alias HonteD.ABCI.Ethereum.EthashUtils
 
   @fnv_prime 16777619
   @base_32 4294967296 # 2^32
@@ -15,14 +15,24 @@ defmodule HonteD.ABCI.Ethash do
   @words 32 # @mix_bytes / @word_bytes
   @accesses 64
 
+  defstruct [mix_digest: nil, result: nil]
+
+  @type t :: %__MODULE__{mix_digest: <<_ :: 256>>, result: <<_ :: 256>>}
+
+  @doc """
+  Returns mix digest and hash result for given header and nonce
+  """
+  @spec hashimoto_light(integer(), list(list(non_neg_integer())), binary(), binary()) :: %__MODULE__{}
   def hashimoto_light(full_size, cache, header, nonce) do
     hashimoto(header, nonce, full_size, fn x -> calc_dataset_item(cache, x) end)
   end
 
   defp hashimoto(header, nonce, full_size, dataset_lookup) do
-    IO.puts("hashimoto started")
     n = div(full_size, @hash_bytes)
-    nonce_le = nonce_little_endian(nonce)
+    nonce_le =
+      :binary.bin_to_list(nonce)
+      |> Enum.reverse
+      |> :binary.list_to_bin
 
     seed = EthashUtils.keccak_512(header <> nonce_le)
     compressed_mix =
@@ -37,8 +47,6 @@ defmodule HonteD.ABCI.Ethash do
 
   defp mix_in_dataset(mix, _seed, _dataset_lookup, _n, @accesses), do: mix
   defp mix_in_dataset(mix, seed, dataset_lookup, n, round) do
-    IO.puts("mixing in dataset")
-    IO.puts(round)
     p = (fnv(round ^^^ Enum.at(seed, 0), Enum.at(mix, rem(round, @words)))
          |> rem(div(n, @mix_hashes))) * @mix_hashes
     new_data = get_new_data([], p, dataset_lookup, 0)
@@ -54,18 +62,11 @@ defmodule HonteD.ABCI.Ethash do
 
   defp compress([], compressed_mix), do: Enum.reverse(compressed_mix)
   defp compress(mix, compressed_mix) do
-    IO.puts("compressing")
-    IO.puts(length(mix))
     [m1, m2, m3, m4 | tail] = mix
     c = fnv(m1, m2)
         |> fnv(m3)
         |> fnv(m4)
     compress(tail, [c | compressed_mix])
-  end
-
-  defp nonce_little_endian(nonce) do
-    {val, _} = Integer.parse(nonce, 16)
-    <<val :: little-64>>
   end
 
   def calc_dataset_item(cache, i) do

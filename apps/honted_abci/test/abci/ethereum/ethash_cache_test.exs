@@ -1,11 +1,11 @@
-defmodule HonteD.ABCI.EthashCacheTest do
+defmodule HonteD.ABCI.Ethereum.EthashCacheTest do
   @moduledoc """
   Tests if generating Ethash cache works
   """
   use ExUnitFixtures
   use ExUnit.Case
 
-  alias HonteD.ABCI.EthashCache
+  alias HonteD.ABCI.Ethereum.EthashCache
 
   describe "make_cache" do
     @tag timeout: 960000
