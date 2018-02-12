@@ -13,22 +13,21 @@
 #IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 #WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-defmodule Block.Header do
+defmodule HonteD.ABCI.Ethereum.BlockHeader do
   @moduledoc """
   This structure codifies the header of a block in the blockchain.
   """
 
-  @empty_trie MerklePatriciaTree.Trie.empty_trie_root_hash
   @empty_keccak [] |> ExRLP.encode |> :keccakf1600.sha3_256
 
   defstruct [
     parent_hash: nil,                # Hp P(BH)Hr
     ommers_hash: @empty_keccak,      # Ho KEC(RLP(L∗H(BU)))
     beneficiary: nil,                # Hc
-    state_root: @empty_trie,         # Hr TRIE(LS(Π(σ, B)))
-    transactions_root: @empty_trie,  # Ht TRIE({∀i < kBTk, i ∈ P : p(i, LT (BT[i]))})
-    receipts_root: @empty_trie,      # He TRIE({∀i < kBRk, i ∈ P : p(i, LR(BR[i]))})
-    logs_bloom: <<0::2048>>,         # Hb bloom
+    state_root: <<0 :: 256>>,        # Hr TRIE(LS(Π(σ, B)))
+    transactions_root: <<0 :: 256>>, # Ht TRIE({∀i < kBTk, i ∈ P : p(i, LT (BT[i]))})
+    receipts_root: <<0 :: 256>>,     # He TRIE({∀i < kBRk, i ∈ P : p(i, LR(BR[i]))})
+    logs_bloom: <<0 :: 2048>>,       # Hb bloom
     difficulty: nil,                 # Hd
     number: nil,                     # Hi
     gas_limit: 0,                    # Hl
@@ -39,23 +38,26 @@ defmodule Block.Header do
     nonce: nil,                      # Hn
   ]
 
+  @type hash :: <<_ :: 256>>
+  @type address :: <<_ :: 160>>
+
   # As defined in Eq.(35)
   @type t :: %__MODULE__{
-    parent_hash: EVM.hash,
-    ommers_hash: EVM.trie_root,
-    beneficiary: EVM.address,
-    state_root: EVM.trie_root,
-    transactions_root: EVM.trie_root,
-    receipts_root: EVM.trie_root,
-    logs_bloom: binary(), # TODO
+    parent_hash: hash,
+    ommers_hash: hash,
+    beneficiary: address,
+    state_root: hash,
+    transactions_root: hash,
+    receipts_root: hash,
+    logs_bloom: binary(),
     difficulty: integer() | nil,
     number: integer() | nil,
-    gas_limit: EVM.val,
-    gas_used: EVM.val,
-    timestamp: EVM.timestamp | nil,
+    gas_limit: integer(),
+    gas_used: integer(),
+    timestamp: integer() | nil,
     extra_data: binary(),
-    mix_hash: EVM.hash | nil,
-    nonce: <<_::64>> | nil, # TODO: 64-bit hash?
+    mix_hash: hash | nil,
+    nonce: <<_ :: 64>> | nil,
   }
 
   # The start of the Homestead block, as defined in Eq.(13) of the Yellow Paper (N_H)
@@ -156,13 +158,6 @@ defmodule Block.Header do
   @doc """
   Computes hash of a block header, which is simply the hash of the serialized block header.
   This is defined in Eq.(37) of the Yellow Paper.
-  ## Examples
-      iex> %Block.Header{number: 5, parent_hash: <<1, 2, 3>>, beneficiary: <<2, 3, 4>>, difficulty: 100, timestamp: 11, mix_hash: <<1>>, nonce: <<2>>}
-      ...> |> Block.Header.hash()
-      <<78, 28, 127, 10, 192, 253, 127, 239, 254, 179, 39, 34, 245, 44, 152, 98, 128, 71, 238, 155, 100, 161, 199, 71, 243, 223, 172, 191, 74, 99, 128, 63>>
-      iex> %Block.Header{number: 0, parent_hash: <<1, 2, 3>>, beneficiary: <<2, 3, 4>>, difficulty: 100, timestamp: 11, mix_hash: <<1>>, nonce: <<2>>}
-      ...> |> Block.Header.hash()
-      <<218, 225, 46, 241, 196, 160, 136, 96, 109, 216, 73, 167, 92, 174, 91, 228, 85, 112, 234, 129, 99, 200, 158, 61, 223, 166, 165, 132, 187, 24, 142, 193>>
   """
   @spec hash(t) :: EVM.hash
   def hash(header) do
@@ -172,17 +167,6 @@ defmodule Block.Header do
   @doc """
   Returns true if a given block is before the
   Homestead block.
-  ## Examples
-      iex> Block.Header.is_before_homestead?(%Block.Header{number: 5})
-      true
-      iex> Block.Header.is_before_homestead?(%Block.Header{number: 5_000_000})
-      false
-      iex> Block.Header.is_before_homestead?(%Block.Header{number: 1_150_000})
-      false
-      iex> Block.Header.is_before_homestead?(%Block.Header{number: 5}, 6)
-      true
-      iex> Block.Header.is_before_homestead?(%Block.Header{number: 5}, 4)
-      false
   """
   @spec is_before_homestead?(t, integer()) :: boolean()
   def is_before_homestead?(h, homestead_block \\ @homestead_block) do
@@ -192,15 +176,6 @@ defmodule Block.Header do
   @doc """
   Returns true if a given block is at or after the
   Homestead block.
-  ## Examples
-      iex> Block.Header.is_after_homestead?(%Block.Header{number: 5})
-      false
-      iex> Block.Header.is_after_homestead?(%Block.Header{number: 5_000_000})
-      true
-      iex> Block.Header.is_after_homestead?(%Block.Header{number: 1_150_000})
-      true
-      iex> Block.Header.is_after_homestead?(%Block.Header{number: 5}, 6)
-      false
   """
   @spec is_after_homestead?(t, integer()) :: boolean()
   def is_after_homestead?(h, homestead_block \\ @homestead_block), do: not is_before_homestead?(h, homestead_block)
@@ -210,30 +185,6 @@ defmodule Block.Header do
   Eq.(50), Eq.(51), Eq.(52), Eq.(53), Eq.(54), Eq.(55),
   Eq.(56), Eq.(57) and Eq.(58) of the Yellow Paper, commonly
   referred to as V(H).
-  # TODO: Add proof of work check
-  ## Examples
-      iex> Block.Header.is_valid?(%Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000}, nil)
-      :valid
-      iex> Block.Header.is_valid?(%Block.Header{number: 0, difficulty: 5, gas_limit: 5}, nil, true)
-      {:invalid, [:invalid_difficulty, :invalid_gas_limit]}
-      iex> Block.Header.is_valid?(%Block.Header{number: 1, difficulty: 131_136, gas_limit: 200_000, timestamp: 65}, %Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000, timestamp: 55})
-      :valid
-      iex> Block.Header.is_valid?(%Block.Header{number: 1, difficulty: 131_000, gas_limit: 200_000, timestamp: 65}, %Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000, timestamp: 55}, true)
-      {:invalid, [:invalid_difficulty]}
-      iex> Block.Header.is_valid?(%Block.Header{number: 1, difficulty: 131_136, gas_limit: 200_000, timestamp: 45}, %Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000, timestamp: 55})
-      {:invalid, [:child_timestamp_invalid]}
-      iex> Block.Header.is_valid?(%Block.Header{number: 1, difficulty: 131_136, gas_limit: 300_000, timestamp: 65}, %Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000, timestamp: 55})
-      {:invalid, [:invalid_gas_limit]}
-      iex> Block.Header.is_valid?(%Block.Header{number: 2, difficulty: 131_136, gas_limit: 200_000, timestamp: 65}, %Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000, timestamp: 55})
-      {:invalid, [:child_number_invalid]}
-      iex> Block.Header.is_valid?(%Block.Header{number: 1, difficulty: 131_136, gas_limit: 200_000, timestamp: 65, extra_data: "0123456789012345678901234567890123456789"}, %Block.Header{number: 0, difficulty: 131_072, gas_limit: 200_000, timestamp: 55})
-      {:invalid, [:extra_data_too_large]}
-      # TODO: Add tests for setting homestead_block
-      # TODO: Add tests for setting initial_difficulty
-      # TODO: Add tests for setting minimum_difficulty
-      # TODO: Add tests for setting difficulty_bound_divisor
-      # TODO: Add tests for setting gas_limit_bound_divisor
-      # TODO: Add tests for setting min_gas_limit
   """
   @spec is_valid?(t, t | nil, integer(), integer(), integer(), integer(), integer(), integer()) :: :valid | {:invalid, [atom()]}
   def is_valid?(header, parent_header, homestead_block \\ @homestead_block, initial_difficulty \\ @initial_difficulty, minimum_difficulty \\ @minimum_difficulty, difficulty_bound_divisor \\ @difficulty_bound_divisor, gas_limit_bound_divisor \\ @gas_limit_bound_divisor, min_gas_limit \\ @min_gas_limit) do
@@ -257,9 +208,6 @@ defmodule Block.Header do
   Returns the total available gas left for all transactions in
   this block. This is the total gas limit minus the gas used
   in transactions.
-  ## Examples
-      iex> Block.Header.available_gas(%Block.Header{gas_limit: 50_000, gas_used: 30_000})
-      20_000
   """
   @spec available_gas(t) :: EVM.Gas.t
   def available_gas(header) do
@@ -269,58 +217,6 @@ defmodule Block.Header do
   @doc """
   Calculates the difficulty of a new block header. This implements Eq.(39),
   Eq.(40), Eq.(41), Eq.(42), Eq.(43) and Eq.(44) of the Yellow Paper.
-  ## Examples
-      iex> Block.Header.get_difficulty(
-      ...>   %Block.Header{number: 0, timestamp: 55},
-      ...>   nil
-      ...> )
-      131_072
-      iex> Block.Header.get_difficulty(
-      ...>   %Block.Header{number: 1, timestamp: 1479642530},
-      ...>   %Block.Header{number: 0, timestamp: 0, difficulty: 1_048_576}
-      ...> )
-      1_048_064
-      iex> Block.Header.get_difficulty(
-      ...>  %Block.Header{number: 33, timestamp: 66},
-      ...>  %Block.Header{number: 32, timestamp: 55, difficulty: 300_000}
-      ...> )
-      300_146
-      iex> Block.Header.get_difficulty(
-      ...>  %Block.Header{number: 33, timestamp: 88},
-      ...>  %Block.Header{number: 32, timestamp: 55, difficulty: 300_000}
-      ...> )
-      299_854
-      # TODO: Is this right? These numbers are quite a jump
-      iex> Block.Header.get_difficulty(
-      ...>  %Block.Header{number: 3_000_001, timestamp: 66},
-      ...>  %Block.Header{number: 3_000_000, timestamp: 55, difficulty: 300_000}
-      ...> )
-      268_735_456
-      iex> Block.Header.get_difficulty(
-      ...>  %Block.Header{number: 3_000_001, timestamp: 155},
-      ...>  %Block.Header{number: 3_000_000, timestamp: 55, difficulty: 300_000}
-      ...> )
-      268_734_142
-      Test actual Ropsten genesis block
-      iex> Block.Header.get_difficulty(
-      ...>   %Block.Header{number: 0, timestamp: 0},
-      ...>   nil,
-      ...>   0x100000,
-      ...>   0x020000,
-      ...>   0x0800,
-      ...>   0
-      ...> )
-      1_048_576
-      # Test actual Ropsten first block
-      iex> Block.Header.get_difficulty(
-      ...>   %Block.Header{number: 1, timestamp: 1_479_642_530},
-      ...>   %Block.Header{number: 0, timestamp: 0, difficulty: 1_048_576},
-      ...>   0x100000,
-      ...>   0x020000,
-      ...>   0x0800,
-      ...>   0
-      ...> )
-      997_888
   """
   @spec get_difficulty(t, t | nil, integer()) :: integer()
   def get_difficulty(header, parent_header, initial_difficulty \\ @initial_difficulty, minimum_difficulty \\ @minimum_difficulty, difficulty_bound_divisor \\ @difficulty_bound_divisor, homestead_block \\ @homestead_block) do
@@ -375,31 +271,6 @@ defmodule Block.Header do
     )
   end
 
-  @doc """
-  Function to determine if the gas limit set is valid. The miner gets to
-  specify a gas limit, so long as it's in range. This allows about a 0.1% change
-  per block.
-  This function directly implements Eq.(45), Eq.(46) and Eq.(47).
-  ## Examples
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, nil)
-      true
-      iex> Block.Header.is_gas_limit_valid?(1_000, nil)
-      false
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, 1_000_000)
-      true
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, 2_000_000)
-      false
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, 500_000)
-      false
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, 999_500)
-      true
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, 999_000)
-      false
-      iex> Block.Header.is_gas_limit_valid?(1_000_000, 2_000_000, 1)
-      true
-      iex> Block.Header.is_gas_limit_valid?(1_000, nil, 1024, 500)
-      true
-  """
   @spec is_gas_limit_valid?(EVM.Gas.t, EVM.Gas.t | nil) :: boolean()
   def is_gas_limit_valid?(gas_limit, parent_gas_limit, gas_limit_bound_divisor \\ @gas_limit_bound_divisor, min_gas_limit \\ @min_gas_limit) do
     if parent_gas_limit == nil do
