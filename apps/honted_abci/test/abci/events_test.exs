@@ -137,31 +137,21 @@ defmodule HonteD.ABCI.EventsTest do
                                                    server_spawner: server_spawner} do
       params = [nonce: 1, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
-      # NOTE: deliver_tx should not crash here: this is intended version. Please restore
-      #  next line after allowing :ResponseDeliverTx to return non-zero error codes.
-      # create_sign_off(params) |> sign(issuer.priv) |> deliver_tx(state)
-      raw_tx =
-        params
-        |> create_sign_off
-        |> sign(issuer.priv)
-      # NOTE: but deliver_tx still crashes and we want to be sure that nothing was emitted anyway:
-      assert_raise(MatchError, fn() -> deliver_tx(raw_tx, state) end)
+
+      params |> create_sign_off |> sign(issuer.priv) |> deliver_tx(state)
+
       join(server_pid)
     end
 
-    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer]
-    test "statelessly incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, some_block_hash: hash,
-                                               server_spawner: server_spawner} do
+    @tag fixtures: [:server_spawner, :empty_state, :some_block_hash, :issuer, :alice]
+    test "statelessly incorrect tx doesn't emit", %{empty_state: state, issuer: issuer, alice: alice,
+                                                    some_block_hash: hash,
+                                                    server_spawner: server_spawner} do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
 
-      # FIXME: deliver_tx should not crash here: this is intended version. Please restore
-      #  next line after allowing :ResponseDeliverTx to return non-zero error codes.
-      # create_sign_off(params) |> deliver_tx(state)
+      params |> create_sign_off |> sign(alice.priv) |> deliver_tx(state)
 
-      raw_tx = create_sign_off(params)
-      # FIXME: but deliver_tx still crashes and we want to be sure that nothing was emitted anyway:
-      assert_raise(MatchError, fn() -> deliver_tx(raw_tx, state) end)
       join(server_pid)
     end
 
