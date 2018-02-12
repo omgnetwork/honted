@@ -2,7 +2,6 @@ defmodule HonteD.Integration.TendermintCompatibilityTest do
   @moduledoc """
   Testing various compatibilities with tendermint core
 
-  NOTE: ideally this shouldn't be needed at all
   """
 
   use ExUnitFixtures
@@ -12,6 +11,11 @@ defmodule HonteD.Integration.TendermintCompatibilityTest do
 
   @moduletag :integration
 
+  @doc """
+  Tests compatibility of hashes between tendermint tx hashing and our implementation
+
+  NOTE: ideally this shouldn't be needed at all, but we need to recalculate these hashes as consistent event references
+  """
   @tag fixtures: [:tendermint]
   test "tendermint tx hash", %{} do
     {:ok, issuer_priv} = Crypto.generate_private_key()

@@ -52,17 +52,12 @@ defmodule HonteD.API.Events.Eventer do
     }
   end
 
-  defmodule TransactionEvent do
+  defmodule EventContentTx do
     @moduledoc """
-    Transaction and it's tendermint-hash bound together
+    Transaction and it's tendermint-hash bound together, which are what gets pushed to the subscribers
     """
     defstruct [:tx, :hash]
   end
-
-  @type transaction_event :: %TransactionEvent{
-    tx: HonteD.Transaction.t,
-    hash: binary,
-  }
 
   def start_link(args, opts) do
     GenServer.start_link(__MODULE__, args, opts)
@@ -76,13 +71,23 @@ defmodule HonteD.API.Events.Eventer do
     }
   end
 
-  @spec do_notify(:finalized | :committed, transaction_event, pos_integer, State.subs, State.filters)
+  @doc """
+  Transforms an Eventer-internal event representation of an event and pushes it out to the subscribed
+  listeners
+
+  for transactions, the Eventer-internal event representation is the signed transaction itself
+  """
+  @spec do_notify(:finalized | :committed, HonteD.Transaction.SignedTx.t, pos_integer, State.subs, State.filters)
     :: :ok
-  def do_notify(finality_status, %HonteD.Transaction.SignedTx{} = signed, event_height, subs, filters) do
-    event_content = %TransactionEvent{tx: signed.raw_tx, hash: signed
-                                                               |> HonteD.TxCodec.encode
-                                                               |> HonteD.API.Tendermint.Tx.hash}
-    event_topics = event_topics_for(signed.raw_tx)
+  def do_notify(finality_status, %HonteD.Transaction.SignedTx{raw_tx: tx} = signed, event_height, subs, filters) do
+    # NOTE: we need to enrich the event with a Tendermint-specific hash here for reference
+    #       albeit not perfect, this seems like the best place to do it
+    event_content = %EventContentTx{tx: tx, hash: signed
+                                                  |> HonteD.TxCodec.encode
+                                                  |> HonteD.API.Tendermint.Tx.hash
+    }
+
+    event_topics = event_topics_for(tx)
     pids = subscribed(event_topics, subs, filters)
 
     _ = Logger.debug(fn -> "do_notify: #{inspect event_topics} #{inspect finality_status}, " <>
@@ -94,9 +99,10 @@ defmodule HonteD.API.Events.Eventer do
     :ok
   end
 
-  defp message(finality_status, height, filter_id, %TransactionEvent{tx: %HonteD.Transaction.Send{}} = event_tx)
+  # handles composing of the final map with contents of what gets pushed to subscribers
+  defp message(finality_status, height, filter_id, %EventContentTx{} = event_content)
   when finality_status in [:committed, :finalized] do
-    %{source: filter_id, height: height, finality: finality_status, transaction: event_tx}
+    %{source: filter_id, height: height, finality: finality_status, transaction: event_content}
   end
 
   def stream_end_msg(filter_id) do

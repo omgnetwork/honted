@@ -9,15 +9,26 @@ defmodule HonteD.API.TestHelpers do
   def event_send(receiver, fid, token \\ "asset", height \\ 0) do
     # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
-    tx = %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
-    signed = %HonteD.Transaction.SignedTx{raw_tx: tx, signature: "F47485AD4B907207D6D05B7265D6B91B47985BFB2C694C7A9AC20D83Dfakesig"}
+    signed =
+      %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
+      |> append_fake_sig()
+
     {signed, receivable_for(signed, fid, height)}
   end
 
   def event_sign_off(send_receivables, height \\ 1) do
-    tx = %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height)}
-    signed = %HonteD.Transaction.SignedTx{raw_tx: tx, signature: "F47485AD4B907207D6D05B7265D6B91B47985BFB2C694C7A9AC20D83Dfakesig"}
+    signed =
+      %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height)}
+      |> append_fake_sig()
+
     {signed, receivable_finalized(send_receivables)}
+  end
+
+  defp append_fake_sig(tx) do
+    %HonteD.Transaction.SignedTx{
+      raw_tx: tx,
+      signature: "F47485AD4B907207D6D05B7265D6B91B47985BFB2C694C7A9AC20D83Dfakesig",
+    }
   end
 
   def event_sign_off_bad_hash(send_receivables, height \\ 1) do
@@ -32,11 +43,12 @@ defmodule HonteD.API.TestHelpers do
   Prepared based on documentation of HonteD.API.Events.notify
   """
   def receivable_for(%HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{} = tx} = signed, fid, height) do
-    # FIXME: this hash is copy-pasted - what to do about this testing?
-    event = %HonteD.API.Events.Eventer.TransactionEvent{tx: tx,
-                                                        hash: signed
-                                                              |> HonteD.TxCodec.encode
-                                                              |> HonteD.API.Tendermint.Tx.hash}
+    event = %HonteD.API.Events.Eventer.EventContentTx{tx: tx,
+                                                      hash: signed
+                                                            |> HonteD.TxCodec.encode
+                                                            |> HonteD.API.Tendermint.Tx.hash
+    }
+
     {:event, %{height: height, finality: :committed, source: fid, transaction: event}}
   end
 
