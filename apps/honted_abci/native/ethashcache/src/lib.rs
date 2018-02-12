@@ -125,7 +125,7 @@ fn create_cache_seed(block_number: u64) -> [u8; KEC_256_HASH_SIZE_BYTES] {
 }
 
 rustler_export_nifs!(
-    "Elixir.HonteD.ABCI.EthashCache",
+    "Elixir.HonteD.ABCI.Ethereum.EthashCache",
     [("make_cache", 1, make_cache)],
     None
 );

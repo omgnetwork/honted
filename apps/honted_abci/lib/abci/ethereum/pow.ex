@@ -1,12 +1,11 @@
-defmodule HonteD.ABCI.ProofOfWork do
+defmodule HonteD.ABCI.Ethereum.ProofOfWork do
   @moduledoc """
   Validates proof of work for Ethereum block
   """
-  alias HonteD.ABCI.EthashUtils
+  alias HonteD.ABCI.Ethereum.EthashUtils
 
-  @hash_length_bytes 32
-  @hash_length_hex 64
-  @nonce_length 16
+  @hash_length 32
+  @nonce_length 8
 
   @dataset_bytes_init 1073741824 # 2^30
   @dataset_bytes_growth 8388608 # 2^17
@@ -14,21 +13,21 @@ defmodule HonteD.ABCI.ProofOfWork do
   @max_hash 115792089237316195423570985008687907853269984665640564039457584007913129639936 # 2^256
   @epoch_length 30000
 
+  @doc """
+  Returns true if proof of work for the block is valid, otherwise false.
+  """
+  @spec valid?(non_neg_integer(), binary(), binary(), binary(), non_neg_integer()) :: boolean()
   def valid?(block_number, header_hash, mix_hash, nonce, difficulty) do
     IO.puts(String.length(mix_hash))
     IO.puts(byte_size(header_hash))
-    IO.puts(String.length(nonce))
-    if String.length(mix_hash) == 64 and byte_size(header_hash) == 32 and String.length(nonce) == 16 do
+    if byte_size(mix_hash) == @hash_length and byte_size(header_hash) == @hash_length and byte_size(nonce) == @nonce_length do
        IO.puts("in")
-       {block_number, _} = Integer.parse(block_number, 16)
-       {difficulty, _} = Integer.parse(difficulty, 16)
-       mix_hash = EthashUtils.hash_to_bytes(mix_hash)
-       cache = list_to_map(HonteD.ABCI.EthashCache.make_cache(block_number), 0, %{})
+       cache = list_to_map(HonteD.ABCI.Ethereum.EthashCache.make_cache(block_number), 0, %{})
        IO.puts("cache calculated")
        full_size = full_dataset_size(block_number)
 
        [mix_digest: digest, result: pow_hash] =
-         HonteD.ABCI.Ethash.hashimoto_light(full_size, cache, header_hash, nonce)
+         HonteD.ABCI.Ethereum.Ethash.hashimoto_light(full_size, cache, header_hash, nonce)
        if digest == mix_hash do
          EthashUtils.big_endian_to_int(pow_hash) <= div(@max_hash, difficulty)
        else
