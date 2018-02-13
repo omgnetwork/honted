@@ -17,6 +17,9 @@ defmodule HonteD.ABCI.Ethereum.BlockHeader do
   @moduledoc """
   This structure codifies the header of a block in the blockchain.
   """
+  # credo:disable-for-this-file Credo.Check.Readability.MaxLineLength
+  # credo:disable-for-this-file Credo.Check.Refactor.FunctionArity
+  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
 
   @empty_keccak [] |> ExRLP.encode |> :keccakf1600.sha3_256
 
@@ -266,7 +269,7 @@ defmodule HonteD.ABCI.Ethereum.BlockHeader do
     floor(
       :math.pow(
         2,
-        floor( header.number / 100_000 ) - 2
+        floor(header.number / 100_000) - 2
       )
     )
   end
@@ -281,8 +284,8 @@ defmodule HonteD.ABCI.Ethereum.BlockHeader do
     else
       max_delta = floor(parent_gas_limit / gas_limit_bound_divisor)
 
-      ( gas_limit < parent_gas_limit + max_delta ) and
-      ( gas_limit > parent_gas_limit - max_delta ) and
+      (gas_limit < parent_gas_limit + max_delta) and
+      (gas_limit > parent_gas_limit - max_delta) and
       gas_limit > min_gas_limit
     end
   end

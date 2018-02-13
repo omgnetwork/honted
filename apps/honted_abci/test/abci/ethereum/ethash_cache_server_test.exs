@@ -2,6 +2,7 @@ defmodule HonteD.ABCI.Ethereum.EthashCacheServerTest do
   @moduledoc """
   Tests that generating Ethash cache works
   """
+  # credo:disable-for-this-file Credo.Check.Readability.LargeNumbers
   use ExUnitFixtures
   use ExUnit.Case
 

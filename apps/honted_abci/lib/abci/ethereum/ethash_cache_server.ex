@@ -4,8 +4,8 @@ defmodule HonteD.ABCI.Ethereum.EthashCacheServer do
   """
   use GenServer
 
-  @epoch_length 30000 # Epoch length in number of blocks. Cache is the same for each block in an epoch.
-  @timeout 600000
+  @epoch_length 30_000 # Epoch length in number of blocks. Cache is the same for each block in an epoch.
+  @timeout 600_000
 
   alias HonteD.ABCI.Ethereum.EthashCache
 

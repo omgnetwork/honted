@@ -2,6 +2,7 @@ defmodule HonteD.ABCI.Ethereum.EthashUtilsTest do
   @moduledoc """
   Tests if EthashUtils methods work
   """
+  # credo:disable-for-this-file Credo.Check.Readability.LargeNumbers
   use ExUnitFixtures
   use ExUnit.Case, async: true
 
