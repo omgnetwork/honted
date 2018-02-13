@@ -123,6 +123,20 @@ defmodule HonteD.API.TendermintRPC do
     |> decode_block
   end
 
+  @impl true
+  def validators(nil) do
+    :validators
+    |> Websocket.call_method([])
+    |> decode_jsonrpc
+  end
+
+  @impl true
+  def status(nil) do
+    :status
+    |> Websocket.call_method([])
+    |> decode_jsonrpc
+  end
+
   ### private - tendermint rpc's specific encoding/decoding
 
   defp decode_jsonrpc(response) do

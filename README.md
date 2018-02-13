@@ -11,7 +11,7 @@ Install [Tendermint](https://tendermint.com/downloads). **NOTE** we require Tend
 If a newer version installs by default, `git checkout v0.15.0` for Tendermint repo in your `$GOPATH`, then (optionally) `glide install` and `go install github.com/tendermint/tendermint/cmd/tendermint`.
 
 **NOTE** To avoid an random `invalid_nonce` error in performance test and `mix --include integration` tests, install a patched `v0.15` version of Tendermint:
-`git checkout 57cc8ab977c9917dd6026c9a9caf9c96ca07a8ed`, then install as above.
+`git checkout f1c84892703ba0894682a30defde0cb84a93ff88`, then install as above.
 
   - `git clone ...` - clone this repo
   - `mix deps.get`

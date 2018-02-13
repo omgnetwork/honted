@@ -9,12 +9,10 @@ defmodule HonteD.Integration.SmokeTest do
   use ExUnitFixtures
   use ExUnit.Case, async: false
 
-  alias HonteD.Eth.Contract, as: CRead
-  alias HonteD.Integration.Contract, as: CWrite
-
-  alias HonteD.{Crypto, API}
+  alias HonteD.{Crypto, API, Integration, Eth}
 
   @supply 5
+  @tm_pubkey "FEFB8740A301134C7762E38241B59FC8181D982A1DE629F7168622A863E9BCAA"
 
   @moduletag :integration
 
@@ -91,7 +89,12 @@ defmodule HonteD.Integration.SmokeTest do
     end
   end
 
+  ###
+  ### apis/honted/tendermint integration
+  ###
+
   @tag fixtures: [:tendermint, :websocket, :apis_caller]
+  @tag :old
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
@@ -336,33 +339,87 @@ defmodule HonteD.Integration.SmokeTest do
      } = apis_caller.(:token_info, %{toke: ""})
   end
 
-  @tag fixtures: [:geth]
-  test "Contract can be read", %{} do
-    epoch = 10
+  ###
+  ### contract/tendermint/geth/honted integration
+  ###
+
+  deffixture contracts(geth) do
+    :ok = geth
+    {:ok, token, staking} = Integration.Contract.deploy(30, 10, 1)
+    {token, staking}
+  end
+
+  @doc """
+  Wraps the test in an artificial environment (config.exs-like), which points to a staking contract
+  Needs to stop and start some honted applications to reload the fake config
+  """
+  deffixture staking_contract_config(geth, honted, contracts) do
+    :ok = honted # prevent warnings
+    :ok = geth
+    {_, staking} = contracts
+
+    Application.put_env(:honted_eth, :staking_contract_address, staking)
+    Application.put_env(:honted_eth, :enabled, true)
+
+    Application.stop(:honted_eth)
+    Application.stop(:honted_abci)
+    Application.ensure_all_started(:honted_eth)
+    Application.ensure_all_started(:honted_abci)
+
+    on_exit fn ->
+      Application.put_env(:honted_eth, :staking_contract_address, "0x0")
+      Application.put_env(:honted_eth, :enabled, false)
+    end
+    :ok
+  end
+
+  @tag fixtures: [:geth, :tendermint, :contracts, :staking_contract_config]
+  @tag :new
+  test "Sets validators with staking contract", %{contracts: {token, staking}} do
+    # NOTE: for this to work, tendermint must start _after_ the configured, secondary honted start
+    #       this magically works, but mind well if it breaks
     amount = 100
-    assert CRead.block_height()
-    assert {:ok, token, staking} = CWrite.deploy(epoch, 5, 2)
-    assert {:ok, 0} = CRead.get_current_epoch(staking)
-    assert {:ok, ^epoch} = CRead.epoch_length(staking)
-    assert {:ok, next_epoch} = CRead.get_next_epoch_block_number(staking)
-    assert {:ok, mm} = CRead.maturity_margin(staking)
-    {:ok, [addr | _]} = Ethereumex.HttpClient.eth_accounts()
-    assert CWrite.mint_omg(token, addr, amount)
-    assert CWrite.approve(token, addr, staking, amount)
-    assert CWrite.deposit(staking, addr, amount)
-    assert {:ok, ^amount} = CRead.balance_of(token, staking)
-    tm_pubkey = "FEFB8740A301134C7762E38241B59FC8181D982A1DE629F7168622A863E9BCAA"
-    assert %{} =
-      CRead.read_validators(staking)
-    assert next_epoch - mm > CRead.block_height()
-    assert CWrite.join(staking, addr, tm_pubkey)
-    assert %{} =
-      CRead.read_validators(staking)
-    assert HonteD.Integration.WaitFor.eth_block_height(next_epoch - mm + 1, true)
-    assert %{1 => [%HonteD.Validator{:stake => ^amount, :tendermint_address => ^tm_pubkey}]} =
-      CRead.read_validators(staking)
-    assert HonteD.Integration.WaitFor.eth_block_height(next_epoch + 1, true)
-    assert %{1 => [%HonteD.Validator{:stake => ^amount, :tendermint_address => ^tm_pubkey}]} =
-      CRead.read_validators(staking)
+
+    Process.sleep(1200) # need to wait for 1st block
+    {:ok, %{"validators" => [%{"pub_key" => %{"data" => start_validator}}]}} = HonteD.API.TendermintRPC.validators(nil)
+    # sanity
+    assert start_validator != @tm_pubkey
+
+    {:ok, alice_priv} = Crypto.generate_private_key
+    {:ok, alice_pub} = Crypto.generate_public_key alice_priv
+    {:ok, alice} = Crypto.generate_address alice_pub
+
+    {:ok, [alice_ethereum_address | _]} = Ethereumex.HttpClient.eth_accounts()
+
+    {:ok, _} = Integration.Contract.mint_omg(token, alice_ethereum_address, amount)
+
+    new_validator_pubkey = @tm_pubkey
+
+    {:ok, _} = Integration.Contract.approve(token, alice_ethereum_address, staking, amount)
+    {:ok, _} = Integration.Contract.deposit(staking, alice_ethereum_address, amount)
+    {:ok, _} = Integration.Contract.join(staking, alice_ethereum_address, new_validator_pubkey)
+
+    Eth.Contract.block_height()
+    {:ok, next} = Eth.Contract.get_next_epoch_block_number(staking)
+    HonteD.Integration.WaitFor.eth_block_height(next + 1, true, 10_000)
+
+    Process.sleep(1000) # wait till honted_eth pulls in contract state
+
+    {:ok, raw_tx} = API.create_epoch_change_transaction(alice, 1)
+    {:ok, signature} = Crypto.sign(raw_tx, alice_priv)
+
+    {:ok, _} = API.submit_commit(raw_tx <> " " <> signature)
+
+    # TODO: this is the proper check for validator set change. Since `validators` endpoint doesn't return the effective
+    # validator set, we can't use this now
+    # Process.sleep(5000) # not sure if necessary
+    # {:ok, %{"validators" => [validator]}} = API.TendermintRPC.validators(nil)
+    # assert get_in(validator, ["pub_key", "data"]) == new_validator_pubkey
+
+    # NOTE: temporary way to assert the validator set change - we check if the chain is halted
+    #       check that despite time having passed, no blocks get mined
+    {:ok, %{"latest_block_height" => last_live_block_height}} = API.TendermintRPC.status(nil)
+    Process.sleep(1500)
+    assert {:ok, %{"latest_block_height" => ^last_live_block_height}} = API.TendermintRPC.status(nil)
   end
 end
