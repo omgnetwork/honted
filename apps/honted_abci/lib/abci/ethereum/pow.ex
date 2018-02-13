@@ -3,6 +3,7 @@ defmodule HonteD.ABCI.Ethereum.ProofOfWork do
   Validates proof of work for Ethereum block
   """
   alias HonteD.ABCI.Ethereum.EthashUtils
+  alias HonteD.ABCI.Ethereum.EthashCacheServer
 
   @hash_length 32
   @nonce_length 8
@@ -14,16 +15,13 @@ defmodule HonteD.ABCI.Ethereum.ProofOfWork do
   @epoch_length 30000
 
   @doc """
-  Returns true if proof of work for the block is valid, otherwise false.
+  Returns true if proof of work for the block is valid, otherwise false
   """
   @spec valid?(non_neg_integer(), binary(), binary(), binary(), non_neg_integer()) :: boolean()
   def valid?(block_number, header_hash, mix_hash, nonce, difficulty) do
-    IO.puts(String.length(mix_hash))
-    IO.puts(byte_size(header_hash))
     if byte_size(mix_hash) == @hash_length and byte_size(header_hash) == @hash_length and byte_size(nonce) == @nonce_length do
-       IO.puts("in")
-       cache = list_to_map(HonteD.ABCI.Ethereum.EthashCache.make_cache(block_number), 0, %{})
-       IO.puts("cache calculated")
+       {:ok, cache} = EthashCacheServer.get_cache(block_number)
+       cache = list_to_map(cache, 0, %{})
        full_size = full_dataset_size(block_number)
 
        [mix_digest: digest, result: pow_hash] =
@@ -38,13 +36,13 @@ defmodule HonteD.ABCI.Ethereum.ProofOfWork do
     end
   end
 
-  def full_dataset_size(block_number) do
+  defp full_dataset_size(block_number) do
     initial = @dataset_bytes_init + @dataset_bytes_growth * div(block_number, @epoch_length) - @mix_bytes
     EthashUtils.e_prime(initial, @mix_bytes)
   end
 
-  def list_to_map([], _idx, map), do: map
-  def list_to_map([head | tail], idx, map) do
+  defp list_to_map([], _idx, map), do: map
+  defp list_to_map([head | tail], idx, map) do
     list_to_map(tail, idx + 1, Map.put(map, idx, head))
   end
 

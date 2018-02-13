@@ -8,12 +8,17 @@ defmodule HonteD.ABCI.Ethereum.ProofOfWorkTest do
   use ExUnitFixtures
   use ExUnit.Case
 
+  @moduletag :integration
+
   alias HonteD.ABCI.Ethereum.EthashUtils
+  alias HonteD.ABCI.Ethereum.EthashCacheServer
 
   describe "header validation" do
-    @tag timeout: 1200000
+    @tag timeout: 600000
     test "validates a proper block", %{} do
       block_number = EthashUtils.hex_to_int("479c49")
+      EthashCacheServer.start(block_number)
+
       header_hash_no_nonce =
         <<109, 139, 200, 231, 34, 139, 212, 173, 82, 206, 238, 66, 48, 117,
           140, 115, 74, 133, 193, 190, 79, 56, 78, 162, 228, 252, 93, 117,
