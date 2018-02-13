@@ -115,10 +115,7 @@ defmodule HonteD.ABCI.Ethereum.EthashUtils do
   def hex_to_bytes(hex) do
     hex_to_bytes(hex, [])
   end
-  defp hex_to_bytes("", acc) do
-    Enum.reverse(acc)
-    |> :binary.list_to_bin
-  end
+  defp hex_to_bytes("", acc), do: :binary.list_to_bin(Enum.reverse(acc))
   defp hex_to_bytes(<<digit1 :: bytes-size(1)>> <> <<digit2 :: bytes-size(1)>> <> rest, acc) do
     byte = hex_to_int(digit1 <> digit2)
     hex_to_bytes(rest, [byte | acc])
