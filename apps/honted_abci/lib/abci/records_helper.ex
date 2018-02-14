@@ -27,12 +27,16 @@ defmodule HonteD.ABCI.Record.Helper do
     for {tag, fields} <- extract_all(from_lib: lib) do
       name =
         case is_binary(tag) do
-          false -> tag |> Atom.to_string |> Macro.underscore |> String.to_atom
-          true -> tag |> Macro.underscore |> String.to_atom
+          false -> tag |> Atom.to_string |> strip |> Macro.underscore |> String.to_atom
+          true -> tag |> strip |> Macro.underscore |> String.to_atom
         end
       quote do
         defrecord unquote(name), unquote(tag), unquote(fields)
       end
     end
   end
+
+  defp strip("types." <> tag), do: tag
+  defp strip("common." <> tag), do: tag
+
 end

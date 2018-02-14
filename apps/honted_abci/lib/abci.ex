@@ -59,7 +59,7 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_commit(), _from, %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
     hash = (consensus_state |> State.hash |> to_charlist)
-    reply = response_commit(code: code(:ok), data: hash, log: 'commit log: yo!')
+    reply = response_commit(data: hash)
     {:reply, reply, %{abci_app | local_state: consensus_state}}
   end
 
