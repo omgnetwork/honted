@@ -15,14 +15,11 @@ RUN set -xe && \
     go get github.com/Masterminds/glide
 
 RUN set -xe && \
-    go get github.com/tendermint/tendermint/cmd/tendermint || \
-    cd $GOPATH/src/github.com/tendermint/tendermint && \
-    glide install && \
-    go install ./cmd/tendermint
+    go get github.com/tendermint/tendermint/cmd/tendermint
 
-# TODO: need to force an old version of tendermint, fix after T629 is resolved
+# TODO: need to force a particular version of tendermint, remove after a TM release > 0.15.0
 RUN set -xe && \
-    git -C $GOPATH/src/github.com/tendermint/tendermint checkout v0.14.0 && \
+    git -C $GOPATH/src/github.com/tendermint/tendermint checkout f1c84892703ba0894682a30defde0cb84a93ff88 && \
     cd $GOPATH/src/github.com/tendermint/tendermint && \
     glide install && \
     go install ./cmd/tendermint
@@ -39,6 +36,20 @@ RUN set -xe && \
 RUN set -xe && \
     which tm-bench
 
+# geth
+# NOTE: getting from ppa doesn't work, so building from source
+# NOTE: fixed version
+RUN set -xe && \
+    git clone https://github.com/ethereum/go-ethereum && \
+    cd go-ethereum && \
+    git checkout v1.7.3 && \
+    make geth
+
+ENV PATH="/go-ethereum/build/bin/:${PATH}"
+
+RUN set -xe && \
+    geth version
+
 RUN set -xe && \
     mix local.hex --force && \
     mix local.rebar --force && \
@@ -50,9 +61,8 @@ WORKDIR /app
 RUN set -xe && \
     mix deps.get
 
+# TODO: establish the most robust/useful option with respect to compiling the Mix project
 RUN set -xe && \
     MIX_ENV=test mix compile
-RUN set -xe && \
-    mix compile
 
 CMD ["mix", "run", "--no-halt"]

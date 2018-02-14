@@ -81,6 +81,7 @@ defmodule HonteD.Integration do
     # Monitors the stdout coming out of a process for signal of successful startup
     waiting_task_function = fn ->
       outstream
+      |> Stream.map(&IO.inspect/1)
       |> Stream.take_while(fn line -> not String.contains?(line, look_for) end)
       |> Enum.to_list
     end
