@@ -410,6 +410,8 @@ defmodule HonteD.Integration.SmokeTest do
 
     # TODO: this is the proper check for validator set change. Since `validators` endpoint doesn't return the effective
     # validator set, we can't use this now
+    # Relevant issue: https://github.com/tendermint/tendermint/issues/1211
+    
     # Process.sleep(5000) # not sure if necessary
     # {:ok, %{"validators" => [validator]}} = API.TendermintRPC.validators(nil)
     # assert get_in(validator, ["pub_key", "data"]) == new_validator_pubkey
