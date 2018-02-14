@@ -94,7 +94,6 @@ defmodule HonteD.Integration.SmokeTest do
   ###
 
   @tag fixtures: [:tendermint, :websocket, :apis_caller]
-  @tag :old
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
@@ -374,7 +373,6 @@ defmodule HonteD.Integration.SmokeTest do
   end
 
   @tag fixtures: [:geth, :tendermint, :contracts, :staking_contract_config]
-  @tag :new
   test "Sets validators with staking contract", %{contracts: {token, staking}} do
     # NOTE: for this to work, tendermint must start _after_ the configured, secondary honted start
     #       this magically works, but mind well if it breaks
