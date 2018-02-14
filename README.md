@@ -13,6 +13,9 @@ If a newer version installs by default, `git checkout v0.15.0` for Tendermint re
 **NOTE** To avoid an random `invalid_nonce` error in performance test and `mix --include integration` tests, install a patched `v0.15` version of Tendermint:
 `git checkout f1c84892703ba0894682a30defde0cb84a93ff88`, then install as above.
 
+**NOTE2**, overrides NOTE above: validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
+Check out and install this.
+
   - `git clone ...` - clone this repo
   - `mix deps.get`
   - `iex -S mix`
