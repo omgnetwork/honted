@@ -38,6 +38,8 @@ Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean
 
 When running `integration` tests, remember to have `tendermint`, `tm-bench`, and `geth` binaries reachable in your `$PATH`.
 
+When running `integration` tests, remember to `populus compile` the contracts (invoke in `populus` directory).
+
 ### Performance test - quick guide
 
 In the same setup as for the Integration tests, run e.g.:
@@ -85,3 +87,14 @@ The general idea of the apps responsibilities is:
   - `honted_jsonrpc` - a JSONRPC 2.0 gateway to `honted_api` - automatically exposed via `ExposeSpec`
   - `honted_ws` - a Websockets gateway to `honted_api` - automatically exposed via `ExposeSpec`
   - `honted_lib` - all stateless and generic functionality, shared application logic
+
+## Staking
+
+We assume, that an appropriate Ethereum client is exposing its RPC for `honted_eth`
+and that appropriate contracts have been deployed and are operated according to their documentation
+(currently - documentation in contract code in `contracts`).
+
+To configure HonteD node to use a particular staking contract,
+copy `apps/honted_eth/config.exs` to `apps/honted_eth/local_staking_config.exs`,
+switch the `enabled` flag to `true` and modify the config appropriately.
+Then use the edited config file to run `honted`.
