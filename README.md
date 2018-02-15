@@ -11,7 +11,13 @@ Install [Tendermint](https://tendermint.com/downloads). **NOTE** we require Tend
 If a newer version installs by default, `git checkout v0.15.0` for Tendermint repo in your `$GOPATH`, then (optionally) `glide install` and `go install github.com/tendermint/tendermint/cmd/tendermint`.
 
 **NOTE** To avoid an random `invalid_nonce` error in performance test and `mix --include integration` tests, install a patched `v0.15` version of Tendermint:
-`git checkout 57cc8ab977c9917dd6026c9a9caf9c96ca07a8ed`, then install as above.
+`git checkout f1c84892703ba0894682a30defde0cb84a93ff88`, then install as above.
+
+**NOTE2**, overrides NOTE above: validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
+Check out and install this.
+This is necessary because Tendermint `v0.15.0` imposed a limit on voting power change (<1/3 per block),
+which will be removed in `v0.16.0`, that hasn't yet been released.
+Hence, we need to use our fork which lifts this limit.
 
   - `git clone ...` - clone this repo
   - `mix deps.get`
@@ -37,6 +43,8 @@ Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean
 **NOTE** Integration tests require `tm-bench` to be installed: `go get -u github.com/tendermint/tools/tm-bench`, possibly a `glide install` will be necessary
 
 When running `integration` tests, remember to have `tendermint`, `tm-bench`, and `geth` binaries reachable in your `$PATH`.
+
+When running `integration` tests, remember to `populus compile` the contracts (invoke in `populus` directory).
 
 ### Performance test - quick guide
 
@@ -85,3 +93,14 @@ The general idea of the apps responsibilities is:
   - `honted_jsonrpc` - a JSONRPC 2.0 gateway to `honted_api` - automatically exposed via `ExposeSpec`
   - `honted_ws` - a Websockets gateway to `honted_api` - automatically exposed via `ExposeSpec`
   - `honted_lib` - all stateless and generic functionality, shared application logic
+
+## Staking
+
+We assume, that an appropriate Ethereum client is exposing its RPC for `honted_eth`
+and that appropriate contracts have been deployed and are operated according to their documentation
+(currently - documentation in contract code in `contracts`).
+
+To configure HonteD node to use a particular staking contract,
+copy `apps/honted_eth/config.exs` to `apps/honted_eth/local_staking_config.exs`,
+switch the `enabled` flag to `true` and modify the config appropriately.
+Then use the edited config file to run `honted`.

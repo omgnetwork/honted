@@ -53,7 +53,7 @@ defmodule HonteD.Integration do
     # start tendermint and capture the stdout
     tendermint_proc = %Porcelain.Process{err: nil, out: tendermint_out} = Porcelain.spawn_shell(
       "tendermint --home #{homedir} --log_level \"*:info\" node",
-      out: :stream,
+      out: :stream
     )
     wait_for_tendermint_start(tendermint_out)
 
@@ -70,7 +70,6 @@ defmodule HonteD.Integration do
   defp show_tendermint_logs(tendermint_out) do
     tendermint_out
     |> Stream.flat_map(&String.split(&1, "\n")) # necessary because items in stream are >1 line
-    |> Stream.filter(fn line -> String.contains?(line, "Executed block") end)
     |> Enum.each(&Logger.info/1)
   end
 
