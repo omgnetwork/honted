@@ -19,8 +19,10 @@ RUN set -xe && \
 
 # TODO: need to force a particular version of tendermint, remove after a TM release > 0.15.0
 RUN set -xe && \
-    git -C $GOPATH/src/github.com/tendermint/tendermint checkout f1c84892703ba0894682a30defde0cb84a93ff88 && \
     cd $GOPATH/src/github.com/tendermint/tendermint && \
+    git remote add omisego https://github.com/omisego/tendermint && \
+    git fetch omisego && \
+    git checkout v0.15.0_dirty_no_val_check && \
     glide install && \
     go install ./cmd/tendermint
 
