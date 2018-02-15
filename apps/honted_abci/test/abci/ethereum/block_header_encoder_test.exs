@@ -26,7 +26,7 @@ defmodule HonteD.ABCI.Ethereum.BlockHeaderEncoderTest do
       h_l = EthashUtils.hex_to_int("68af35")
       h_g = EthashUtils.hex_to_int("68679d")
       h_s = EthashUtils.hex_to_int("5a29b4d7")
-      h_x = EthashUtils.hex_to_bytes("e4b883e5bda9e7a59ee4bb99e9b1bc") #TODO: is length of extra data even?
+      h_x = EthashUtils.hex_to_bytes("e4b883e5bda9e7a59ee4bb99e9b1bc")
       block_header = %BlockHeader{
         parent_hash: h_p,
         ommers_hash: h_o,
@@ -44,9 +44,8 @@ defmodule HonteD.ABCI.Ethereum.BlockHeaderEncoderTest do
       }
 
       assert BlockHeaderEncoder.pow_hash(block_header) ==
-        <<109, 139, 200, 231, 34, 139, 212, 173, 82, 206, 238, 66, 48, 117,
-          140, 115, 74, 133, 193, 190, 79, 56, 78, 162, 228, 252, 93, 117,
-          81, 189, 187, 239>>
+        <<109, 139, 200, 231, 34, 139, 212, 173, 82, 206, 238, 66, 48, 117, 140, 115,
+          74, 133, 193, 190, 79, 56, 78, 162, 228, 252, 93, 117, 81, 189, 187, 239>>
     end
   end
 end

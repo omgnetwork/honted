@@ -1,6 +1,6 @@
 defmodule HonteD.ABCI.Ethereum.Ethash do
   @moduledoc """
-  Implements Ethash.
+  Implements Ethash
   """
   use Bitwise
 
@@ -58,9 +58,9 @@ defmodule HonteD.ABCI.Ethereum.Ethash do
     mix_in_dataset(mix, seed, dataset_lookup, n, round + 1)
   end
 
-  defp get_new_data(acc, _p, _dataset_lookup, @mix_hashes), do: Enum.reverse(acc)
+  defp get_new_data(acc, _p, _dataset_lookup, @mix_hashes), do: acc
   defp get_new_data(acc, p, dataset_lookup, round) do
-    get_new_data(dataset_lookup.(p + round) ++ acc, p, dataset_lookup, round + 1)
+    get_new_data(acc ++ dataset_lookup.(p + round), p, dataset_lookup, round + 1)
   end
 
   defp compress([], compressed_mix), do: Enum.reverse(compressed_mix)
