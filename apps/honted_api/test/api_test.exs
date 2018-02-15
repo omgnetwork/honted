@@ -6,6 +6,6 @@ defmodule HonteD.APITest do
 
   for stateless tests of create_x_transaction functionality see test for HonteD.Transaction
 
-  FIXME: implement the statefull tests using mocks of TendermintRPC
+  FIXME: implement the statefull tests using mocks of Tendermint.RPC
   """
 end

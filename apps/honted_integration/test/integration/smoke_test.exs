@@ -222,11 +222,14 @@ defmodule HonteD.Integration.SmokeTest do
     # check event
     assert %{
       "transaction" => %{
-        "amount" => 5,
-        "asset" => ^asset,
-        "from" => ^alice,
-        "nonce" => 0,
-        "to" => ^bob
+        "tx" => %{
+          "amount" => 5,
+          "asset" => ^asset,
+          "from" => ^alice,
+          "nonce" => 0,
+          "to" => ^bob
+        },
+        "hash" => ^tx_hash
       },
       "finality" => "committed",
       "height" => committed_at_height,
@@ -285,11 +288,14 @@ defmodule HonteD.Integration.SmokeTest do
 
     assert %{
       "transaction" => %{
-        "amount" => 5,
-        "asset" => ^asset,
-        "from" => ^alice,
-        "nonce" => 0,
-        "to" => ^bob
+        "tx" => %{
+          "amount" => 5,
+          "asset" => ^asset,
+          "from" => ^alice,
+          "nonce" => 0,
+          "to" => ^bob
+        },
+        "hash" => ^tx_hash
       },
       "finality" => "finalized",
       "height" => _,
@@ -310,11 +316,14 @@ defmodule HonteD.Integration.SmokeTest do
 
     assert %{
       "transaction" => %{
-        "amount" => 5,
-        "asset" => ^asset,
-        "from" => ^alice,
-        "nonce" => 0,
-        "to" => ^bob
+        "tx" => %{
+          "amount" => 5,
+          "asset" => ^asset,
+          "from" => ^alice,
+          "nonce" => 0,
+          "to" => ^bob
+        },
+        "hash" => ^tx_hash
       },
       "finality" => "committed",
       "source" => ^filter_id,

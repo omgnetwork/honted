@@ -73,7 +73,7 @@ defmodule HonteD.ABCITest do
     @tag fixtures: [:empty_state]
     test "too large transactions throw", %{empty_state: state} do
       String.duplicate("a", 512)
-      |> check_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
+      |> deliver_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
     end
   end
 

@@ -67,7 +67,6 @@ defmodule HonteD.ABCI do
     with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
          {:ok, new_local_state} <- handle_tx(abci_app, decoded, &(&1.local_state))
     do
-      # no change to state! we don't allow to build upon uncommited transactions
       {:reply, response_check_tx(code: code(:ok)), %{abci_app | local_state: new_local_state}}
     else
       {:error, error} ->
@@ -76,12 +75,15 @@ defmodule HonteD.ABCI do
   end
 
   def handle_call(request_deliver_tx(tx: tx), _from, %HonteD.ABCI{} = abci_app) do
-    # NOTE: yes, we want to crash on invalid transactions, lol
-    # there's a chore to fix that
-    {:ok, decoded} = HonteD.TxCodec.decode(tx)
-    {:ok, new_consensus_state} = handle_tx(abci_app, decoded, &(&1.consensus_state))
-    HonteD.ABCI.Events.notify(new_consensus_state, decoded.raw_tx)
-    {:reply, response_deliver_tx(code: code(:ok)), %{abci_app | consensus_state: new_consensus_state}}
+    with {:ok, decoded} <- HonteD.TxCodec.decode(tx),
+         {:ok, new_consensus_state} <- handle_tx(abci_app, decoded, &(&1.consensus_state))
+    do
+      HonteD.ABCI.Events.notify(new_consensus_state, decoded)
+      {:reply, response_deliver_tx(code: code(:ok)), %{abci_app | consensus_state: new_consensus_state}}
+    else
+      {:error, error} ->
+        {:reply, response_deliver_tx(code: code(error), log: to_charlist(error)), abci_app}
+    end
   end
 
   @doc """
