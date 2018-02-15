@@ -53,7 +53,7 @@ defmodule HonteD.Integration do
     # start tendermint and capture the stdout
     tendermint_proc = %Porcelain.Process{err: nil, out: tendermint_out} = Porcelain.spawn_shell(
       "tendermint --home #{homedir} --log_level \"*:info\" node",
-      out: :stream,
+      out: :stream
     )
     wait_for_tendermint_start(tendermint_out)
 

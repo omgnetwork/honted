@@ -15,6 +15,9 @@ If a newer version installs by default, `git checkout v0.15.0` for Tendermint re
 
 **NOTE2**, overrides NOTE above: validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
 Check out and install this.
+This is necessary because Tendermint `v0.15.0` imposed a limit on voting power change (<1/3 per block),
+which will be removed in `v0.16.0`, that hasn't yet been released.
+Hence, we need to use our fork which lifts this limit.
 
   - `git clone ...` - clone this repo
   - `mix deps.get`

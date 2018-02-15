@@ -397,7 +397,6 @@ defmodule HonteD.Integration.SmokeTest do
     {:ok, _} = Integration.Contract.deposit(staking, alice_ethereum_address, amount)
     {:ok, _} = Integration.Contract.join(staking, alice_ethereum_address, new_validator_pubkey)
 
-    Eth.Contract.block_height()
     {:ok, next} = Eth.Contract.get_next_epoch_block_number(staking)
     HonteD.Integration.WaitFor.eth_block_height(next + 1, true, 10_000)
 
