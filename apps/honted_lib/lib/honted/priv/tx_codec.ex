@@ -116,6 +116,9 @@ defmodule HonteD.TxCodec do
     {nonce, :epoch_change, sender, epoch_number}
     |> _encode
   end
+  def encode(%Transaction.SignedTx{raw_tx: raw, signature: signature}) do
+    _encode([encode(raw), signature])
+  end
 
   defp _encode(terms) when is_tuple(terms), do: terms |> Tuple.to_list |> _encode
   defp _encode([last_term]), do: _encode(last_term)

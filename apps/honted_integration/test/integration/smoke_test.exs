@@ -224,11 +224,14 @@ defmodule HonteD.Integration.SmokeTest do
     # check event
     assert %{
       "transaction" => %{
-        "amount" => 5,
-        "asset" => ^asset,
-        "from" => ^alice,
-        "nonce" => 0,
-        "to" => ^bob
+        "tx" => %{
+          "amount" => 5,
+          "asset" => ^asset,
+          "from" => ^alice,
+          "nonce" => 0,
+          "to" => ^bob
+        },
+        "hash" => ^tx_hash
       },
       "finality" => "committed",
       "height" => committed_at_height,
@@ -287,11 +290,14 @@ defmodule HonteD.Integration.SmokeTest do
 
     assert %{
       "transaction" => %{
-        "amount" => 5,
-        "asset" => ^asset,
-        "from" => ^alice,
-        "nonce" => 0,
-        "to" => ^bob
+        "tx" => %{
+          "amount" => 5,
+          "asset" => ^asset,
+          "from" => ^alice,
+          "nonce" => 0,
+          "to" => ^bob
+        },
+        "hash" => ^tx_hash
       },
       "finality" => "finalized",
       "height" => _,
@@ -312,11 +318,14 @@ defmodule HonteD.Integration.SmokeTest do
 
     assert %{
       "transaction" => %{
-        "amount" => 5,
-        "asset" => ^asset,
-        "from" => ^alice,
-        "nonce" => 0,
-        "to" => ^bob
+        "tx" => %{
+          "amount" => 5,
+          "asset" => ^asset,
+          "from" => ^alice,
+          "nonce" => 0,
+          "to" => ^bob
+        },
+        "hash" => ^tx_hash
       },
       "finality" => "committed",
       "source" => ^filter_id,
@@ -379,7 +388,7 @@ defmodule HonteD.Integration.SmokeTest do
     amount = 100
 
     Process.sleep(1200) # need to wait for 1st block
-    {:ok, %{"validators" => [%{"pub_key" => %{"data" => start_validator}}]}} = HonteD.API.TendermintRPC.validators(nil)
+    {:ok, %{"validators" => [%{"pub_key" => %{"data" => start_validator}}]}} = API.Tendermint.RPC.validators(nil)
     # sanity
     assert start_validator != @tm_pubkey
 
@@ -410,15 +419,15 @@ defmodule HonteD.Integration.SmokeTest do
     # TODO: this is the proper check for validator set change. Since `validators` endpoint doesn't return the effective
     # validator set, we can't use this now
     # Relevant issue: https://github.com/tendermint/tendermint/issues/1211
-    
+
     # Process.sleep(5000) # not sure if necessary
-    # {:ok, %{"validators" => [validator]}} = API.TendermintRPC.validators(nil)
+    # {:ok, %{"validators" => [validator]}} = API.Tendermint.RPC.validators(nil)
     # assert get_in(validator, ["pub_key", "data"]) == new_validator_pubkey
 
     # NOTE: temporary way to assert the validator set change - we check if the chain is halted
     #       check that despite time having passed, no blocks get mined
-    {:ok, %{"latest_block_height" => last_live_block_height}} = API.TendermintRPC.status(nil)
+    {:ok, %{"latest_block_height" => last_live_block_height}} = API.Tendermint.RPC.status(nil)
     Process.sleep(1500)
-    assert {:ok, %{"latest_block_height" => ^last_live_block_height}} = API.TendermintRPC.status(nil)
+    assert {:ok, %{"latest_block_height" => ^last_live_block_height}} = API.Tendermint.RPC.status(nil)
   end
 end
