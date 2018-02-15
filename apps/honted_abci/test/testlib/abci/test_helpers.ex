@@ -23,7 +23,7 @@ defmodule HonteD.ABCI.TestHelpers do
   @doc """
   Utility to deliver a transaction and do basic checks
 
-  It also checks the assumption, that considerin a prior commit, deliver_tx would behave on par with check_tx
+  It also checks the assumption, that considering a prior commit, deliver_tx would behave on par with check_tx
   for all transactions
 
   NOTE: In case transaction validity starts to differ between deliver and check, this fails and needs to be reworked
@@ -38,7 +38,7 @@ defmodule HonteD.ABCI.TestHelpers do
   end
 
   @doc """
-  Utility to check a transaction and to basic checks. Notice that his doesn't do the parity check,
+  Utility to check a transaction and to do basic checks. Notice that his doesn't do the parity check,
   since DeliverTx has side effects (event message)
   """
   def check_tx(signed_tx, state) do
