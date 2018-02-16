@@ -1,50 +1,71 @@
 # HonteD
 
-## Quick guide
+## Installation
+
+### Prerequisites
 
 Only **Linux** platforms supported now. Known to work with Ubuntu 16.04
 
 Install [Elixir](http://elixir-lang.github.io/install.html#unix-and-unix-like).
+Make sure `rebar` is in your path, e.g. `export PATH=$PATH:~/.mix` (mileage may vary).
 
-Install [Tendermint](https://tendermint.com/downloads). **NOTE** we require Tendermint `v0.15` and this in turn requires `golang` > `v1.9` (works with `v1.9.2`).
+Install Tendermint [from source](https://tendermint.readthedocs.io/en/master/install.html#from-source) (`golang` > `v1.9` and `glide` is required).
 
-If a newer version installs by default, `git checkout v0.15.0` for Tendermint repo in your `$GOPATH`, then (optionally) `glide install` and `go install github.com/tendermint/tendermint/cmd/tendermint`.
+**NOTE** Validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
+Check out and install this, for example like this:
 
-**NOTE** To avoid an random `invalid_nonce` error in performance test and `mix --include integration` tests, install a patched `v0.15` version of Tendermint:
-`git checkout f1c84892703ba0894682a30defde0cb84a93ff88`, then install as above.
+```bash
+cd $GOPATH/src/github.com/tendermint/tendermint
+git remote add omisego https://github.com/omisego/tendermint
+git fetch omisego
+git checkout v0.15.0_dirty_no_val_check
+glide install
+go install ./cmd/tendermint
+```
 
-**NOTE2**, overrides NOTE above: validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
-Check out and install this.
 This is necessary because Tendermint `v0.15.0` imposed a limit on voting power change (<1/3 per block),
 which will be removed in `v0.16.0`, that hasn't yet been released.
 Hence, we need to use our fork which lifts this limit.
 
-  - `git clone ...` - clone this repo
+### HonteD
+
+  - `git clone github.com/omisego/honted` - clone this repo
+  - `cd honted`
   - `mix deps.get`
   - `iex -S mix`
   - elsewhere:
     - `tendermint init` (once)
     - `tendermint --log_level "*:info" node` (everytime to start Tendermint)
-  - then in the `iex` REPL you can run commands using HonteDAPI, e.g. ones mentioned in most recent demo (see `docs/...`)
+  - then in the `iex` REPL you can run commands using `HonteD.API`, e.g. ones mentioned in demos (see `docs/...`, don't pick `OBSOLETE` demos)
 
 Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean the databases and start from scratch.
 
 ## Testing
 
  - quick test (no integration tests): `mix test --no-start`
+ - long running unit tests: `mix test --no-start --only slow`
  - longer-running integration tests: `mix test --no-start --only integration`
- - everything: `mix test --no-start --include integration`
+ - everything: `mix test --no-start --include integration --include slow`
  - Dialyzer: `mix dialyzer`. First run will build the PLT, so may take several minutes
  - style & linting: `mix credo`. (`--strict` is switched on by default)
  - coverage: `mix coveralls.html --umbrella --no-start --include integration`
 
 ### Integration tests
 
-**NOTE** Integration tests require `tm-bench` to be installed: `go get -u github.com/tendermint/tools/tm-bench`, possibly a `glide install` will be necessary
+**NOTE** Integration tests require `tm-bench` to be installed: `go get -u github.com/tendermint/tools/tm-bench`, possibly a `cd $GOPATH/src/github.com/tendermint/tools/tm-bench && glide install && go install .` will be necessary
 
 When running `integration` tests, remember to have `tendermint`, `tm-bench`, and `geth` binaries reachable in your `$PATH`.
 
-When running `integration` tests, remember to `populus compile` the contracts (invoke in `populus` directory).
+When running `integration` tests, remember to install `populus` and `populus compile` the contracts, like so:
+```bash
+sudo apt-get install libssl-dev
+sudo apt-get install solc
+cd populus
+pip install -r requirements.txt
+populus compile
+```
+
+Assuming you have `python` and `pip` installed, using `virtualenv` is recommended.
 
 ### Performance test - quick guide
 
@@ -55,9 +76,8 @@ mix run --no-start -e 'HonteD.PerftestScript.setup_and_run(5, 0, 100)'
 
 for more details see the `moduledoc` therein.
 
-**NOTE** for performance test to run, you need to switch to a fork of tendermint:
-https://github.com/omisego/tendermint/tree/avoid_possible_race_checktx_commit.
-Otherwise you'll get weird `:invalid_nonce` errors sometimes
+**NOTE** with this Tendermint version you may get weird `:invalid_nonce` errors sometimes.
+`v0.16` should fix this.
 
 ## Using the APIs
 
