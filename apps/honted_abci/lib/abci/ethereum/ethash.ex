@@ -16,14 +16,14 @@ defmodule HonteD.ABCI.Ethereum.Ethash do
   @words 32 # @mix_bytes / @word_bytes
   @accesses 64
 
-  defstruct [mix_digest: nil, result: nil]
-
-  @type t :: %__MODULE__{mix_digest: <<_ :: 256>>, result: <<_ :: 256>>}
+  @type cache_line_t :: list(non_neg_integer())
+  @type cache_t :: %{non_neg_integer() => cache_line_t}
+  @type hashimoto_result_t :: [{:mix_digest, binary()}, {:result, binary()}]
 
   @doc """
   Returns mix digest and hash result for given header and nonce
   """
-  @spec hashimoto_light(integer(), list(list(non_neg_integer())), binary(), binary()) :: %__MODULE__{}
+  @spec hashimoto_light(integer(), cache_t, binary(), binary()) :: hashimoto_result_t
   def hashimoto_light(full_size, cache, header, nonce) do
     hashimoto(header, nonce, full_size, fn x -> calc_dataset_item(cache, x) end)
   end
@@ -77,8 +77,7 @@ defmodule HonteD.ABCI.Ethereum.Ethash do
     initial = EthashUtils.keccak_512([head ^^^ i | tail])
     mixed = mix(cache, i, initial, 0)
 
-    mixed
-    |> EthashUtils.keccak_512
+    EthashUtils.keccak_512(mixed)
   end
 
   defp mix(_cache, _i, current_mix, @dataset_parents), do: current_mix

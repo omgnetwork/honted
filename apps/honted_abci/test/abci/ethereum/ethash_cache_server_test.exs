@@ -6,7 +6,7 @@ defmodule HonteD.ABCI.Ethereum.EthashCacheServerTest do
   use ExUnitFixtures
   use ExUnit.Case
 
-  @moduletag :integration
+  @moduletag :slow
 
   @epoch_length 30000
 

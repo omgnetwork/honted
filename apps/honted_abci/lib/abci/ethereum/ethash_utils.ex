@@ -7,13 +7,13 @@ defmodule HonteD.ABCI.Ethereum.EthashUtils do
   @doc """
   Encodes int as 8 bytes little-endian.
   """
-  @spec encode_int(integer()) :: <<_ :: 8>>
+  @spec encode_int(integer()) :: << _ :: 32>>
   def encode_int(int), do: <<int :: little-32>>
 
   @doc """
   Decodes little-endian bytes to integer.
   """
-  @spec decode_int(<<_ :: 4>>) :: non_neg_integer()
+  @spec decode_int(binary()) :: non_neg_integer()
   def decode_int(bytes_little_endian), do: :binary.decode_unsigned(bytes_little_endian, :little)
 
   @doc """
@@ -29,9 +29,9 @@ defmodule HonteD.ABCI.Ethereum.EthashUtils do
   defp decode_ints_tr(<<>>, acc), do: Enum.reverse(acc)
 
   @doc """
-  Returns keccak 512 hash of integer list encoded as 16 bytes integers.
+  Returns keccak 512 hash encoded as 16 bytes integers.
   """
-  @spec keccak_512(list(non_neg_integer())) :: list(non_neg_integer())
+  @spec keccak_512(binary() | [non_neg_integer()]) :: list(non_neg_integer())
   def keccak_512(ints) do
     hash(fn b -> :keccakf1600.sha3_512(b) end, ints)
   end
@@ -76,7 +76,7 @@ defmodule HonteD.ABCI.Ethereum.EthashUtils do
   @doc """
   Implements e_prime as in eq. 230 in yellowpaper Appendix J.
   """
-  @spec pow(non_neg_integer(), non_neg_integer()) :: integer()
+  @spec e_prime(non_neg_integer(), non_neg_integer()) :: integer()
   def e_prime(x, y) do
     if prime?(div(x, y)) do
       x
@@ -100,7 +100,7 @@ defmodule HonteD.ABCI.Ethereum.EthashUtils do
   @doc """
   Returns integer value for big-endian byte representation.
   """
-  @spec big_endian_to_int(binary()) :: non_neg_integer()
+  @spec big_endian_to_int(<<_ :: 8, _ ::_ *8>>) :: non_neg_integer()
   def big_endian_to_int(big_endian_bytes) do
     big_endian_to_int(big_endian_bytes, 0)
   end
@@ -125,7 +125,6 @@ defmodule HonteD.ABCI.Ethereum.EthashUtils do
   @doc """
   Returns integer value of a hex value.
   """
-  @spec hex_to_int(String.t) :: non_neg_integer()
   def hex_to_int(hex) do
     {int, _} = Integer.parse(hex, 16)
     int

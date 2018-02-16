@@ -264,7 +264,6 @@ defmodule HonteD.ABCI.Ethereum.BlockHeader do
   defp difficulty_x(parent_difficulty, difficulty_bound_divisor), do: floor(parent_difficulty / difficulty_bound_divisor)
 
   # Eq.(44) ε - Adds a delta to ensure we're increasing difficulty over time
-  @spec difficulty_e(t) :: integer()
   defp difficulty_e(header) do
     floor(
       :math.pow(
