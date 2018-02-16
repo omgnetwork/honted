@@ -2,7 +2,8 @@ FROM gcr.io/omise-go/jenkins-slave-elixir
 MAINTAINER Kridsada Thanabulpong <sirn@omise.co>
 
 ENV GOPATH="/go"
-ENV PATH="/go-ethereum/build/bin/:${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+ENV GETHPATH="/go-ethereum"
+ENV PATH="${GETHPATH}/build/bin/:${GOPATH}/bin:/usr/local/go/bin:${PATH}"
 ENV GOLANG_VERSION="1.9.2"
 
 RUN set -xe && \
@@ -44,8 +45,8 @@ ENV GETH_VERSION="v1.7.3"
 # geth
 # NOTE: getting from ppa doesn't work, so building from source
 RUN set -xe && \
-    mkdir -p go-ethereum && \
-    cd go-ethereum && \
+    mkdir -p ${GETHPATH} && \
+    cd ${GETHPATH} && \
     git init && \
     git remote add origin https://github.com/ethereum/go-ethereum && \
     git fetch --depth 1 origin "${GETH_VERSION}" && \
