@@ -9,18 +9,10 @@ defmodule HonteD.Crypto do
   defp erlang_hash(message), do: :crypto.hash(:sha256, message)
 
   @doc """
-  Produce a stand-alone signature. Useful in tests.
+  Produce a stand-alone signature.
   """
   def signature(unsigned, priv) when is_binary(unsigned) do
     hash(unsigned <> priv <> "pub")
-  end
-  def signature(%HonteD.Transaction.SignedTx{}, _) do
-    raise ArgumentError, "Transaction already signed"
-  end
-  def signature(tx, priv) do
-    tx
-    |> HonteD.TxCodec.encode()
-    |> signature(priv)
   end
 
   def verify(unsigned, signature, address), do: {:ok, hash(unsigned <> address) == signature}
