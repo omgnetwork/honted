@@ -1,6 +1,6 @@
 defmodule HonteD.ABCI.Ethereum.BlockHeaderEncoder do
   @moduledoc """
-  Encodes block header for ethash PoW verification
+  Encodes block header without nonce and mix-hash components
   """
   alias HonteD.ABCI.Ethereum.BlockHeader
 

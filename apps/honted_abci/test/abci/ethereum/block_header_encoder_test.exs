@@ -1,9 +1,6 @@
 defmodule HonteD.ABCI.Ethereum.BlockHeaderEncoderTest do
   @moduledoc """
-  Tests if Events are processed correctly, by the registered :honted_events app
-
-  THis tests only the integration between ABCI and the Eventer GenServer, i.e. whether the events are emitted
-  correctly. No HonteD.API.Events logic tested here
+  Tests for encoding block header without nonce and mix-hash components
   """
   use ExUnitFixtures
   use ExUnit.Case, async: true

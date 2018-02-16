@@ -1,6 +1,8 @@
 defmodule HonteD.ABCI.Ethereum.EthashCacheServer do
   @moduledoc """
-  Stores cache for ethash
+  Stores cache for ethash. Stores cache for a single epoch.
+  Cache is used for generating DAG used in Ethereum proof of work (section J.3.2 in yellowpaper)
+  TODO: Store cache for a few LRU epochs
   """
   use GenServer
 

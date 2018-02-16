@@ -1,6 +1,7 @@
 defmodule HonteD.ABCI.Ethereum.Ethash do
   @moduledoc """
-  Implements Ethash
+  Implements Ethash.
+  Based on pyethereum and Ethash wiki(https://github.com/ethereum/wiki/wiki/Ethash)
   """
   use Bitwise
 
@@ -48,19 +49,19 @@ defmodule HonteD.ABCI.Ethereum.Ethash do
   end
 
   defp mix_in_dataset(mix, _seed, _dataset_lookup, _n, @accesses), do: mix
-  defp mix_in_dataset(mix, seed, dataset_lookup, n, round) do
+  defp mix_in_dataset(mix, seed, dataset_lookup, n, i) do
     mix_index = div(n, @mix_hashes)
-    p = rem(fnv(round ^^^ Enum.at(seed, 0), Enum.at(mix, rem(round, @words))), mix_index) * @mix_hashes
+    p = rem(fnv(i ^^^ Enum.at(seed, 0), Enum.at(mix, rem(i, @words))), mix_index) * @mix_hashes
     new_data = get_new_data([], p, dataset_lookup, 0)
 
     mix_with_data = Enum.zip(mix, new_data)
     mix = Enum.map(mix_with_data, fn {a, b} -> fnv(a, b) end)
-    mix_in_dataset(mix, seed, dataset_lookup, n, round + 1)
+    mix_in_dataset(mix, seed, dataset_lookup, n, i + 1)
   end
 
   defp get_new_data(acc, _p, _dataset_lookup, @mix_hashes), do: acc
-  defp get_new_data(acc, p, dataset_lookup, round) do
-    get_new_data(acc ++ dataset_lookup.(p + round), p, dataset_lookup, round + 1)
+  defp get_new_data(acc, p, dataset_lookup, j) do
+    get_new_data(acc ++ dataset_lookup.(p + j), p, dataset_lookup, j + 1)
   end
 
   defp compress([], compressed_mix), do: Enum.reverse(compressed_mix)
@@ -70,7 +71,7 @@ defmodule HonteD.ABCI.Ethereum.Ethash do
     compress(tail, [c | compressed_mix])
   end
 
-  def calc_dataset_item(cache, i) do
+  defp calc_dataset_item(cache, i) do
     n = map_size(cache)
     [head | tail] = cache[rem(i, n)]
     initial = EthashUtils.keccak_512([head ^^^ i | tail])
@@ -81,11 +82,11 @@ defmodule HonteD.ABCI.Ethereum.Ethash do
   end
 
   defp mix(_cache, _i, current_mix, @dataset_parents), do: current_mix
-  defp mix(cache, i, current_mix, round) do
-    cache_index = fnv(i ^^^ round, Enum.at(current_mix, rem(round, @dataset_mix_range)))
+  defp mix(cache, i, current_mix, j) do
+    cache_index = fnv(i ^^^ j, Enum.at(current_mix, rem(j, @dataset_mix_range)))
     mixed_with_cache = Enum.zip(current_mix, cache[rem(cache_index, map_size(cache))])
     current_mix = Enum.map(mixed_with_cache, fn {a, b} -> fnv(a, b) end)
-    mix(cache, i, current_mix, round + 1)
+    mix(cache, i, current_mix, j + 1)
   end
 
   defp fnv(v1, v2) do
