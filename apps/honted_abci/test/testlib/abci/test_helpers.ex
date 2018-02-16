@@ -20,8 +20,11 @@ defmodule HonteD.ABCI.TestHelpers do
     |> Base.encode16()
   end
 
-  @spec sign_raw(tuple, binary) :: binary
-  def sign_raw(tuple, priv) when is_tuple(tuple) do
+  # TxCodec.encode makes it hard to create malformed transactions;
+  # We need malformed transactions to check if we are processing
+  # correctly junk that comes from the network.
+  @spec sign_malformed_tx(tuple, binary) :: binary
+  def sign_malformed_tx(tuple, priv) when is_tuple(tuple) do
     sig =
       tuple
       |> Tuple.to_list()

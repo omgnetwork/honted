@@ -24,8 +24,7 @@ defmodule HonteD.Integration.Performance.ScenarioTest do
   end
 
   def apply_tx({success_expected, tx}, state) do
-    tx = Base.decode16!(tx)
-    {:ok, decoded} = HonteD.TxCodec.decode(tx)
+    {:ok, decoded} = tx |> Base.decode16!() |> HonteD.TxCodec.decode()
     # Signature check is needed to properly simulate abci/state behavior.
     :ok = HonteD.Transaction.Validation.valid_signed?(decoded)
     case State.exec(state, decoded) do

@@ -23,9 +23,6 @@ defmodule HonteD.TxCodec do
   @allow <<5>>
   @epoch_change <<6>>
 
-  # used in tests as "unknown tx type"
-  @reserved_tag <<99>>
-
   @doc """
   Encodes internal representation of transaction into a Tendermint transaction
 
@@ -67,7 +64,6 @@ defmodule HonteD.TxCodec do
   def tx_tag(Transaction.EpochChange), do: @epoch_change
   def tx_tag(true), do: @byte_true
   def tx_tag(false), do: @byte_false
-  def tx_tag(:unknown_tx_type), do: @reserved_tag
 
   # private functions
 
@@ -102,14 +98,12 @@ defmodule HonteD.TxCodec do
 
   defp int_parse(int), do: :binary.decode_unsigned(int, :big)
 
-  # NOTE: credo complains about CC here, but this is going away with RLP so why bother
-  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   defp reconstruct_tx(tx) do
     case tx do
-      [nonce, @create_token, issuer | tail] ->
+      [@create_token, nonce, issuer | tail] ->
         {:ok, %Transaction.CreateToken{nonce: int_parse(nonce), issuer: issuer}, tail}
 
-      [nonce, @issue, asset, amount, dest, issuer | tail] ->
+      [@issue, nonce, asset, amount, dest, issuer | tail] ->
         {:ok,
          %Transaction.Issue{
            nonce: int_parse(nonce),
@@ -119,7 +113,7 @@ defmodule HonteD.TxCodec do
            issuer: issuer
          }, tail}
 
-      [nonce, @send, asset, amount, from, to | tail] ->
+      [@send, nonce, asset, amount, from, to | tail] ->
         {:ok,
          %Transaction.Send{
            nonce: int_parse(nonce),
@@ -129,7 +123,7 @@ defmodule HonteD.TxCodec do
            to: to
          }, tail}
 
-      [nonce, @signoff, height, hash, sender, signoffer | tail] ->
+      [@signoff, nonce, height, hash, sender, signoffer | tail] ->
         {:ok,
          %Transaction.SignOff{
            nonce: int_parse(nonce),
@@ -139,7 +133,7 @@ defmodule HonteD.TxCodec do
            signoffer: signoffer
          }, tail}
 
-      [nonce, @allow, allower, allowee, privilege, allow | tail]
+      [@allow, nonce, allower, allowee, privilege, allow | tail]
       when allow in [@byte_true, @byte_false] ->
         {:ok,
          %Transaction.Allow{
@@ -150,7 +144,7 @@ defmodule HonteD.TxCodec do
            allow: allow == @byte_true
          }, tail}
 
-      [nonce, @epoch_change, sender, epoch_number | tail] ->
+      [@epoch_change, nonce, sender, epoch_number | tail] ->
         {:ok,
          %Transaction.EpochChange{
            nonce: int_parse(nonce),
@@ -170,7 +164,7 @@ defmodule HonteD.TxCodec do
   end
 
   defp to_tuple(%Transaction.CreateToken{nonce: nonce, issuer: issuer}) do
-    {nonce, @create_token, issuer}
+    {@create_token, nonce, issuer}
   end
 
   defp to_tuple(%Transaction.Issue{
@@ -180,11 +174,11 @@ defmodule HonteD.TxCodec do
          dest: dest,
          issuer: issuer
        }) do
-    {nonce, @issue, asset, amount, dest, issuer}
+    {@issue, nonce, asset, amount, dest, issuer}
   end
 
   defp to_tuple(%Transaction.Send{nonce: nonce, asset: asset, amount: amount, from: from, to: to}) do
-    {nonce, @send, asset, amount, from, to}
+    {@send, nonce, asset, amount, from, to}
   end
 
   defp to_tuple(%Transaction.SignOff{
@@ -194,7 +188,7 @@ defmodule HonteD.TxCodec do
          sender: sender,
          signoffer: signoffer
        }) do
-    {nonce, @signoff, height, hash, sender, signoffer}
+    {@signoff, nonce, height, hash, sender, signoffer}
   end
 
   defp to_tuple(%Transaction.Allow{
@@ -204,11 +198,11 @@ defmodule HonteD.TxCodec do
          privilege: privilege,
          allow: allow
        }) do
-    {nonce, @allow, allower, allowee, privilege, allow}
+    {@allow, nonce, allower, allowee, privilege, allow}
   end
 
   defp to_tuple(%Transaction.EpochChange{nonce: nonce, sender: sender, epoch_number: epoch_number}) do
-    {nonce, @epoch_change, sender, epoch_number}
+    {@epoch_change, nonce, sender, epoch_number}
   end
 
   defp _pack(terms) do
@@ -221,9 +215,6 @@ defmodule HonteD.TxCodec do
     do: terms |> Tuple.to_list() |> pre_rlp_encode()
 
   defp pre_rlp_encode(list) when is_list(list), do: list |> Enum.map(&pre_rlp_encode(&1))
-  defp pre_rlp_encode(bool) when is_boolean(bool), do: to_bool(bool)
+  defp pre_rlp_encode(bool) when is_boolean(bool), do: tx_tag(bool)
   defp pre_rlp_encode(other), do: other
-
-  defp to_bool(true), do: @byte_true
-  defp to_bool(false), do: @byte_false
 end

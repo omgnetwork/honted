@@ -27,10 +27,10 @@ defmodule HonteD.ABCI.StateTest do
       |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
 
       # malformed
-      {0, TxCodec.tx_tag(:unknown_tx_type), issuer.addr}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(:unknown_tx_type), "asset", issuer.addr}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {<<99>>, 0, issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {<<99>>, 0, "asset", issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
 
       # no signature
       {:ok, tx} = create_create_token(nonce: 0, issuer: issuer.addr)
@@ -51,10 +51,10 @@ defmodule HonteD.ABCI.StateTest do
       |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
 
       # malformed
-      {1, TxCodec.tx_tag(:unknown_tx_type), asset, 5, alice.addr, issuer.addr}
-      |> sign_raw(issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {1, TxCodec.tx_tag(Issue), asset, 5, 4, alice.addr, issuer.addr}
-      |> sign_raw(issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {<<99>>, 1, asset, 5, alice.addr, issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(Issue), 1, asset, 5, 4, alice.addr, issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
 
       # no signature
       {:ok, tx} = create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
@@ -83,8 +83,8 @@ defmodule HonteD.ABCI.StateTest do
 
     @tag fixtures: [:issuer, :alice, :state_with_token, :asset]
     test "can't issue zero amount", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
-      {0, TxCodec.tx_tag(Issue), asset, 0, alice.addr, issuer.priv}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+      {TxCodec.tx_tag(Issue), 0, asset, 0, alice.addr, issuer.priv}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
 
     @tag fixtures: [:empty_state, :asset]
@@ -224,10 +224,10 @@ defmodule HonteD.ABCI.StateTest do
       |> encode_sign(alice.priv) |> deliver_tx(state) |> success?
 
       # malformed
-      {0, TxCodec.tx_tag(:unknown_tx_type), asset, 5, alice.addr, bob.addr}
-      |> sign_raw(alice.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(Send), asset, 5, 4, alice.addr, bob.addr}
-      |> sign_raw(alice.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {<<99>>, 0, asset, 5, alice.addr, bob.addr}
+      |> sign_malformed_tx(alice.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(Send), 0, asset, 5, 4, alice.addr, bob.addr}
+      |> sign_malformed_tx(alice.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
 
       # no signature
       {:ok, tx} = create_send(nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr)
@@ -302,8 +302,8 @@ defmodule HonteD.ABCI.StateTest do
 
     @tag fixtures: [:alice, :bob, :state_alice_has_tokens, :asset]
     test "zero amount", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
-      {0, TxCodec.tx_tag(Send), asset, 0, alice.addr, bob.addr}
-      |> sign_raw(alice.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+      {TxCodec.tx_tag(Send), 0, asset, 0, alice.addr, bob.addr}
+      |> sign_malformed_tx(alice.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
 
     @tag fixtures: [:bob, :carol, :state_alice_has_tokens, :asset]
@@ -329,11 +329,7 @@ defmodule HonteD.ABCI.StateTest do
     test "signature checking in send", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
       {:ok, tx1} = create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
       {:ok, tx2} = create_send(nonce: 0, asset: asset, amount: 4, from: alice.addr, to: bob.addr)
-      alice_signature = HonteD.Crypto.signature(tx1, alice.priv)
-      misplaced_sig =
-        tx2
-        |> HonteD.Transaction.with_signature(alice_signature)
-        |> TxCodec.encode()
+      misplaced_sig = misplaced_sign(tx1, tx2, alice.priv) |> Base.decode16!()
 
       assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
         handle_call({:RequestCheckTx, misplaced_sig}, nil, state)
@@ -359,13 +355,13 @@ defmodule HonteD.ABCI.StateTest do
       |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
 
       # malformed
-      {0, TxCodec.tx_tag(:unknown_tx_type), 1, hash, issuer.addr, issuer.addr}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(SignOff), 1, 2, hash, issuer.addr, issuer.addr}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {<<99>>, 0, 1, hash, issuer.addr, issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(SignOff), 0, 1, 2, hash, issuer.addr, issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
 
-      {0, TxCodec.tx_tag(SignOff), hash, issuer.addr, issuer.addr}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'missing_signature') |> same?(state)
+      {TxCodec.tx_tag(SignOff), 0, hash, issuer.addr, issuer.addr}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'missing_signature') |> same?(state)
 
       # no signature
       {:ok, tx} = create_sign_off(nonce: 0, height: 1, hash: hash, sender: issuer.addr)
@@ -485,8 +481,8 @@ defmodule HonteD.ABCI.StateTest do
 
     @tag fixtures: [:bob, :empty_state, :some_block_hash]
     test "zero height", %{empty_state: state, bob: bob, some_block_hash: hash} do
-      {0, TxCodec.tx_tag(SignOff), 0, hash, bob.addr, bob.addr}
-      |> sign_raw(bob.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+      {TxCodec.tx_tag(SignOff), 0, 0, hash, bob.addr, bob.addr}
+      |> sign_malformed_tx(bob.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
 
     @tag fixtures: [:alice, :bob, :empty_state, :some_block_hash]
@@ -520,19 +516,18 @@ defmodule HonteD.ABCI.StateTest do
       |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
 
       byte_true = TxCodec.tx_tag(true)
-      unused_byte = TxCodec.tx_tag(:unknown_tx_type)
 
       # malformed
-      {0, unused_byte, issuer.addr, alice.addr, "signoff", byte_true}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(Allow), issuer.addr, alice.addr, "signoff"}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(Allow), issuer.addr, alice.addr, "signoff", byte_true, byte_true}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(Allow), issuer.addr, alice.addr, "signoff", unused_byte}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
-      {0, TxCodec.tx_tag(Allow), issuer.addr, alice.addr, "signof", byte_true}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'unknown_privilege') |> same?(state)
+      {<<99>>, 0, issuer.addr, alice.addr, "signoff", byte_true}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(Allow), 0, issuer.addr, alice.addr, "signoff"}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(Allow), 0, issuer.addr, alice.addr, "signoff", byte_true, byte_true}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(Allow), 0, issuer.addr, alice.addr, "signoff", <<99>>}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      {TxCodec.tx_tag(Allow), 0, issuer.addr, alice.addr, "signof", byte_true}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'unknown_privilege') |> same?(state)
 
       # no signature
       {:ok, tx} = create_allow(nonce: 0, allower: issuer.addr, allowee: alice.addr,
@@ -556,8 +551,8 @@ defmodule HonteD.ABCI.StateTest do
     @tag fixtures: [:issuer, :alice, :empty_state]
     test "only restricted privileges", %{empty_state: state, issuer: issuer, alice: alice} do
       byte_true = TxCodec.tx_tag(true)
-      {0, TxCodec.tx_tag(Allow), issuer.addr, alice.addr, "signof", byte_true}
-      |> sign_raw(issuer.priv) |> deliver_tx(state) |> fail?(1, 'unknown_privilege') |> same?(state)
+      {TxCodec.tx_tag(Allow), 0, issuer.addr, alice.addr, "signof", byte_true}
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'unknown_privilege') |> same?(state)
     end
   end
 
@@ -569,8 +564,8 @@ defmodule HonteD.ABCI.StateTest do
       |> encode_sign(alice.priv) |> deliver_tx(state) |> success?
 
       #malformed
-      {0, TxCodec.tx_tag(EpochChange), alice.addr, 0}
-      |> sign_raw(alice.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
+      {TxCodec.tx_tag(EpochChange), 0, alice.addr, 0}
+      |> sign_malformed_tx(alice.priv) |> deliver_tx(state) |> fail?(1, 'positive_amount_required') |> same?(state)
     end
   end
 
