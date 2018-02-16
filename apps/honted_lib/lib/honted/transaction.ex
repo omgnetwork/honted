@@ -86,7 +86,7 @@ defmodule HonteD.Transaction do
 
     @type t :: %SignedTx{
       raw_tx: HonteD.Transaction.t,
-      signature: HonteD.signature | nil,
+      signature: HonteD.signature,
     }
   end
 
