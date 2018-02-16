@@ -34,17 +34,17 @@ defmodule HonteD.ABCI.TestHelpers do
     |> Base.encode16()
   end
 
-  def sign({:ok, raw_tx}, priv_key), do: sign(raw_tx, priv_key)
-  def sign(raw_tx, priv_key) when is_map(raw_tx) do
+  def encode_sign({:ok, raw_tx}, priv_key), do: encode_sign(raw_tx, priv_key)
+  def encode_sign(raw_tx, priv_key) when is_map(raw_tx) do
     raw_tx
     |> encode()
-    |> HonteD.Crypto.sign(priv_key)
+    |> HonteD.Transaction.sign(priv_key)
   end
 
   def misplaced_sign(tx1, tx2, priv) do
     sig =
       tx1
-      |> encode()
+      |> HonteD.TxCodec.encode()
       |> HonteD.Crypto.signature(priv)
     tx2
     |> HonteD.Transaction.with_signature(sig)
@@ -79,9 +79,9 @@ defmodule HonteD.ABCI.TestHelpers do
   def do_tx(request_atom, response_atom, {:ok, signed_tx}, state) do
     do_tx(request_atom, response_atom, signed_tx, state)
   end
-  def do_tx(request_atom, response_atom, signed_tx, abci_app) do
+  def do_tx(request_atom, response_atom, hex_encoded_tx, abci_app) do
     # RLP is our wire protocol:
-    signed_tx = Base.decode16!(signed_tx)
+    signed_tx = Base.decode16!(hex_encoded_tx)
     assert {:reply, reply, abci_app} = handle_call({request_atom, signed_tx}, nil, abci_app)
     status = check_response(response_atom, reply)
     %{status | state: abci_app}

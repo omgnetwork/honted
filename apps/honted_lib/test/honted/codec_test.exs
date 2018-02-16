@@ -16,7 +16,7 @@ defmodule HonteD.TxCodecTest do
     tx
     |> HonteD.TxCodec.encode()
     |> Base.encode16()
-    |> HonteD.Crypto.sign(priv)
+    |> HonteD.Transaction.sign(priv)
   end
 
   test "encode/decode for unsigned" do

@@ -222,7 +222,21 @@ defmodule HonteD.Transaction do
          do: {:ok, tx}
   end
 
+  @doc """
+  Signs transaction, returns wire-encoded, hex-wrapped signed transaction.
+  """
+  @spec sign(binary, binary) :: binary
+  def sign(tx, priv) when is_binary(tx) do
+    wire_encoded = Base.decode16!(tx)
+    {:ok, decoded} = HonteD.TxCodec.decode(wire_encoded)
+    sig = HonteD.Crypto.signature(wire_encoded, priv)
+    decoded
+    |> with_signature(sig)
+    |> HonteD.TxCodec.encode()
+    |> Base.encode16()
+  end
+
   def with_signature(tx, signature) do
-    struct(SignedTx, [raw_tx: tx, signature: signature])
+    %SignedTx{raw_tx: tx, signature: signature}
   end
 end

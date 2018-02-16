@@ -95,7 +95,7 @@ HonteD.Integration.WaitFor.eth_block_height(next + 1, true, 10_000)
 # NOTE: here one should probably double check, if one made it within the join-eject window for epoch 1
 
 {:ok, raw_tx} = API.create_epoch_change_transaction(alice, 1)
-raw_tx |> Crypto.sign(alice_priv) |> API.submit_commit()
+raw_tx |> Transaction.sign(alice_priv) |> API.submit_commit()
 
 # see in the logs that the validator has changed to one from ~/.tendermint2/priv_validator.json, as above
 

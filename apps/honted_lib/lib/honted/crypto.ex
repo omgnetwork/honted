@@ -9,19 +9,6 @@ defmodule HonteD.Crypto do
   defp erlang_hash(message), do: :crypto.hash(:sha256, message)
 
   @doc """
-  Signs transaction, returns wire-encoded, hex-wrapped signed transaction.
-  """
-  @spec sign(binary, binary) :: binary
-  def sign(tx, priv) when is_binary(tx) do
-    {:ok, decoded} = tx |> Base.decode16!() |> HonteD.TxCodec.decode()
-    sig = signature(decoded, priv)
-    decoded
-    |> HonteD.Transaction.with_signature(sig)
-    |> HonteD.TxCodec.encode()
-    |> Base.encode16()
-  end
-
-  @doc """
   Produce a stand-alone signature. Useful in tests.
   """
   def signature(unsigned, priv) when is_binary(unsigned) do

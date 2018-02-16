@@ -25,7 +25,7 @@ defmodule HonteD.API.TestHelpers do
     tx
     |> HonteD.TxCodec.encode()
     |> Base.encode16()
-    |> HonteD.Crypto.sign(priv)
+    |> HonteD.Transaction.sign(priv)
     |> Base.decode16!()
     |> HonteD.TxCodec.decode!()
   end
