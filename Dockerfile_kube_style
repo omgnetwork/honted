@@ -1,0 +1,54 @@
+FROM gcr.io/omise-go/jenkins-slave-elixir
+MAINTAINER Kridsada Thanabulpong <sirn@omise.co>
+
+ENV GOPATH="/go"
+ENV PATH="/go-ethereum/build/bin/:${GOPATH}/bin:/usr/local/go/bin:${PATH}"
+ENV GOLANG_VERSION="1.9.2"
+
+RUN set -xe && \
+    GOLANG_DOWNLOAD_URL="https://golang.org/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz" && \
+    GOLANG_DOWNLOAD_SHA256="de874549d9a8d8d8062be05808509c09a88a248e77ec14eb77453530829ac02b" && \
+    curl -fSL -o golang-bin.tar.gz "${GOLANG_DOWNLOAD_URL}" && \
+    echo "${GOLANG_DOWNLOAD_SHA256}  golang-bin.tar.gz" | sha256sum -c - && \
+    tar -xzC /usr/local -f golang-bin.tar.gz && \
+    rm golang-bin.tar.gz && \
+    go version
+
+# TODO: need to force a particular, forked version of tendermint, remove after a TM release > 0.15.0
+
+ENV TENDERMINT_VERSION="v0.15.0_dirty_no_val_check"
+
+RUN set -xe && \
+    go get github.com/Masterminds/glide && \
+    mkdir -p "${GOPATH}/src/github.com/tendermint/tendermint" && \
+    cd "${GOPATH}/src/github.com/tendermint/tendermint" && \
+    git init && \
+    git remote add origin https://github.com/omisego/tendermint && \
+    git fetch --depth 1 origin "${TENDERMINT_VERSION}" && \
+    git checkout FETCH_HEAD && \
+    glide install && \
+    go install ./cmd/tendermint && \
+    tendermint version
+
+RUN set -xe && \
+    go get github.com/tendermint/tools/tm-bench || \
+    go get github.com/Masterminds/glide && \
+    cd $GOPATH/src/github.com/tendermint/tools/tm-bench && \
+    glide install && \
+    go install . && \
+    which tm-bench
+
+# NOTE: fixed version 1.7.3 for now
+ENV GETH_VERSION="v1.7.3"
+
+# geth
+# NOTE: getting from ppa doesn't work, so building from source
+RUN set -xe && \
+    mkdir -p go-ethereum && \
+    cd go-ethereum && \
+    git init && \
+    git remote add origin https://github.com/ethereum/go-ethereum && \
+    git fetch --depth 1 origin "${GETH_VERSION}" && \
+    git checkout FETCH_HEAD && \
+    make geth && \
+    geth version
