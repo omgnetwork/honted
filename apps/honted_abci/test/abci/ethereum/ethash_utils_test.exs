@@ -1,6 +1,7 @@
 defmodule HonteD.ABCI.Ethereum.EthashUtilsTest do
   @moduledoc """
-  Tests if EthashUtils methods work
+  Tests EthashUtils implementation details.
+  It can be removed after we have higher level tests that work on public API
   """
   # credo:disable-for-this-file Credo.Check.Readability.LargeNumbers
   use ExUnitFixtures

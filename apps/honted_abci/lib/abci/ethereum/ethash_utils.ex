@@ -1,6 +1,7 @@
 defmodule HonteD.ABCI.Ethereum.EthashUtils do
   @moduledoc """
-  Utility methods for Ethash. Implementation on Appendix section from Ethash wiki.
+  Utility methods for Ethash.
+  Based on Appendix section from Ethash wiki(https://github.com/ethereum/wiki/wiki/Ethash)
   """
 
   @doc """

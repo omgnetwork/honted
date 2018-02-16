@@ -154,6 +154,7 @@ fn make_cache_inner(block_number: u64) -> Vec<Vec<u32>> {
 
 #[cfg(test)]
 mod tests {
+    // not run in CI or mix test, tests implementation details
     use super::*;
 
     fn xor_test_case(v1: &[u32; HASH_SIZE_WORDS], v2: &[u32; HASH_SIZE_WORDS], expected: &[u32; HASH_SIZE_WORDS]) {
