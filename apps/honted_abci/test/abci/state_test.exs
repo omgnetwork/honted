@@ -12,9 +12,6 @@ defmodule HonteD.ABCI.StateTest do
 
   import HonteD.ABCI.TestHelpers
 
-  import HonteD.ABCI
-  import HonteD.ABCI.Records
-
   import HonteD.Transaction
   alias HonteD.Transaction.{Issue, Send, SignOff, Allow, EpochChange}
   alias HonteD.TxCodec
@@ -65,11 +62,9 @@ defmodule HonteD.ABCI.StateTest do
     test "signature checking in issue", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
       {:ok, tx1} = create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
       {:ok, tx2} = create_issue(nonce: 1, asset: asset, amount: 4, dest: alice.addr, issuer: issuer.addr)
-      fake_sig_tx_encoded = misplaced_sign(tx1, tx2, issuer.priv)
+      fake_sig = misplaced_sign(tx1, tx2, issuer.priv)
 
-      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
-        handle_call({:RequestCheckTx, Base.decode16!(fake_sig_tx_encoded)}, nil, state)
-
+      fake_sig |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
       tx1 |> encode_sign(alice.priv) |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
   end
@@ -329,11 +324,9 @@ defmodule HonteD.ABCI.StateTest do
     test "signature checking in send", %{state_alice_has_tokens: state, alice: alice, bob: bob, asset: asset} do
       {:ok, tx1} = create_send(nonce: 0, asset: asset, amount: 1, from: alice.addr, to: bob.addr)
       {:ok, tx2} = create_send(nonce: 0, asset: asset, amount: 4, from: alice.addr, to: bob.addr)
-      misplaced_sig = misplaced_sign(tx1, tx2, alice.priv) |> Base.decode16!()
+      fake_sig = misplaced_sign(tx1, tx2, alice.priv)
 
-      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
-        handle_call({:RequestCheckTx, misplaced_sig}, nil, state)
-
+      fake_sig |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
       tx1 |> encode_sign(bob.priv) |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
 
@@ -372,11 +365,9 @@ defmodule HonteD.ABCI.StateTest do
     test "signature checking in sign off", %{empty_state: state, alice: alice, issuer: issuer, some_block_hash: hash} do
       {:ok, tx1} = create_sign_off(nonce: 0, height: 1, hash: hash, sender: issuer.addr)
       {:ok, tx2} = create_sign_off(nonce: 0, height: 2, hash: hash, sender: issuer.addr)
-      bad_tx = misplaced_sign(tx1, tx2, issuer.priv)
+      fake_sig = misplaced_sign(tx1, tx2, issuer.priv)
 
-      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
-        handle_call({:RequestCheckTx, Base.decode16!(bad_tx)}, nil, state)
-
+      fake_sig |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
       tx1 |> encode_sign(alice.priv) |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
 
@@ -539,10 +530,9 @@ defmodule HonteD.ABCI.StateTest do
     test "signature checking in allow", %{empty_state: state, issuer: issuer, alice: alice} do
       {:ok, tx1} = create_allow(nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: false)
       {:ok, tx2} = create_allow(nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true)
-      bad_tx = misplaced_sign(tx1, tx2, issuer.priv)
-      assert {:reply, response_check_tx(code: 1, log: 'invalid_signature'), ^state} =
-        handle_call({:RequestCheckTx, Base.decode16!(bad_tx)}, nil, state)
+      fake_sig = misplaced_sign(tx1, tx2, issuer.priv)
 
+      fake_sig |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
       tx1 |> encode_sign(alice.priv) |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
     end
   end
