@@ -10,7 +10,6 @@ defmodule HonteD.Transaction do
   defmodule CreateToken do
     @moduledoc false
     defstruct [:nonce, :issuer]
-    def f, do: [:nonce, :issuer]
 
     @type t :: %CreateToken{
       nonce: HonteD.nonce,
@@ -21,7 +20,6 @@ defmodule HonteD.Transaction do
   defmodule Issue do
     @moduledoc false
     defstruct [:nonce, :asset, :amount, :dest, :issuer]
-    def f, do: [:nonce, :asset, :amount, :dest, :issuer]
 
     @type t :: %Issue{
       nonce: HonteD.nonce,
@@ -35,7 +33,6 @@ defmodule HonteD.Transaction do
   defmodule Send do
     @moduledoc false
     defstruct [:nonce, :asset, :amount, :from, :to]
-    def f, do: [:nonce, :asset, :amount, :from, :to]
 
     @type t :: %Send{
       nonce: HonteD.nonce,
@@ -49,7 +46,6 @@ defmodule HonteD.Transaction do
   defmodule SignOff do
     @moduledoc false
     defstruct [:nonce, :height, :hash, :sender, :signoffer]
-    def f, do: [:nonce, :height, :hash, :sender, :signoffer]
 
     @type t :: %SignOff{
       nonce: HonteD.nonce,
@@ -63,7 +59,6 @@ defmodule HonteD.Transaction do
   defmodule Allow do
     @moduledoc false
     defstruct [:nonce, :allower, :allowee, :privilege, :allow]
-    def f, do: [:nonce, :allower, :allowee, :privilege, :allow]
 
     @type t :: %Allow{
       nonce: HonteD.nonce,
@@ -77,7 +72,6 @@ defmodule HonteD.Transaction do
   defmodule EpochChange do
     @moduledoc false
     defstruct [:nonce, :sender, :epoch_number]
-    def f, do: [:nonce, :sender, :epoch_number]
 
     @type t :: %EpochChange{
       nonce: HonteD.nonce,
@@ -89,7 +83,6 @@ defmodule HonteD.Transaction do
   defmodule SignedTx do
     @moduledoc false
     defstruct [:raw_tx, :signature]
-    def f, do: [:raw_tx, :signature]
 
     @type t :: %SignedTx{
       raw_tx: HonteD.Transaction.t,

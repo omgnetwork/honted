@@ -67,6 +67,14 @@ defmodule HonteD.TxCodec do
 
   # private functions
 
+  defp fields(Transaction.Send), do: [:nonce, :asset, :amount, :from, :to]
+  defp fields(Transaction.CreateToken), do: [:nonce, :issuer]
+  defp fields(Transaction.Issue), do: [:nonce, :asset, :amount, :dest, :issuer]
+  defp fields(Transaction.SignOff), do: [:nonce, :height, :hash, :sender, :signoffer]
+  defp fields(Transaction.Allow), do: [:nonce, :allower, :allowee, :privilege, :allow]
+  defp fields(Transaction.EpochChange), do: [:nonce, :sender, :epoch_number]
+  defp fields(Transaction.SignedTx), do: [:raw_tx, :signature]
+
   defp maybe_sig(tx, []), do: {:ok, tx}
 
   defp maybe_sig(tx, [sig]) do
@@ -162,7 +170,7 @@ defmodule HonteD.TxCodec do
   end
 
   def to_value_list(tx) when is_map(tx) do
-    keys = (tx.__struct__).f()
+    keys = fields(tx.__struct__)
     map = Map.from_struct(tx)
     values = for key <- keys, do: Map.get(map, key)
     tag = tx_tag(tx.__struct__)
