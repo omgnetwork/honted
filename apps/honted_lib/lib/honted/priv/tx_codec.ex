@@ -93,7 +93,7 @@ defmodule HonteD.TxCodec do
 
   # NOTE: find the correct and informed maximum valid transaction byte-size
   # and test that out properly (by trying out a maximal valid transaction possible - right now it only tests a 0.5KB tx)
-  defp valid_size?(line) when byte_size(line) > 274 * 2, do: {:error, :transaction_too_large}
+  defp valid_size?(line) when byte_size(line) > 274, do: {:error, :transaction_too_large}
   defp valid_size?(_line), do: :ok
 
   defp int_parse(int), do: :binary.decode_unsigned(int, :big)
