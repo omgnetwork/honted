@@ -3,10 +3,10 @@ defmodule HonteD.API.Tools do
   Shared functionality used by HonteD.API _not to be auto-exposed_
   """
 
-  alias HonteD.API.{TendermintRPC, Transaction}
+  alias HonteD.API.{Tendermint, Transaction}
 
   @doc """
-  Uses a TendermintRPC `client` to get the current nonce for the `from` address. Returns raw Tendermint response
+  Uses a Tendermint.RPC `client` to get the current nonce for the `from` address. Returns raw Tendermint response
   in case of any failure
   """
   def get_nonce(client, from) do
@@ -14,24 +14,24 @@ defmodule HonteD.API.Tools do
   end
 
   @doc """
-  Uses a TendermintRPC `client` to the issuer for a token
+  Uses a Tendermint.RPC `client` to the issuer for a token
   """
   def get_issuer(client, token) do
     get_and_decode(client, "/tokens/#{token}/issuer")
   end
 
   @doc """
-  Uses a TendermintRPC `client` to query anything from the abci and decode to map
+  Uses a Tendermint.RPC `client` to query anything from the abci and decode to map
   """
   def get_and_decode(client, key) do
-    rpc_response = TendermintRPC.abci_query(client, "", key)
+    rpc_response = Tendermint.RPC.abci_query(client, "", key)
     with {:ok, %{"response" => %{"code" => 0, "value" => encoded}}} <- rpc_response,
          do: Poison.decode(encoded)
   end
 
   @doc """
   Enriches the standards Tendermint tx information with a HonteD-specific status flag
-    :failed, :pending, :committed, :finalized, :committed_unknown
+    :failed, :committed, :finalized, :committed_unknown
   """
   def append_status(tx_info, client) do
     tx_info
@@ -46,7 +46,7 @@ defmodule HonteD.API.Tools do
   end
 
   def get_block_hash(height) do
-    get_block_hash(height, TendermintRPC, TendermintRPC.client())
+    get_block_hash(height, Tendermint.RPC, Tendermint.RPC.client())
   end
 
   def get_block_hash(height, tendermint_module, client) do
@@ -59,10 +59,7 @@ defmodule HonteD.API.Tools do
   defp get_tx_tendermint_status(tx_info) do
     case tx_info do
       %{"height" => _, "tx_result" => %{"code" => 0, "data" => "", "log" => ""}} -> :committed
-      # NOTE not sure the following scenarios are possible!
-      %{"tx_result" => %{"code" => 0, "data" => "", "log" => ""}} -> :pending
-      # successful look up of failed tx
-      %{"tx_result" => _} -> :failed
+      %{"tx_result" => _} -> :failed # successful look up of failed tx
     end
   end
 
@@ -76,7 +73,7 @@ defmodule HonteD.API.Tools do
         # indicates the sign off hasn't been found
         :committed
       {:ok, %{"height" => sign_off_height, "hash" => sign_off_hash}} ->
-        {:ok, real_blockhash} = get_block_hash(sign_off_height, TendermintRPC, client)
+        {:ok, real_blockhash} = get_block_hash(sign_off_height, Tendermint.RPC, client)
         Transaction.Finality.status(tx_height, sign_off_height, sign_off_hash, real_blockhash)
     end
   end

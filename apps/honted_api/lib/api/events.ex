@@ -5,7 +5,7 @@ defmodule HonteD.API.Events do
 
   @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string | :bad_block_height
                 | :filter_id_must_be_a_binary
-  @type event :: HonteD.Transaction.t | HonteD.API.Events.NewBlock.t
+  @type event :: HonteD.Transaction.SignedTx.t | HonteD.API.Events.NewBlock.t
 
   @server HonteD.API.Events.Eventer
 

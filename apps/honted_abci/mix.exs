@@ -39,7 +39,7 @@ defmodule HonteD.ABCI.Mixfile do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:abci_server, "~> 0.3.0", [github: 'KrzysiekJ/abci_server']},
+      {:abci_server, "~> 0.4.0", [github: 'KrzysiekJ/abci_server']},
       {:cowboy, "~> 1.1"},
       {:ranch, "~> 1.3.2"},
       {:ojson, "~> 1.0.0"},

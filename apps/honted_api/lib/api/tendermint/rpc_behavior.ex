@@ -1,4 +1,4 @@
-defmodule HonteD.API.TendermintBehavior do
+defmodule HonteD.API.Tendermint.RPCBehavior do
   @moduledoc """
   Interface of Tendermint's RPC api
   """
@@ -17,5 +17,8 @@ defmodule HonteD.API.TendermintBehavior do
   @callback abci_query(client_ref, data, path) :: result
   @callback tx(client_ref, hash) :: result
   @callback block(client_ref, height :: pos_integer) :: result
+  @callback block_results(client_ref, height :: pos_integer) :: result
+  @callback validators(client_ref) :: result
+  @callback status(client_ref) :: result
 
 end

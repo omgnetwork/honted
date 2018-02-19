@@ -73,7 +73,7 @@ defmodule HonteD.ABCITest do
     @tag fixtures: [:empty_state]
     test "too large transactions throw", %{empty_state: state} do
       String.duplicate("a", 512)
-      |> check_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
+      |> deliver_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
     end
   end
 
@@ -144,7 +144,7 @@ defmodule HonteD.ABCITest do
 
     @tag fixtures: [:empty_state]
     test "does not update validators and state when epoch has not changed", %{empty_state: state} do
-      {:reply, response_end_block(diffs: diffs), ^state} =
+      {:reply, response_end_block(validator_updates: diffs), ^state} =
         handle_call(request_end_block(), nil, state)
       assert diffs == []
     end
@@ -152,7 +152,7 @@ defmodule HonteD.ABCITest do
     @tag fixtures: [:first_epoch_change_state, :validators_diffs_1]
     test "updates set of validators for the first epoch",
     %{first_epoch_change_state: state, validators_diffs_1: expected_diffs} do
-      {:reply, response_end_block(diffs: actual_diffs), new_state} =
+      {:reply, response_end_block(validator_updates: actual_diffs), new_state} =
         handle_call(request_end_block(), nil, state)
 
       assert_same_elements(actual_diffs, expected_diffs)
@@ -170,7 +170,7 @@ defmodule HonteD.ABCITest do
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
         |> sign(alice.priv) |> deliver_tx(first_epoch_state)
 
-      {:reply, response_end_block(diffs: actual_diffs), second_epoch_state} =
+      {:reply, response_end_block(validator_updates: actual_diffs), second_epoch_state} =
         handle_call(request_end_block(), nil, first_epoch_state)
 
       assert_same_elements(actual_diffs, expected_diffs)

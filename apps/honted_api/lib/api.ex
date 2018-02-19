@@ -7,10 +7,10 @@ defmodule HonteD.API do
 
   use HonteD.API.ExposeSpec
 
-  alias HonteD.API.{TendermintRPC, Tools}
+  alias HonteD.API.{Tendermint, Tools}
   alias HonteD.{Transaction}
 
-  @type tx_status :: :failed | :pending | :committed | :finalized | :committed_unknown
+  @type tx_status :: :failed | :committed | :finalized | :committed_unknown
 
   @doc """
   Creates a signable, encoded transaction that creates a new token for an issuer
@@ -18,7 +18,7 @@ defmodule HonteD.API do
   @spec create_create_token_transaction(issuer :: binary)
         :: {:ok, binary} | {:error, map}
   def create_create_token_transaction(issuer) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, issuer),
          do: Transaction.create_create_token(nonce: nonce, issuer: issuer)
   end
@@ -33,7 +33,7 @@ defmodule HonteD.API do
   @spec create_issue_transaction(asset :: binary, amount :: pos_integer, to :: binary, issuer :: binary)
         :: {:ok, binary} | {:error, map}
   def create_issue_transaction(asset, amount, to, issuer) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, issuer),
          do: Transaction.create_issue(nonce: nonce,
                                       asset: asset,
@@ -48,7 +48,7 @@ defmodule HonteD.API do
   @spec create_send_transaction(asset :: binary, amount :: pos_integer, from :: binary, to :: binary)
         :: {:ok, binary} | {:error, map}
   def create_send_transaction(asset, amount, from, to) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, from),
          do: Transaction.create_send(nonce: nonce,
                                      asset: asset,
@@ -64,7 +64,7 @@ defmodule HonteD.API do
   @spec create_sign_off_transaction(height :: pos_integer, hash :: binary, sender :: binary, signoffer :: binary)
         :: {:ok, binary} | {:error, map}
   def create_sign_off_transaction(height, hash, sender, signoffer) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
          do: Transaction.create_sign_off(nonce: nonce,
                                          height: height,
@@ -80,7 +80,7 @@ defmodule HonteD.API do
   @spec create_allow_transaction(allower :: binary, allowee :: binary, privilege :: binary, allow :: boolean)
         :: {:ok, binary} | {:error, map}
   def create_allow_transaction(allower, allowee, privilege, allow) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, allower),
          do: Transaction.create_allow(nonce: nonce,
                                       allower: allower,
@@ -95,7 +95,7 @@ defmodule HonteD.API do
   @spec create_epoch_change_transaction(sender :: binary, epoch_number :: pos_integer)
         :: {:ok, binary} | {:error, map}
   def create_epoch_change_transaction(sender, epoch_number) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
          do: Transaction.create_epoch_change(nonce: nonce,
                                              sender: sender,
@@ -105,19 +105,16 @@ defmodule HonteD.API do
   @doc """
   Submits a signed transaction, blocks until its committed by the validators
   """
-  @spec submit_transaction(transaction :: binary) :: {:ok, %{tx_hash: binary,
-                                                             duplicate: boolean,
-                                                             committed_in: non_neg_integer}} | {:error, map}
-  def submit_transaction(transaction) do
-    client = TendermintRPC.client()
-    rpc_response = TendermintRPC.broadcast_tx_commit(client, transaction)
+  @spec submit_commit(transaction :: binary) :: {:ok, %{tx_hash: binary,
+                                                        committed_in: non_neg_integer}} | {:error, map}
+  def submit_commit(transaction) do
+    client = Tendermint.RPC.client()
+    rpc_response = Tendermint.RPC.broadcast_tx_commit(client, transaction)
     case rpc_response do
       # successes / no-ops
       {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash, "height" => height,
               "deliver_tx" => %{"code" => 0}}} ->
-        {:ok, %{tx_hash: hash, duplicate: false, committed_in: height}}
-      {:ok, %{"check_tx" => %{"code" => 3}, "hash" => hash}} ->
-        {:ok, %{tx_hash: hash, duplicate: true, committed_in: nil}}
+        {:ok, %{tx_hash: hash, committed_in: height}}
       # failures
       {:ok, %{"check_tx" => %{"code" => 0}, "hash" => hash} = result} ->
         {:error, %{reason: :deliver_tx_failed, tx_hash: hash, raw_result: result}}
@@ -128,16 +125,37 @@ defmodule HonteD.API do
     end
   end
 
-  def submit_transaction_async(transaction) do
-    client = TendermintRPC.client()
-    rpc_response = TendermintRPC.broadcast_tx_async(client, transaction)
+  @doc """
+  Submits a signed transaction, blocks until it's validated by local mempool
+  """
+  @spec submit_sync(transaction :: binary) :: {:ok, %{tx_hash: binary}} | {:error, map}
+  def submit_sync(transaction) do
+    client = Tendermint.RPC.client()
+    rpc_response = Tendermint.RPC.broadcast_tx_sync(client, transaction)
+    case rpc_response do
+      # successes / no-ops
+      {:ok, %{"code" => 0, "hash" => hash}} ->
+        {:ok, %{tx_hash: hash}}
+        # failures
+        {:ok, %{"code" => code, "data" => data, "log" => log, "hash" => hash}} ->
+        {:error, %{reason: :submit_failed, tx_hash: hash, code: code, data: data, log: log}}
+      result ->
+        {:error, %{reason: :unknown_error, raw_result: inspect result}}
+    end
+  end
+
+  @doc """
+  Submits a signed transaction, blocks for a RPC roundtrip time, checks for mempool duplicates
+  """
+  @spec submit_async(transaction :: binary) :: {:ok, %{tx_hash: binary}} | {:error, map}
+  def submit_async(transaction) do
+    client = Tendermint.RPC.client()
+    rpc_response = Tendermint.RPC.broadcast_tx_async(client, transaction)
     case rpc_response do
       # successes / no-ops
       {:ok, %{"code" => 0, "hash" => hash}} ->
         {:ok, %{tx_hash: hash}}
       # failures
-      {:ok, %{"code" => code, "data" => data, "log" => log, "hash" => hash}} ->
-        {:error, %{reason: :submit_failed, tx_hash: hash, code: code, data: data, log: log}}
       result ->
         {:error, %{reason: :unknown_error, raw_result: inspect result}}
     end
@@ -150,7 +168,7 @@ defmodule HonteD.API do
   def query_balance(token, address)
   when is_binary(token) and
        is_binary(address) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     Tools.get_and_decode(client, "/accounts/#{token}/#{address}")
   end
 
@@ -160,7 +178,7 @@ defmodule HonteD.API do
   @spec tokens_issued_by(issuer :: binary) :: {:ok, [binary]} | {:error, map}
   def tokens_issued_by(issuer)
   when is_binary(issuer) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     Tools.get_and_decode(client, "/issuers/#{issuer}")
   end
 
@@ -172,7 +190,7 @@ defmodule HonteD.API do
                                                total_supply: non_neg_integer}} | {:error, map}
   def token_info(token)
   when is_binary(token) do
-    client = TendermintRPC.client()
+    client = Tendermint.RPC.client()
     with {:ok, issuer} <- Tools.get_issuer(client, token),
          {:ok, total_supply} <- Tools.get_and_decode(client, "/tokens/#{token}/total_supply"),
          do: {:ok, %{token: token, issuer: issuer, total_supply: total_supply}}
@@ -184,8 +202,8 @@ defmodule HonteD.API do
   """
   @spec tx(hash :: binary) :: {:ok, %{status: tx_status}} | {:error, %{reason: :unknown_error, raw_result: binary}}
   def tx(hash) when is_binary(hash) do
-    client = TendermintRPC.client()
-    rpc_response = TendermintRPC.tx(client, hash)
+    client = Tendermint.RPC.client()
+    rpc_response = Tendermint.RPC.tx(client, hash)
     case rpc_response do
       # successes (incl.successful look up of failed tx)
       {:ok, tx_info} -> {:ok, tx_info

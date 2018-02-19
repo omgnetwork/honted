@@ -21,7 +21,6 @@ defmodule HontedEth.Mixfile do
     [
       env: [
         enabled: false, # set to true to fetch validator set state from Ethereum
-        token_contract_address: "0x0", # address of OMG token contract on Ethereum
         staking_contract_address: "0x0", # address of deployed staking address on Ethereum
       ],
       extra_applications: [:logger],

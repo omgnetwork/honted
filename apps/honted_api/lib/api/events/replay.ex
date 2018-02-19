@@ -8,20 +8,29 @@ defmodule HonteD.API.Events.Replay do
   require Logger
   alias HonteD.API.Events.Eventer, as: Eventer
 
-  defp iterate_block(block, ad_hoc_subscription, ad_hoc_filters) do
+  defp iterate_block({block, results}, subscription, filters) do
     height = get_in(block, ["block", "header", "height"])
 
     block
     |> get_in(["block", "data", "txs"])
-    |> Enum.map(&HonteD.TxCodec.decode!/1)
-    |> Enum.map(&(&1.raw_tx))
-    |> Enum.map(&(Eventer.do_notify(:committed, &1, height, ad_hoc_subscription, ad_hoc_filters)))
-    |> Enum.map(fn :ok -> true end)
+    |> Stream.map(&HonteD.TxCodec.decode!/1)
+    |> drop_failed_txs(results)
+    |> Stream.map(&(Eventer.do_notify(:committed, &1, height, subscription, filters)))
+    |> Enum.each(fn :ok -> true end)
   end
 
-  defp get_block(tendermint, client, height) do
+  defp get_block_with_results!(tendermint, client, height) do
     {:ok, block} = tendermint.block(client, height)
-    block
+    {:ok, results} = tendermint.block_results(client, height)
+    {block, results}
+  end
+
+  # uses the block_results from tendermint rpc to only act on successfully executed transactions
+  defp drop_failed_txs(txs, results) do
+    txs
+    |> Stream.zip(get_in(results, ["results", "DeliverTx"]))
+    |> Stream.filter(fn {_tx, result} -> result["code"] == 0 end)
+    |> Stream.map(fn {tx, _result} -> tx end)
   end
 
   def spawn(filter_id, tendermint, block_range, topics, pid) do
@@ -31,8 +40,8 @@ defmodule HonteD.API.Events.Replay do
     {:ok, _} = Task.start(fn() ->
       try do
         block_range
-        |> Stream.map(fn height -> get_block(tendermint, client, height) end)
-        |> Enum.map(fn block -> iterate_block(block, ad_hoc_subscription, ad_hoc_filters) end)
+        |> Stream.map(fn height -> get_block_with_results!(tendermint, client, height) end)
+        |> Enum.map(fn {block, results} -> iterate_block({block, results}, ad_hoc_subscription, ad_hoc_filters) end)
       after
         msg = Eventer.stream_end_msg(filter_id)
         send(pid, {:event, msg})

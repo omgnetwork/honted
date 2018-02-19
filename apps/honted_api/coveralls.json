@@ -1,5 +1,5 @@
 {
   "skip_files": [
-    "lib/api/tendermint_rpc.ex"
+    "lib/api/tendermint/rpc.ex"
   ]
 }

@@ -1,7 +1,7 @@
 defmodule HonteD.API.ReplayTest do
   @moduledoc """
   Test replaying of transactions. This is separated from Events tests because of need to mock
-  TendermintRPC API globally.
+  Tendermint.RPC API globally.
   """
 
   import HonteD.API.TestHelpers
@@ -26,6 +26,7 @@ defmodule HonteD.API.ReplayTest do
     set_mox_global()
     HonteD.API.TestTendermint
     |> expect(:block, n, &block_transactions_mock/2)
+    |> expect(:block_results, n, &block_results_transactions_mock/2)
     |> expect(:client, 1, fn() -> nil end)
     # using global mode
   end
@@ -33,22 +34,35 @@ defmodule HonteD.API.ReplayTest do
   defp block_transactions_mock(_, height) do
     {:ok, %{
       "block" => %{
-        "data" => %{"txs" => native(height)},
+        "data" => %{"txs" => native_block(height)},
         "header" => %{"height" => height},
       }
     }}
   end
 
-  defp native(1), do: [signed_send(1), ]
-  defp native(2), do: []
-  defp native(3), do: [signed_send(2), signed_send(3), ]
-  defp native(n), do: [signed_send(n), ]
+  defp block_results_transactions_mock(_, height) do
+    {:ok, %{
+      "results" => %{
+        "DeliverTx" => native_block_results(height),
+      },
+    }}
+  end
+
+  defp native_block(1), do: [signed_send(1), ]
+  defp native_block(2), do: []
+  defp native_block(3), do: [signed_send(2), signed_send(3), ]
+  defp native_block(4), do: [signed_send(4), ]
+  defp native_block(n), do: [signed_send(n), ]
+
+  defp native_block_results(1), do: [%{"code" => 0}, ]
+  defp native_block_results(2), do: []
+  defp native_block_results(3), do: [%{"code" => 0}, %{"code" => 0}, ]
+  defp native_block_results(4), do: [%{"code" => 1}, ]
+  defp native_block_results(_n), do: [%{"code" => 0}, ]
 
   defp signed_send(num) do
     {tx, _} = event_send(address1(), "nil", "asset", num)
-    raw_tx = HonteD.TxCodec.encode(tx)
-    {:ok, signature} = HonteD.Crypto.sign(raw_tx, "fake_sig")
-    "#{raw_tx} #{signature}"
+    HonteD.TxCodec.encode(tx)
   end
 
   describe "Historical transactions can be replayed." do
@@ -60,6 +74,18 @@ defmodule HonteD.API.ReplayTest do
         {_, receivable1} = event_send(address1(), filter_id, "asset", 1)
         endmsg = {:event, HonteD.API.Events.Eventer.stream_end_msg(filter_id)}
         assert_receive(^receivable1, 1000)
+        assert_receive(^endmsg)
+        refute_receive(_)
+      end)
+      join()
+    end
+
+    @tag fixtures: [:server]
+    test "Replay does not deliver failed transaction events.", %{server: server} do
+      mock_block_transactions(server, 1)
+      client(fn() ->
+        {:ok, %{history_filter: filter_id}} = new_send_filter_history(server, self(), address1(), 4, 4)
+        endmsg = {:event, HonteD.API.Events.Eventer.stream_end_msg(filter_id)}
         assert_receive(^endmsg)
         refute_receive(_)
       end)
