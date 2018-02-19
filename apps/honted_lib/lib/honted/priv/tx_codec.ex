@@ -31,7 +31,7 @@ defmodule HonteD.TxCodec do
   @spec encode(HonteD.Transaction.t()) :: binary
   def encode(tx) do
     tx
-    |> to_tuple()
+    |> to_value_list()
     |> _pack()
   end
 
@@ -157,52 +157,16 @@ defmodule HonteD.TxCodec do
     end
   end
 
-  defp to_tuple(%Transaction.SignedTx{raw_tx: tx, signature: sig}) do
-    tx
-    |> to_tuple()
-    |> Tuple.append(sig)
+  def to_value_list(%Transaction.SignedTx{raw_tx: tx, signature: sig}) do
+    to_value_list(tx) ++ [sig]
   end
 
-  defp to_tuple(%Transaction.CreateToken{nonce: nonce, issuer: issuer}) do
-    {@create_token, nonce, issuer}
-  end
-
-  defp to_tuple(%Transaction.Issue{
-         nonce: nonce,
-         asset: asset,
-         amount: amount,
-         dest: dest,
-         issuer: issuer
-       }) do
-    {@issue, nonce, asset, amount, dest, issuer}
-  end
-
-  defp to_tuple(%Transaction.Send{nonce: nonce, asset: asset, amount: amount, from: from, to: to}) do
-    {@send, nonce, asset, amount, from, to}
-  end
-
-  defp to_tuple(%Transaction.SignOff{
-         nonce: nonce,
-         height: height,
-         hash: hash,
-         sender: sender,
-         signoffer: signoffer
-       }) do
-    {@signoff, nonce, height, hash, sender, signoffer}
-  end
-
-  defp to_tuple(%Transaction.Allow{
-         nonce: nonce,
-         allower: allower,
-         allowee: allowee,
-         privilege: privilege,
-         allow: allow
-       }) do
-    {@allow, nonce, allower, allowee, privilege, allow}
-  end
-
-  defp to_tuple(%Transaction.EpochChange{nonce: nonce, sender: sender, epoch_number: epoch_number}) do
-    {@epoch_change, nonce, sender, epoch_number}
+  def to_value_list(tx) when is_map(tx) do
+    keys = (tx.__struct__).f()
+    map = Map.from_struct(tx)
+    values = for key <- keys, do: Map.get(map, key)
+    tag = tx_tag(tx.__struct__)
+    [tag | values]
   end
 
   defp _pack(terms) do
@@ -210,9 +174,6 @@ defmodule HonteD.TxCodec do
     |> pre_rlp_encode()
     |> ExRLP.encode()
   end
-
-  defp pre_rlp_encode(terms) when is_tuple(terms),
-    do: terms |> Tuple.to_list() |> pre_rlp_encode()
 
   defp pre_rlp_encode(list) when is_list(list), do: list |> Enum.map(&pre_rlp_encode(&1))
   defp pre_rlp_encode(bool) when is_boolean(bool), do: tx_tag(bool)
