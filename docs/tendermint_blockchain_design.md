@@ -197,22 +197,7 @@ The conditions on which soft-slashing occurs are multiple:
       - https://github.com/tendermint/tendermint/issues/569
       - https://github.com/tendermint/tendermint/issues/338
 
-    In general this should be detected by Tendermint.
-    More or less `BeginBlock` would feed a list of misbehaving validators into the `honted` ABCI app.
-
-    Otherwise handling of a "double-signing slashing condition" transaction would need to replicate Tendermint's consensus logic,
-    to determine the legitimacy of a slashing condition submitted.
-    Probably handling of this would need to be interactive (i.e. validator may defend by revealing some justification for a particular signature).
-    Most likely quite hard.
-
-  - proposing a block with an invalid transaction
-
-    Tendermint might provide tools: see above
-
-    This can be done in `DeliverTx` call to the `honted` ABCI app.
-    At that stage, an invalid transaction should not have the effect it attempts to introduce.
-    Also we might consider that instead of not having the effect it attempts to introduce,
-    it may have the effect of slashing the proposer (assuming we do have proposer's address at this stage, see discussion in issues mentioned)
+    `BeginBlock` feeds a list of misbehaving validators into the `honted` ABCI app.
 
 ### Byzantine behaviour without soft-slashing
 
@@ -229,6 +214,18 @@ Kinds of byzantine behaviour that aren't slashing conditions:
   No way of detecting this at this stage of Tendermint and according to the linked discussion, we don't need that
 
   The penalty for the proposer, that proposes such invalid block is the forfeiture of transaction fees.
+
+  - proposing a block with an invalid transaction
+
+  Tendermint might provide tools: https://github.com/tendermint/tendermint/issues/1134,
+  however for now, we don't punish this,
+  as this only means that the byzantine proposer will crash in the next block (will not escalate)
+
+  This can potentially be done in `DeliverTx` call to the `honted` ABCI app,
+  but only if Tendermint sends the proposer's `pub_key`, which it currenlty doesn't.
+
+  At that stage, an invalid transaction should **only** not have the effect it attempts to introduce,
+  which works out-of-the-box with 2/3 of honest validators.
 
 ## Issuer signoff
 

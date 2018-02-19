@@ -124,21 +124,21 @@ defmodule HonteD.ABCITest do
       ]
     end
 
-    deffixture first_epoch_change_state(alice, empty_state, staking_state,
-     initial_validators, epoch_1_validators, epoch_2_validators) do
+    deffixture state_with_inital_validators(empty_state, initial_validators) do
+      %{empty_state | initial_validators: initial_validators}
+    end
+
+    deffixture first_epoch_change_state(staking_state, state_with_inital_validators,
+      epoch_1_validators, epoch_2_validators) do
+
       validators = %{
         1 => epoch_1_validators,
         2 => epoch_2_validators,
       }
       staking_state_with_validators = %{staking_state | validators: validators}
-
-      %{state: state} =
-        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(empty_state)
-      state_with_inital_validators = %{state | initial_validators: initial_validators}
       {:noreply, state} =
         HonteD.ABCI.handle_cast({:set_staking_state, staking_state_with_validators},
-          state_with_inital_validators)
+                                state_with_inital_validators)
       state
     end
 
@@ -149,9 +149,13 @@ defmodule HonteD.ABCITest do
       assert diffs == []
     end
 
-    @tag fixtures: [:first_epoch_change_state, :validators_diffs_1]
+    @tag fixtures: [:first_epoch_change_state, :validators_diffs_1, :alice]
     test "updates set of validators for the first epoch",
-    %{first_epoch_change_state: state, validators_diffs_1: expected_diffs} do
+    %{first_epoch_change_state: state, validators_diffs_1: expected_diffs, alice: alice} do
+
+      %{state: state} =
+        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+        |> sign(alice.priv) |> deliver_tx(state)
       {:reply, response_end_block(validator_updates: actual_diffs), new_state} =
         handle_call(request_end_block(), nil, state)
 
@@ -163,9 +167,15 @@ defmodule HonteD.ABCITest do
     @tag fixtures: [:first_epoch_change_state, :validators_diffs_2, :alice]
     test "updates set of validators when epoch changes",
     %{first_epoch_change_state: state, validators_diffs_2: expected_diffs, alice: alice} do
+
+      # finalize prior (first) epoch change
+      %{state: state} =
+        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+        |> sign(alice.priv) |> deliver_tx(state)
       {:reply, _, first_epoch_state} =
         handle_call(request_end_block(), nil, state)
 
+      # continue to second epoch and test
       %{state: first_epoch_state} =
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
         |> sign(alice.priv) |> deliver_tx(first_epoch_state)
@@ -176,6 +186,29 @@ defmodule HonteD.ABCITest do
       assert_same_elements(actual_diffs, expected_diffs)
       assert second_epoch_state.local_state == first_epoch_state.local_state
       assert second_epoch_state.consensus_state != first_epoch_state.consensus_state
+    end
+  end
+
+  describe "handling evidence of byzantine validators. " do
+    test "initial validator is removed during soft-slashing on evidence" do
+
+    end
+
+    test "ordinary validators are removed during soft-slashing on evidence" do
+
+    end
+
+    test "epoch change overrides removing soft-slashd validators" do
+
+    end
+
+    test "epoch change resets prior removing soft-slashd validators" do
+
+    end
+
+    test "removing removed validators doesn't break" do
+      # need to test this, evidence may arrive after a validator has become obsolete (epoch change)
+      # this will happen e.g. when we only slash a not-yet-unlocked fee pot in the unbonding period
     end
   end
 
