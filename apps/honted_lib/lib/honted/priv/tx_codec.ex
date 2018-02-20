@@ -9,7 +9,7 @@ defmodule HonteD.TxCodec do
   """
   alias HonteD.Transaction
 
-  @signature_length 64
+  @signature_length 65
 
   # true/false wire representation
   @byte_false <<64>>

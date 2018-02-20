@@ -11,7 +11,7 @@ defmodule HonteD.API.TestHelpers do
   def event_send(receiver, fid, token \\ "asset", height \\ 0) do
     # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
-    priv = "C8B804D5DE04A865FB1B8EE92632DC728B29B"
+    priv = "8B804D5DE04A865FB1B8EE92632DC7288B804D5DE04A865FB1B8EE92632DC728" |> Base.decode16!()
     {:ok, pub} = Crypto.generate_public_key(priv)
     {:ok, addr} = Crypto.generate_address(pub)
     signed =
