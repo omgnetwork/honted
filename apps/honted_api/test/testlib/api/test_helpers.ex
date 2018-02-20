@@ -3,32 +3,43 @@ defmodule HonteD.API.TestHelpers do
   Varius shared functions for testing the API
   """
 
+  alias HonteD.Crypto
+
   def address1, do: "address1"
   def address2, do: "address2"
 
   def event_send(receiver, fid, token \\ "asset", height \\ 0) do
     # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
     # for now we use raw HonteD.Transaction structs, abandoned alternative is to go through encode/decode
+    priv = "C8B804D5DE04A865FB1B8EE92632DC728B29B"
+    {:ok, pub} = Crypto.generate_public_key(priv)
+    {:ok, addr} = Crypto.generate_address(pub)
     signed =
-      %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: "from_addr", to: receiver}
-      |> append_fake_sig()
+      %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: addr, to: receiver}
+      |> sign_unpack(priv)
 
     {signed, receivable_for(signed, fid, height)}
   end
 
-  def event_sign_off(send_receivables, height \\ 1) do
-    signed =
-      %HonteD.Transaction.SignOff{nonce: 0, height: height, hash: height2hash(height)}
-      |> append_fake_sig()
-
-    {signed, receivable_finalized(send_receivables)}
+  defp sign_unpack(tx, priv) do
+    tx
+    |> HonteD.TxCodec.encode()
+    |> Base.encode16()
+    |> HonteD.Transaction.sign(priv)
+    |> Base.decode16!()
+    |> HonteD.TxCodec.decode!()
   end
 
-  defp append_fake_sig(tx) do
-    %HonteD.Transaction.SignedTx{
-      raw_tx: tx,
-      signature: "F47485AD4B907207D6D05B7265D6B91B47985BFB2C694C7A9AC20D83Dfakesig",
-    }
+  def event_sign_off(send_receivables, height \\ 1) do
+    {:ok, priv} = Crypto.generate_private_key()
+    {:ok, pub} = Crypto.generate_public_key(priv)
+    {:ok, addr} = Crypto.generate_address(pub)
+    signed =
+      %HonteD.Transaction.SignOff{nonce: 0, height: height, sender: addr,
+                                  signoffer: addr, hash: height2hash(height)}
+      |> sign_unpack(priv)
+
+    {signed, receivable_finalized(send_receivables)}
   end
 
   def event_sign_off_bad_hash(send_receivables, height \\ 1) do
@@ -42,12 +53,13 @@ defmodule HonteD.API.TestHelpers do
   @doc """
   Prepared based on documentation of HonteD.API.Events.notify
   """
+
   def receivable_for(%HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{} = tx} = signed, fid, height) do
-    event = %HonteD.API.Events.Eventer.EventContentTx{tx: tx,
-                                                      hash: signed
-                                                            |> HonteD.TxCodec.encode
-                                                            |> HonteD.API.Tendermint.Tx.hash
-    }
+    hash =
+      signed
+      |> HonteD.TxCodec.encode
+      |> HonteD.API.Tendermint.Tx.hash
+    event = %HonteD.API.Events.Eventer.EventContentTx{tx: tx, hash: hash}
 
     {:event, %{height: height, finality: :committed, source: fid, transaction: event}}
   end

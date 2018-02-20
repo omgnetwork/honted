@@ -7,7 +7,7 @@ defmodule HonteD.Integration.TendermintCompatibilityTest do
   use ExUnitFixtures
   use ExUnit.Case, async: false
 
-  alias HonteD.{Crypto, API}
+  alias HonteD.{Crypto, API, Transaction}
 
   @moduletag :integration
 
@@ -23,10 +23,9 @@ defmodule HonteD.Integration.TendermintCompatibilityTest do
     {:ok, issuer} = Crypto.generate_address(issuer_pub)
 
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
-    {:ok, signature} = Crypto.sign(raw_tx, issuer_priv)
-    tx = raw_tx <> " " <> signature
+    signed_tx = Transaction.sign(raw_tx, issuer_priv)
 
-    {:ok, %{tx_hash: hash}} = tx |> API.submit_commit()
-    assert hash == API.Tendermint.Tx.hash(tx)
+    {:ok, %{tx_hash: hash}} = API.submit_commit(signed_tx)
+    assert hash == signed_tx |> Base.decode16!() |> API.Tendermint.Tx.hash()
   end
 end

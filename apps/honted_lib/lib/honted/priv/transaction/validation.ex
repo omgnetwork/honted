@@ -27,10 +27,14 @@ defmodule HonteD.Transaction.Validation do
     positive?(epoch_number)
   end
 
+  @spec valid_signed?(HonteD.Transaction.t) :: :ok | {:error, atom}
   def valid_signed?(%SignedTx{raw_tx: raw_tx, signature: signature}) do
     with :ok <- valid?(raw_tx),
          :ok <- signed?(raw_tx, signature),
          do: :ok
+  end
+  def valid_signed?(unsigned_tx) when is_map(unsigned_tx) do
+    {:error, :missing_signature}
   end
 
   def sender(%CreateToken{issuer: sender}), do: sender

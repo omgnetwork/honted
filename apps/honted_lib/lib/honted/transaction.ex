@@ -86,11 +86,11 @@ defmodule HonteD.Transaction do
 
     @type t :: %SignedTx{
       raw_tx: HonteD.Transaction.t,
-      signature: HonteD.signature
+      signature: HonteD.signature,
     }
   end
 
-  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t | EpochChange.t
+  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t | EpochChange.t | SignedTx.t
 
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
@@ -100,7 +100,7 @@ defmodule HonteD.Transaction do
   def create_create_token([nonce: nonce, issuer: issuer] = args)
   when is_integer(nonce) and
        is_binary(issuer) do
-    create_encoded(CreateToken, args)
+    create(CreateToken, args)
   end
 
   @doc """
@@ -123,7 +123,7 @@ defmodule HonteD.Transaction do
        amount > 0 and
        is_binary(issuer) and
        is_binary(dest) do
-    create_encoded(Issue, args)
+    create(Issue, args)
   end
 
   @doc """
@@ -146,7 +146,7 @@ defmodule HonteD.Transaction do
        amount > 0 and
        is_binary(from) and
        is_binary(to) do
-    create_encoded(Send, args)
+    create(Send, args)
   end
 
   @doc """
@@ -169,7 +169,7 @@ defmodule HonteD.Transaction do
        is_binary(hash) and
        is_binary(sender) and
        is_binary(signoffer) do
-    create_encoded(SignOff, args)
+    create(SignOff, args)
   end
   def create_sign_off([nonce: _, height: _, hash: _, sender: sender] = args) do
     args
@@ -196,7 +196,7 @@ defmodule HonteD.Transaction do
        is_binary(allowee) and
        is_binary(privilege) and
        is_boolean(allow) do
-    create_encoded(Allow, args)
+    create(Allow, args)
   end
 
   @doc """
@@ -213,12 +213,30 @@ defmodule HonteD.Transaction do
        is_binary(sender) and
        is_integer(epoch_number) and
        epoch_number > 0 do
-    create_encoded(EpochChange, args)
+    create(EpochChange, args)
   end
 
-  defp create_encoded(type, args) do
+  defp create(type, args) do
     with tx <- struct(type, args),
          :ok <- Validation.valid?(tx),
-         do: {:ok, HonteD.TxCodec.encode(tx)}
+         do: {:ok, tx}
+  end
+
+  @doc """
+  Signs transaction, returns wire-encoded, hex-wrapped signed transaction.
+  """
+  @spec sign(binary, binary) :: binary
+  def sign(tx, priv) when is_binary(tx) do
+    wire_encoded = Base.decode16!(tx)
+    {:ok, decoded} = HonteD.TxCodec.decode(wire_encoded)
+    sig = HonteD.Crypto.signature(wire_encoded, priv)
+    decoded
+    |> with_signature(sig)
+    |> HonteD.TxCodec.encode()
+    |> Base.encode16()
+  end
+
+  def with_signature(tx, signature) do
+    %SignedTx{raw_tx: tx, signature: signature}
   end
 end
