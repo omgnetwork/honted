@@ -70,6 +70,7 @@ defmodule HonteD.Integration do
   defp show_tendermint_logs(tendermint_out) do
     tendermint_out
     |> Stream.flat_map(&String.split(&1, "\n")) # necessary because items in stream are >1 line
+    |> Stream.filter(fn line -> String.contains?(line, "Executed block") end)
     |> Enum.each(&Logger.info/1)
   end
 

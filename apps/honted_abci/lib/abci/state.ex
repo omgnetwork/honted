@@ -2,6 +2,9 @@ defmodule HonteD.ABCI.State do
   @moduledoc """
   Main workhorse of the `honted` ABCI app. Manages the state of the application replicated on the blockchain
   """
+  alias HonteD.ABCI.State.ProcessRegistryDB
+  alias MerklePatriciaTree.Trie
+  alias HonteD.ABCI.MPTState
   alias HonteD.Transaction
   alias HonteD.Staking
 
@@ -11,24 +14,32 @@ defmodule HonteD.ABCI.State do
   # and set to false when state is processed in EndBlock
   @epoch_change_key "contract/epoch_change"
 
-  def initial do
-    %{@epoch_number_key => 0, @epoch_change_key => false}
+  def initial(db_name) do
+    trie = MerklePatriciaTree.Trie.new(ProcessRegistryDB.init(db_name))
+    trie
+    |> MPTState.set(@epoch_number_key, 0)
+    |> MPTState.set(@epoch_change_key, false)
   end
 
-  def get(state, key) do
-    case state[key] do
+  def lookup(state, key) do
+    case MPTState.get(state, key) do
       nil -> nil
       value -> {:ok, value}
     end
   end
 
+  def lookup(state, key, default) do
+    case lookup(state, key) do
+      nil -> {:ok, default}
+      v -> v
+    end
+  end
+
   def issued_tokens(state, address) do
     key = "issuers/" <> to_string(address)
-    case get(state, key) do
-      {:ok, value} ->
-        {:ok, value |> scan_potential_issued(state, to_string(address))}
-      nil ->
-        nil
+    case MPTState.get(state, key) do
+      nil -> nil
+      value -> {:ok, value |> scan_potential_issued(state, to_string(address))}
     end
   end
 
@@ -44,7 +55,7 @@ defmodule HonteD.ABCI.State do
 
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          :ok <- is_issuer?(state, tx.asset, tx.issuer),
-         :ok <- not_too_much?(tx.amount, state["tokens/#{tx.asset}/total_supply"]),
+         :ok <- not_too_much?(tx.amount, MPTState.get(state, "tokens/#{tx.asset}/total_supply")),
          do: {:ok, state
                    |> apply_change_asset(tx.asset, tx.amount, tx.dest)
                    |> bump_nonce_after(tx)}
@@ -93,7 +104,7 @@ defmodule HonteD.ABCI.State do
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx},
    %Staking{} = staking_state) do
     with :ok <- nonce_valid?(state, tx.sender, tx.nonce),
-         :ok <- validator_block_passed?(staking_state, state[@epoch_number_key]),
+         :ok <- validator_block_passed?(staking_state, epoch_number(state)),
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
                    |> apply_epoch_change
@@ -114,16 +125,26 @@ defmodule HonteD.ABCI.State do
   end
 
   defp epoch_valid?(state, epoch_number) do
-    is_next_epoch = state[@epoch_number_key] == epoch_number - 1
-    if is_next_epoch and not state[@epoch_change_key], do: :ok, else: {:error, :invalid_epoch_change}
+    is_next_epoch = epoch_number(state) == epoch_number - 1
+    if is_next_epoch and not epoch_change?(state), do: :ok, else: {:error, :invalid_epoch_change}
   end
 
   defp account_has_at_least?(state, key_src, amount) do
-    if Map.get(state, key_src, 0) >= amount, do: :ok, else: {:error, :insufficient_funds}
+    stored_amount =
+      case MPTState.get(state, key_src) do
+        nil -> 0
+        value -> value
+      end
+    if stored_amount >= amount, do: :ok, else: {:error, :insufficient_funds}
   end
 
   defp nonce_valid?(state, src, nonce) do
-    if Map.get(state, "nonces/#{src}", 0) == nonce, do: :ok, else: {:error, :invalid_nonce}
+    stored_nonce =
+      case MPTState.get(state, "nonces/#{src}") do
+        nil -> 0
+        value -> value
+      end
+    if stored_nonce == nonce, do: :ok, else: {:error, :invalid_nonce}
   end
 
   defp not_too_much?(amount_entering, amount_present)
@@ -137,7 +158,7 @@ defmodule HonteD.ABCI.State do
   end
 
   defp is_issuer?(state, token_addr, address) do
-    case Map.get(state, "tokens/#{token_addr}/issuer") do
+    case MPTState.get(state, "tokens/#{token_addr}/issuer") do
       nil -> {:error, :unknown_issuer}
       ^address -> :ok
       _ -> {:error, :incorrect_issuer}
@@ -145,7 +166,7 @@ defmodule HonteD.ABCI.State do
   end
 
   defp sign_off_incremental?(state, height, sender) do
-    case Map.get(state, "sign_offs/#{sender}") do
+    case MPTState.get(state, "sign_offs/#{sender}") do
       nil -> :ok  # first sign off ever always correct
       %{height: old_height} when is_integer(old_height) and old_height < height -> :ok
       %{height: old_height} when is_integer(old_height) -> {:error, :sign_off_not_incremental}
@@ -156,7 +177,7 @@ defmodule HonteD.ABCI.State do
     # checks whether allower allows allowee for privilege
 
     # always self-allow and in case allower != allowee - check delegations in state
-    if allower == allowee or Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do
+    if allower == allowee or MPTState.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do
       :ok
     else
       {:error, :invalid_delegation}
@@ -166,69 +187,74 @@ defmodule HonteD.ABCI.State do
   defp apply_create_token(state, issuer, nonce) do
     token_addr = HonteD.Token.create_address(issuer, nonce)
     state
-    |> Map.put("tokens/#{token_addr}/issuer", issuer)
-    |> Map.put("tokens/#{token_addr}/total_supply", 0)
+    |> MPTState.set("tokens/#{token_addr}/issuer", issuer)
+    |> MPTState.set("tokens/#{token_addr}/total_supply", 0)
     # NOTE: check for duplicate entries or don't care?
-    |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
+    |> MPTState.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
 
   defp apply_change_asset(state, asset, amount, dest) do
     key_dest = "accounts/#{asset}/#{dest}"
     state
-    |> Map.update(key_dest, amount, &(&1 + amount))
-    |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
+    |> MPTState.update(key_dest, amount, &(&1 + amount))
+    |> MPTState.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
   end
 
   defp apply_send(state, amount, key_src, key_dest) do
     state
-    |> Map.update!(key_src, &(&1 - amount))
-    |> Map.update(key_dest, amount, &(&1 + amount))
+    |> MPTState.update(key_src, &(&1 - amount))
+    |> MPTState.update(key_dest, amount, &(&1 + amount))
   end
 
   defp apply_sign_off(state, height, hash, signoffer) do
     state
-    |> Map.put("sign_offs/#{signoffer}", %{height: height, hash: hash})
+    |> MPTState.set("sign_offs/#{signoffer}", %{height: height, hash: hash})
   end
 
   defp apply_allow(state, allower, allowee, privilege, allow) do
     state
-    |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
+    |> MPTState.set("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
   defp apply_epoch_change(state) do
     state
-    |> Map.put(@epoch_change_key, true)
-    |> Map.update!(@epoch_number_key, &(&1 + 1))
+    |> MPTState.set(@epoch_change_key, true)
+    |> MPTState.update(@epoch_number_key, &(&1 + 1))
   end
 
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)
-    state
-    |> Map.update("nonces/#{sender}", 1, &(&1 + 1))
+    key = "nonces/#{sender}"
+    current_nonce =
+      case MPTState.get(state, key) do
+        nil -> 0
+        value -> value
+      end
+    MPTState.set(state, key, current_nonce + 1)
   end
 
-  def hash(state) do
-    # NOTE: crudest of all app state hashes
-    state
-    |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
-    |> HonteD.Crypto.hash
-  end
+  def hash(state), do: state.root_hash
 
   defp scan_potential_issued(unfiltered_tokens, state, issuer) do
     unfiltered_tokens
-    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+    |> Enum.filter(fn token_addr -> MPTState.get(state, "tokens/#{token_addr}/issuer") == issuer end)
   end
 
   def epoch_change?(state) do
-    state[@epoch_change_key]
+    case MPTState.get(state, @epoch_change_key) do
+      nil -> false
+      value -> value
+    end
   end
 
-  def not_change_epoch(state) do
-    Map.put(state, @epoch_change_key, false)
-  end
+  def not_change_epoch(state), do: MPTState.set(state, @epoch_change_key, false)
 
-  def epoch_number(state) do
-    state[@epoch_number_key]
+  def epoch_number(state), do: MPTState.get(state, @epoch_number_key)
+
+  def copy_state(%Trie{db: {ProcessRegistryDB, db_name}, root_hash: root_hash},
+                 %Trie{db: {ProcessRegistryDB, copy_name}} = copy) do
+    :ok = ProcessRegistryDB.copy_db(db_name, copy_name)
+    %{copy | root_hash: root_hash}
   end
 
 end
