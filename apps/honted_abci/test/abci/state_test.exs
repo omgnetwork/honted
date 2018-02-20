@@ -31,7 +31,7 @@ defmodule HonteD.ABCI.StateTest do
 
       # no signature
       {:ok, tx} = create_create_token(nonce: 0, issuer: issuer.addr)
-      tx |> encode() |> check_tx(state) |> fail?(1, 'missing_signature') |> same?(state)
+      tx |> encode() |> deliver_tx(state) |> fail?(1, 'missing_signature') |> same?(state)
     end
 
     @tag fixtures: [:alice, :issuer, :empty_state]
@@ -49,13 +49,13 @@ defmodule HonteD.ABCI.StateTest do
 
       # malformed
       {<<99>>, 1, asset, 5, alice.addr, issuer.addr}
-      |> sign_malformed_tx(issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
       {TxCodec.tx_tag(Issue), 1, asset, 5, 4, alice.addr, issuer.addr}
-      |> sign_malformed_tx(issuer.priv) |> check_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
+      |> sign_malformed_tx(issuer.priv) |> deliver_tx(state) |> fail?(1, 'malformed_transaction') |> same?(state)
 
       # no signature
       {:ok, tx} = create_issue(nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr)
-      tx |> encode() |> check_tx(state) |> fail?(1, 'missing_signature') |> same?(state)
+      tx |> encode() |> deliver_tx(state) |> fail?(1, 'missing_signature') |> same?(state)
     end
 
     @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
