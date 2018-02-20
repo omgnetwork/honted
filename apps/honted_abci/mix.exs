@@ -11,9 +11,18 @@ defmodule HonteD.ABCI.Mixfile do
       lockfile: "../../mix.lock",
       elixir: "~> 1.5",
       start_permanent: Mix.env == :prod,
+      compilers: [:rustler] ++ Mix.compilers,
+      rustler_crates: rustler_crates(),
       deps: deps(),
       test_coverage: [tool: ExCoveralls],
     ]
+  end
+
+  defp rustler_crates do
+    [ethashcache: [
+      path: "native/ethashcache",
+      mode: (if Mix.env == :prod, do: :release, else: :debug),
+    ]]
   end
 
   # Run "mix help compile.app" to learn about applications.
@@ -36,6 +45,9 @@ defmodule HonteD.ABCI.Mixfile do
       {:ojson, "~> 1.0.0"},
       {:bimap, "~> 0.1.1"},
       {:poison, "~> 3.1"},
+      {:ex_rlp, "~> 0.2.1"},
+      {:keccakf1600, "~> 2.0.0", hex: :keccakf1600_orig},
+      {:rustler, "~> 0.10.1"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_eth, in_umbrella: true},
