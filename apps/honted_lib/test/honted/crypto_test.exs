@@ -1,40 +1,34 @@
 defmodule HonteD.CryptoTest do
   use ExUnit.Case, async: true
   @moduledoc """
-  Consider removing if brittle - testing implementation details
-
-  A sanity check of the crypto-placeholder implementation
+  A sanity and compatibility check of the crypto implementation.
   """
 
   alias HonteD.Crypto
 
-  test "library signature verify" do
-    priv = :crypto.strong_rand_bytes(32)
-    {:ok, pub} = ExthCrypto.Signature.get_public_key(priv)
-    msg = :crypto.strong_rand_bytes(32)
-    {signature, _r, _s, _recovery_id} =
-      ExthCrypto.Signature.sign_digest(msg, priv)
-    assert ExthCrypto.Signature.verify(msg, signature, pub)
+  @moduletag :crypto
+
+  test "sha3 library usage, address generation" do
+    # test vectors below were generated using pyethereum's sha3 and privtoaddr
+    priv = :keccakf1600.sha3_256(<<"11">>)
+    py_priv = "7880aec93413f117ef14bd4e6d130875ab2c7d7d55a064fac3c2f7bd51516380"
+    py_pub = "c4d178249d840f548b09ad8269e8a3165ce2c170"
+    assert {:ok, ^priv} = Base.decode16(py_priv, case: :lower)
+    {:ok, pub} = Crypto.generate_public_key(priv)
+    {:ok, address} = Crypto.generate_address(pub)
+    assert {:ok, ^address} = Base.decode16(py_pub, case: :lower)
   end
 
-  test "library signature recover" do
-    priv = :crypto.strong_rand_bytes(32)
-    {:ok, pub} = ExthCrypto.Signature.get_public_key(priv)
-    msg = :crypto.strong_rand_bytes(32)
-    {signature, _r, _s, recovery_id} =
-      ExthCrypto.Signature.sign_digest(msg, priv)
-    assert {:ok, ^pub} = ExthCrypto.Signature.recover(msg, signature, recovery_id)
-  end
-
-  test "digest signature" do
+  test "digest sign, recover" do
     {:ok, priv} = Crypto.generate_private_key
     {:ok, pub} = Crypto.generate_public_key(priv)
+    {:ok, address} = Crypto.generate_address(pub)
     msg = :crypto.strong_rand_bytes(32)
     sig = Crypto.signature_digest(msg, priv)
-    assert {:ok, ^pub} = Crypto.recover(msg, sig)
+    assert {:ok, ^address} = Crypto.recover(msg, sig)
   end
 
-  test "wrap unwrap sign verify" do
+  test "sign, verify" do
     {:ok, priv} = Crypto.generate_private_key
     {:ok, pub} = Crypto.generate_public_key(priv)
     {:ok, address} = Crypto.generate_address(pub)

@@ -53,10 +53,12 @@ defmodule HonteD.Crypto do
   @doc """
   Recovers address of signer from binary encoded signature - (r,s,v) tuple.
   """
-  @spec recover(binary, binary) :: binary
+  @spec recover(binary, binary) :: {:ok, binary}
   def recover(digest, packed_signature) when byte_size(digest) == 32 do
     <<sig :: binary-size(64), v :: unsigned-big-integer-unit(8)-size(1)>> = packed_signature
-    ExthCrypto.Signature.recover(digest, sig, v)
+    {:ok, der_pub} = ExthCrypto.Signature.recover(digest, sig, v)
+    pub = ExthCrypto.Key.der_to_raw(der_pub)
+    generate_address(pub)
   end
 
   @doc """
@@ -66,15 +68,20 @@ defmodule HonteD.Crypto do
   def generate_private_key, do: {:ok, :crypto.strong_rand_bytes(32)}
 
   @doc """
-  Given a private key, returns DER-encoded public key.
+  Given a private key, returns public key.
   """
-  def public_key(priv), do: ExthCrypto.Signature.get_public_key(priv)
+  @spec generate_public_key(binary) :: {:ok, binary}
+  def generate_public_key(priv) when byte_size(priv) == 32 do
+    {:ok, der_pub} = ExthCrypto.Signature.get_public_key(priv)
+    {:ok, ExthCrypto.Key.der_to_raw(der_pub)}
+  end
 
   @doc """
   Given public key, returns an address.
   """
-  def address(pub), do: pub
-
-  def generate_public_key(priv), do: public_key(priv)
-  def generate_address(pub), do: {:ok, address(pub)}
+  @spec generate_address(binary) :: {:ok, binary}
+  def generate_address(pub) when byte_size(pub) == 64 do
+    <<_ :: binary-size(12), address :: binary-size(20)>> = :keccakf1600.sha3_256(pub)
+    {:ok, address}
+  end
 end
