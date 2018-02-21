@@ -1,4 +1,4 @@
-defmodule HontedEth.Mixfile do
+defmodule HonteD.Eth.Mixfile do
   use Mix.Project
 
   def project do
