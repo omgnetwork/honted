@@ -110,6 +110,13 @@ defmodule HonteD.ABCI.StateTest do
       query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(9)
     end
 
+    @tag fixtures: []
+    test "can't unissue unqualified funds" do
+    end
+    @tag fixtures: []
+    test "can unissue tokens" do
+    end
+
     @tag fixtures: [:issuer, :alice, :empty_state]
     test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state} do
       %{state: state} =
