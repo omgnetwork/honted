@@ -110,11 +110,69 @@ defmodule HonteD.ABCI.StateTest do
       query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(9)
     end
 
-    @tag fixtures: []
-    test "can't unissue unqualified funds" do
+    @tag fixtures: [:issuer, :state_with_token, :asset]
+    test "can't unissue unqualified funds", %{issuer: issuer, state_with_token: state, asset: asset} do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 10, dest: issuer.addr, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      %{state: state} =
+        create_unissue(nonce: 2, asset: asset, amount: 20, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> fail?(1, 'insufficient_funds')
+
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(10)
+      query(state, '/tokens/#{asset}/total_supply') |> found?(10)
     end
-    @tag fixtures: []
-    test "can unissue tokens" do
+
+    @tag fixtures: [:issuer, :state_with_token, :asset]
+    test "can unissue tokens", %{issuer: issuer, state_with_token: state, asset: asset} do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 10, dest: issuer.addr, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      %{state: state} =
+        create_unissue(nonce: 2, asset: asset, amount: 5, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      query(state, '/tokens/#{asset}/total_supply') |> found?(5)
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(5)
+    end
+
+    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
+    test "only issuer can unissue tokens", %{
+      alice: alice,
+      issuer: issuer,
+      state_with_token: state,
+      asset: asset
+    } do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 10, dest: alice.addr, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      %{state: state} =
+        create_issue(nonce: 2, asset: asset, amount: 10, dest: issuer.addr, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      %{state: state} =
+        create_unissue(nonce: 1, asset: asset, amount: 5, issuer: issuer.addr)
+        |> encode_sign(alice.priv)
+        |> deliver_tx(state)
+        |> fail?(1, 'invalid_signature')
+
+      query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(10)
+      query(state, '/tokens/#{asset}/total_supply') |> found?(20)
     end
 
     @tag fixtures: [:issuer, :alice, :empty_state]

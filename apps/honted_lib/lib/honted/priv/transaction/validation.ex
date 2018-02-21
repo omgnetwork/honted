@@ -3,11 +3,15 @@ defmodule HonteD.Transaction.Validation do
   Private plumbing of the Transaction module wrt. transaction validation
   """
 
-  alias HonteD.Transaction.{CreateToken, Issue, Send, SignOff, Allow, EpochChange, SignedTx}
+  alias HonteD.Transaction.{CreateToken, Issue, Unissue, Send, SignOff, Allow, EpochChange, SignedTx}
 
   def valid?(%CreateToken{}), do: :ok
 
   def valid?(%Issue{amount: amount}) do
+    positive?(amount)
+  end
+
+  def valid?(%Unissue{amount: amount}) do
     positive?(amount)
   end
 
@@ -39,6 +43,7 @@ defmodule HonteD.Transaction.Validation do
 
   def sender(%CreateToken{issuer: sender}), do: sender
   def sender(%Issue{issuer: sender}), do: sender
+  def sender(%Unissue{issuer: sender}), do: sender
   def sender(%Send{from: sender}), do: sender
   def sender(%SignOff{sender: sender}), do: sender
   def sender(%Allow{allower: sender}), do: sender

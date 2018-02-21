@@ -30,6 +30,18 @@ defmodule HonteD.Transaction do
     }
   end
 
+  defmodule Unissue do
+    @moduledoc false
+    defstruct [:nonce, :asset, :amount, :issuer]
+
+    @type t :: %Unissue{
+            nonce: HonteD.nonce(),
+            asset: HonteD.token(),
+            amount: pos_integer,
+            issuer: HonteD.address()
+          }
+  end
+
   defmodule Send do
     @moduledoc false
     defstruct [:nonce, :asset, :amount, :from, :to]
@@ -125,6 +137,22 @@ defmodule HonteD.Transaction do
        is_binary(dest) do
     create(Issue, args)
   end
+
+  @doc """
+  Creates a Unissue transaction, ensures state-less validity and encodes
+  """
+  @spec create_unissue(
+          nonce: HonteD.nonce(),
+          asset: HonteD.token(),
+          amount: pos_integer,
+          issuer: HonteD.address()
+        ) :: {:ok, Unissue.t()} | {:error, atom}
+  def create_unissue([nonce: nonce, asset: asset, amount: amount, issuer: issuer] = args)
+      when is_integer(nonce) and is_binary(asset) and is_integer(amount) and amount > 0 and
+             is_binary(issuer) do
+    create(Unissue, args)
+  end
+
 
   @doc """
   Creates a Send transaction, ensures state-less validity and encodes

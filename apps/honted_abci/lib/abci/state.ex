@@ -50,6 +50,19 @@ defmodule HonteD.ABCI.State do
                    |> bump_nonce_after(tx)}
   end
 
+  def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Unissue{} = tx}) do
+    key_src = "accounts/#{tx.asset}/#{tx.issuer}"
+
+    with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
+         :ok <- is_issuer?(state, tx.asset, tx.issuer),
+         :ok <- account_has_at_least?(state, key_src, tx.amount),
+         do:
+           {:ok,
+            state
+            |> apply_unissue(tx.asset, tx.amount, tx.issuer)
+            |> bump_nonce_after(tx)}
+  end
+
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx}) do
     key_src = "accounts/#{tx.asset}/#{tx.from}"
     key_dest = "accounts/#{tx.asset}/#{tx.to}"
@@ -164,6 +177,14 @@ defmodule HonteD.ABCI.State do
     state
     |> Map.update(key_dest, amount, &(&1 + amount))
     |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
+  end
+
+  defp apply_unissue(state, asset, amount, from) do
+    key_from = "accounts/#{asset}/#{from}"
+
+    state
+    |> Map.update(key_from, amount, &(&1 - amount))
+    |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 - amount))
   end
 
   defp apply_send(state, amount, key_src, key_dest) do
