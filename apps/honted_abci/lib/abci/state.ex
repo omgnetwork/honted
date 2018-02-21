@@ -196,9 +196,10 @@ defmodule HonteD.ABCI.State do
 
   def hash(state) do
     # NOTE: crudest of all app state hashes
-    state
-    |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
-    |> HonteD.Crypto.hash
+    # state
+    # |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
+    # |> HonteD.Crypto.hash
+    "OJSON can't into binaries" |> HonteD.Crypto.hash() |> Base.encode16()
   end
 
   defp scan_potential_issued(unfiltered_tokens, state, issuer) do

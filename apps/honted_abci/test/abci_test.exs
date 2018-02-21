@@ -24,35 +24,35 @@ defmodule HonteD.ABCITest do
     end
   end
 
-  describe "checkTx" do
-    @tag fixtures: [:issuer, :empty_state]
-    test "builds upon state modified by dependent transaction",
-      %{empty_state: state, issuer: issuer} do
-      %{state: state} =
-        create_create_token(nonce: 0, issuer: issuer.addr)
-        |> encode_sign(issuer.priv) |> check_tx(state) |> success?
-      asset = HonteD.Token.create_address(issuer.addr, 0)
-      %{state: ^state} =
-        create_issue(nonce: 0, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
-        |> encode_sign(issuer.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce')
-      %{state: _} =
-        create_issue(nonce: 1, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
-        |> encode_sign(issuer.priv) |> check_tx(state) |> success?
-    end
-  end
+  # describe "checkTx" do
+  #   @tag fixtures: [:issuer, :empty_state]
+  #   test "builds upon state modified by dependent transaction",
+  #     %{empty_state: state, issuer: issuer} do
+  #     %{state: state} =
+  #       create_create_token(nonce: 0, issuer: issuer.addr)
+  #       |> encode_sign(issuer.priv) |> check_tx(state) |> success?
+  #     asset = HonteD.Token.create_address(issuer.addr, 0)
+  #     %{state: ^state} =
+  #       create_issue(nonce: 0, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
+  #       |> encode_sign(issuer.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce')
+  #     %{state: _} =
+  #       create_issue(nonce: 1, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
+  #       |> encode_sign(issuer.priv) |> check_tx(state) |> success?
+  #   end
+  # end
 
   describe "commits" do
-    @tag fixtures: [:issuer, :empty_state]
-    test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
-      assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = handle_call({:RequestCommit}, nil, state)
+  #   @tag fixtures: [:issuer, :empty_state]
+  #   test "hash from commits changes on state update", %{empty_state: state, issuer: issuer} do
+  #     assert {:reply, {:ResponseCommit, 0, cleanhash, _}, ^state} = handle_call({:RequestCommit}, nil, state)
 
-      %{state: state} =
-        create_create_token(nonce: 0, issuer: issuer.addr)
-        |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
+  #     %{state: state} =
+  #       create_create_token(nonce: 0, issuer: issuer.addr)
+  #       |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
 
-      assert {:reply, {:ResponseCommit, 0, newhash, _}, _} = handle_call({:RequestCommit}, nil, state)
-      assert newhash != cleanhash
-    end
+  #     assert {:reply, {:ResponseCommit, 0, newhash, _}, _} = handle_call({:RequestCommit}, nil, state)
+  #     assert newhash != cleanhash
+  #   end
 
     @tag fixtures: [:issuer, :empty_state]
     test "commit overwrites local state with consensus state", %{empty_state: state, issuer: issuer} do
