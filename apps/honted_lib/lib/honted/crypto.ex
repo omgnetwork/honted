@@ -39,6 +39,14 @@ defmodule HonteD.Crypto do
     # total 65
   end
 
+  def pack(v, r, s) do
+    <<r :: integer-size(256), s :: integer-size(256), v :: integer-size(8)>>
+  end
+
+  def unpack(<<r :: integer-size(256), s :: integer-size(256), v :: integer-size(8)>>) do
+    {v, r, s}
+  end
+
   @doc """
   Verifies if private key corresponding to `address` was used to produce `signature` for
   this `msg` binary.

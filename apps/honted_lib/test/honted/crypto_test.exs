@@ -19,6 +19,17 @@ defmodule HonteD.CryptoTest do
     assert {:ok, ^address} = Base.decode16(py_pub, case: :lower)
   end
 
+  test "signature compatibility" do
+    msg = :keccakf1600.sha3_256("1234")
+    priv = :keccakf1600.sha3_256("11")
+    {:ok, pub} = Crypto.generate_public_key(priv)
+    {:ok, address} = Crypto.generate_address(pub)
+    # this test vector was generated using plasma.utils.utils.sign/2 from plasma-mvp
+    py_signature = "b8670d619701733e1b4d10149bc90eb4eb276760d2f77a08a5428d4cbf2eadbd656f374c187b1ac80ce31d8c62076af26150e52ef1f33bfc07c6d244da7ca38c1c"
+    sig = Crypto.signature_digest(msg, priv)
+    assert ^sig = Base.decode16!(py_signature, case: :lower)
+  end
+
   test "digest sign, recover" do
     {:ok, priv} = Crypto.generate_private_key
     {:ok, pub} = Crypto.generate_public_key(priv)
