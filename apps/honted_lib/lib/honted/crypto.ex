@@ -56,7 +56,7 @@ defmodule HonteD.Crypto do
   @spec recover(binary, binary) :: {:ok, binary}
   def recover(digest, packed_signature) when byte_size(digest) == 32 do
     <<sig :: binary-size(64), v :: unsigned-big-integer-unit(8)-size(1)>> = packed_signature
-    {:ok, der_pub} = ExthCrypto.Signature.recover(digest, sig, v)
+    {:ok, der_pub} = ExthCrypto.Signature.recover(digest, sig, v-27)
     pub = ExthCrypto.Key.der_to_raw(der_pub)
     generate_address(pub)
   end
