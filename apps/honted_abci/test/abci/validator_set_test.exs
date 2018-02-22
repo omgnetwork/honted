@@ -71,6 +71,15 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       state
     end
 
+    deffixture first_epoch_state(first_epoch_change_state, alice) do
+      %{state: state} =
+        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
+        |> encode_sign(alice.priv) |> deliver_tx(first_epoch_change_state) |> success?
+      {:reply, response_end_block(), state} =
+        handle_call(request_end_block(), nil, state)
+      state
+    end
+
     @tag fixtures: [:empty_state]
     test "does not update validators and state when epoch has not changed", %{empty_state: state} do
       {:reply, response_end_block(validator_updates: diffs), ^state} =
@@ -93,24 +102,17 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       assert state.consensus_state != new_state.consensus_state
     end
 
-    @tag fixtures: [:first_epoch_change_state, :validators_diffs_2, :alice]
+    @tag fixtures: [:first_epoch_state, :validators_diffs_2, :alice]
     test "updates set of validators when epoch changes",
-    %{first_epoch_change_state: state, validators_diffs_2: expected_diffs, alice: alice} do
-
-      # finalize prior (first) epoch change
-      %{state: state} =
-        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> encode_sign(alice.priv) |> deliver_tx(state)
-      {:reply, _, first_epoch_state} =
-        handle_call(request_end_block(), nil, state)
+    %{first_epoch_state: first_epoch_state, validators_diffs_2: expected_diffs, alice: alice} do
 
       # continue to second epoch and test
-      %{state: first_epoch_state} =
+      %{state: state} =
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
         |> encode_sign(alice.priv) |> deliver_tx(first_epoch_state)
 
       {:reply, response_end_block(validator_updates: actual_diffs), second_epoch_state} =
-        handle_call(request_end_block(), nil, first_epoch_state)
+        handle_call(request_end_block(), nil, state)
 
       assert_same_elements(actual_diffs, expected_diffs)
       assert second_epoch_state.local_state == first_epoch_state.local_state
@@ -154,16 +156,9 @@ defmodule HonteD.ABCI.ValidatorSetTest do
         handle_call(request_end_block(), nil, state_without_evidence)
     end
 
-    @tag fixtures: [:first_epoch_change_state, :epoch_1_validators, :alice]
+    @tag fixtures: [:first_epoch_state, :epoch_1_validators, :alice]
     test "ordinary validators are removed during soft-slashing on evidence",
-    %{first_epoch_change_state: state, epoch_1_validators: validators, alice: alice} do
-      # finalize prior (first) epoch change
-      # FIXME: dry this finalization - a state of being in epoch 1
-      %{state: state} =
-        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> encode_sign(alice.priv) |> deliver_tx(state)
-      {:reply, _, state} =
-        handle_call(request_end_block(), nil, state)
+    %{first_epoch_state: state, epoch_1_validators: validators} do
 
       # slash em
       [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
@@ -178,17 +173,10 @@ defmodule HonteD.ABCI.ValidatorSetTest do
         handle_call(request_end_block(), nil, state_after_evidence)
     end
 
-    @tag fixtures: [:first_epoch_change_state, :epoch_1_validators, :validators_diffs_2, :alice]
+    @tag fixtures: [:first_epoch_state, :epoch_1_validators, :validators_diffs_2, :alice]
     test "epoch change overrides removing soft-slashd validators",
-    %{first_epoch_change_state: state, epoch_1_validators: validators,
+    %{first_epoch_state: state, epoch_1_validators: validators,
       validators_diffs_2: expected_diffs, alice: alice} do
-
-      # finalize prior (first) epoch change
-      %{state: state} =
-        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> encode_sign(alice.priv) |> deliver_tx(state)
-      {:reply, _, state} =
-        handle_call(request_end_block(), nil, state)
 
       # file evidence against a validator
       [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
@@ -211,17 +199,10 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       assert_same_elements(actual_diffs, expected_diffs)
     end
 
-    @tag fixtures: [:first_epoch_change_state, :epoch_1_validators, :validators_diffs_2, :alice]
+    @tag fixtures: [:first_epoch_state, :epoch_1_validators, :validators_diffs_2, :alice]
     test "epoch change resets prior removing soft-slashd validators",
-    %{first_epoch_change_state: state, epoch_1_validators: validators,
+    %{first_epoch_state: state, epoch_1_validators: validators,
       validators_diffs_2: expected_diffs, alice: alice} do
-
-      # finalize prior (first) epoch change
-      %{state: state} =
-        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> encode_sign(alice.priv) |> deliver_tx(state)
-      {:reply, _, state} =
-        handle_call(request_end_block(), nil, state)
 
       # file evidence against a validator AND FINALIZE IT (with sanity check)
       [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
@@ -246,19 +227,12 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       assert_same_elements(actual_diffs, expected_diffs)
     end
 
-    @tag fixtures: [:first_epoch_change_state, :epoch_1_validators, :alice]
+    @tag fixtures: [:first_epoch_state, :epoch_1_validators, :alice]
     test "removing removed validators doesn't break",
-    %{first_epoch_change_state: state, epoch_1_validators: validators, alice: alice} do
+    %{first_epoch_state: state, epoch_1_validators: validators, alice: alice} do
       # need to test this, evidence may arrive after a validator has become obsolete (epoch change)
       # this will happen e.g. when we only slash a not-yet-unlocked fee pot in the unbonding period
       # NOTE: we're assuming that removing absent validators is valid ABCI behavior
-
-      # finalize prior (first) epoch change
-      %{state: state} =
-        create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> encode_sign(alice.priv) |> deliver_tx(state)
-      {:reply, _, state} =
-        handle_call(request_end_block(), nil, state)
 
       # validator who misbehaves later, let's pick the second one
       [_validator1, %HonteD.Validator{tendermint_address: pub_key} | _] = validators
