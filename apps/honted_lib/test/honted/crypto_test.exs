@@ -36,7 +36,7 @@ defmodule HonteD.CryptoTest do
     {:ok, address} = Crypto.generate_address(pub)
     msg = :crypto.strong_rand_bytes(32)
     sig = Crypto.signature_digest(msg, priv)
-    assert {:ok, ^address} = Crypto.recover(msg, sig)
+    assert {:ok, ^address} = Crypto.recover_address(msg, sig)
   end
 
   test "sign, verify" do

@@ -5,6 +5,8 @@ defmodule HonteD.Crypto do
 
   """
 
+  @dialyzer {:nowarn_function, generate_public_key: 1}
+
   @doc """
   Produces a cryptographic digest of a message.
 
@@ -16,8 +18,9 @@ defmodule HonteD.Crypto do
   defp erlang_hash(message), do: :crypto.hash(:sha256, message)
 
   @doc """
-  Produce a stand-alone signature for message of arbitrary length. (r,s,v) tuple, 65 bytes long.
+  Produce a stand-alone, 65 bytes long, signature for message of arbitrary length.
   """
+  @spec signature(binary, <<_::256>>) :: <<_::520>>
   def signature(msg, priv) do
     msg
     |> hash()
@@ -25,26 +28,12 @@ defmodule HonteD.Crypto do
   end
 
   @doc """
-  Produces a stand-alone signature for message hash. (r,s,v) tuple, 65 bytes long.
+  Produces a stand-alone, 65 bytes long, signature for message hash.
   """
+  @spec signature_digest(<<_::256>>, <<_::256>>) :: <<_::520>>
   def signature_digest(digest, priv) when is_binary(digest) and byte_size(digest) == 32 do
-    # note that here signature === <<r::integer-size(256), s::integer-size(256)>>
-    {signature, _r, _s, v} = ExthCrypto.Signature.sign_digest(digest, priv)
-    v = v + 27 # (why 27? see: https://github.com/ethereum/eips/issues/155#issuecomment-253952071)
-    <<signature :: binary-size(64), v :: unsigned-big-integer-unit(8)-size(1)>>
-    # [r,s,v] <- order of encoding
-    # r == signature.r, left-padded with zeroes to 32 bytes
-    # s == signature.s, left-padded with zeroes to 32 bytes
-    # v == recoveryParam; recoveryParam == 28 or 27; one byte
-    # total 65
-  end
-
-  def pack(v, r, s) do
-    <<r :: integer-size(256), s :: integer-size(256), v :: integer-size(8)>>
-  end
-
-  def unpack(<<r :: integer-size(256), s :: integer-size(256), v :: integer-size(8)>>) do
-    {v, r, s}
+    {v, r, s} = Blockchain.Transaction.Signature.sign_hash(digest, priv)
+    pack_signature(v, r, s)
   end
 
   @doc """
@@ -54,19 +43,26 @@ defmodule HonteD.Crypto do
   @spec verify(binary, binary, binary) :: {:ok, boolean}
   def verify(msg, signature, address) do
     {:ok, recovered_address} =
-      msg |> hash()|> recover(signature)
+      msg |> hash()|> recover_address(signature)
     {:ok, address == recovered_address}
   end
 
   @doc """
-  Recovers address of signer from binary encoded signature - (r,s,v) tuple.
+  Recovers address of signer from binary-encoded signature.
   """
-  @spec recover(binary, binary) :: {:ok, binary}
-  def recover(digest, packed_signature) when byte_size(digest) == 32 do
-    <<sig :: binary-size(64), v :: unsigned-big-integer-unit(8)-size(1)>> = packed_signature
-    {:ok, der_pub} = ExthCrypto.Signature.recover(digest, sig, v-27)
-    pub = ExthCrypto.Key.der_to_raw(der_pub)
+  @spec recover_address(<<_::256>>, <<_::520>>) :: {:ok, <<_::160>>}
+  def recover_address(<<digest :: binary-size(32)>>, <<packed_signature :: binary-size(65)>>) do
+    {:ok, pub} = recover_public(digest, packed_signature)
     generate_address(pub)
+  end
+
+  @doc """
+  Recovers public key of signer from binary-encoded signature.
+  """
+  @spec recover_public(<<_::256>>, <<_::520>>) :: {:ok, <<_::512>>}
+  def recover_public(<<digest :: binary-size(32)>>, <<packed_signature :: binary-size(65)>>) do
+    {v, r, s} = unpack_signature(packed_signature)
+    Blockchain.Transaction.Signature.recover_public(digest, v, r, s)
   end
 
   @doc """
@@ -78,18 +74,33 @@ defmodule HonteD.Crypto do
   @doc """
   Given a private key, returns public key.
   """
-  @spec generate_public_key(binary) :: {:ok, binary}
-  def generate_public_key(priv) when byte_size(priv) == 32 do
-    {:ok, der_pub} = ExthCrypto.Signature.get_public_key(priv)
-    {:ok, ExthCrypto.Key.der_to_raw(der_pub)}
+  @spec generate_public_key(<<_::256>>) :: {:ok, <<_::512>>}
+  def generate_public_key(<<priv :: binary-size(32)>>) do
+    {:ok, der_pub} = Blockchain.Transaction.Signature.get_public_key(priv)
+    {:ok, der_to_raw(der_pub)}
   end
 
   @doc """
   Given public key, returns an address.
   """
-  @spec generate_address(binary) :: {:ok, binary}
-  def generate_address(pub) when byte_size(pub) == 64 do
+  @spec generate_address(<<_::512>>) :: {:ok, <<_::160>>}
+  def generate_address(<<pub :: binary-size(64)>>) do
     <<_ :: binary-size(12), address :: binary-size(20)>> = :keccakf1600.sha3_256(pub)
     {:ok, address}
   end
+
+  # private
+
+  defp der_to_raw(<<4 :: integer-size(8), data :: binary>>), do: data
+
+  # Pack a {v,r,s} signature as 65-bytes binary.
+  defp pack_signature(v, r, s) do
+    <<r :: integer-size(256), s :: integer-size(256), v :: integer-size(8)>>
+  end
+
+  # Unpack 65-bytes binary signature into {v,r,s} tuple.
+  defp unpack_signature(<<r :: integer-size(256), s :: integer-size(256), v :: integer-size(8)>>) do
+    {v, r, s}
+  end
+
 end

@@ -25,6 +25,7 @@ defmodule HonteD.Mixfile do
   defp deps do
     [
       {:ex_rlp, "~> 0.2.1"},
+      {:blockchain, "~> 0.1.6"},
     ]
   end
 end

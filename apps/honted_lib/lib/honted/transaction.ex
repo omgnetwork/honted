@@ -225,7 +225,7 @@ defmodule HonteD.Transaction do
   @doc """
   Signs transaction, returns wire-encoded, hex-wrapped signed transaction.
   """
-  @spec sign(binary, binary) :: binary
+  @spec sign(binary, <<_::256>>) :: binary
   def sign(tx, priv) when is_binary(tx) do
     wire_encoded = Base.decode16!(tx)
     {:ok, decoded} = HonteD.TxCodec.decode(wire_encoded)
