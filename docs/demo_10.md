@@ -8,6 +8,8 @@
 # v PREPARATIONS v
 
 alias HonteD.{Crypto, API, Transaction}
+require HonteD.ABCI.Records
+alias HonteD.ABCI.Records
 
 {:ok, alice_priv} = Crypto.generate_private_key; {:ok, alice_pub} = Crypto.generate_public_key alice_priv; {:ok, alice} = Crypto.generate_address alice_pub
 {:ok, bob_priv} = Crypto.generate_private_key; {:ok, bob_pub} = Crypto.generate_public_key bob_priv; {:ok, bob} = Crypto.generate_address bob_pub
@@ -43,15 +45,35 @@ API.submit_commit(signed_tx)
 
 # Part IV Soft-slashing (removing from validator set)
 
-# no public API to double-sign, we need to hack around
-
 # get our validator's pub_key
+# cat ~/.tendermint/priv_validator.json
 pub_key =
 
-# add following code to `abci.ex`
-# TODO (Piotr)
+# no public API to double-sign, we need to hack around
+encoded_pub_key = <<1>> <> Base.decode16!(pub_key)
+byzantine_validator = Records.evidence(pub_key: encoded_pub_key)
+
+# add following code to `abci.ex` and comment usual `handle_call(request_begin_block)` out
+        # FIXME: temporary code!!!
+        def handle_call(request_begin_block(header: header(height: height)),
+                        _from,
+                        %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
+
+          HonteD.ABCI.Events.notify(consensus_state, %HonteD.API.Events.NewBlock{height: height})
+          {:reply, response_begin_block(), abci_app}
+        end
+
+        def handle_call({:double_sign, [evidence()] = byzantine_validators},
+                        _from,
+                        %HonteD.ABCI{byzantine_validators_cache: nil} = abci_app) do
+          # push the new evidence to cache
+          abci_app = %HonteD.ABCI{abci_app | byzantine_validators_cache: byzantine_validators}
+          {:reply, {:yeeeeehaaaa_double_signed}, abci_app}
+        end
+        # FIXME: end temporary code!!!
 
 recompile()
-Genserver.call(HonteD.ABCI, {:double_sign, pub_key})
-
+GenServer.call(HonteD.ABCI, {:double_sign, [byzantine_validator]})
 # see that consensus has stopped, because we slashed the only operator
+# NOTE: it crashes actually (bug?), probably because we're removing the only validator, but
+#       we can see in the logs that the validator was removed
