@@ -48,7 +48,7 @@ Do `tendermint unsafe_reset_all && tendermint init` every time you want to clean
  - everything: `mix test --no-start --include integration --include slow`
  - Dialyzer: `mix dialyzer`. First run will build the PLT, so may take several minutes
  - style & linting: `mix credo`. (`--strict` is switched on by default)
- - coverage: `mix coveralls.html --umbrella --no-start --include integration`
+ - coverage: `mix coveralls.html --umbrella --no-start --include integration slow`
 
 ### Integration tests
 

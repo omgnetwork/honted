@@ -30,14 +30,14 @@ defmodule HonteD.ABCITest do
       %{empty_state: state, issuer: issuer} do
       %{state: state} =
         create_create_token(nonce: 0, issuer: issuer.addr)
-        |> sign(issuer.priv) |> check_tx(state) |> success?
+        |> encode_sign(issuer.priv) |> check_tx(state) |> success?
       asset = HonteD.Token.create_address(issuer.addr, 0)
       %{state: ^state} =
         create_issue(nonce: 0, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
-        |> sign(issuer.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce')
+        |> encode_sign(issuer.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce')
       %{state: _} =
         create_issue(nonce: 1, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
-        |> sign(issuer.priv) |> check_tx(state) |> success?
+        |> encode_sign(issuer.priv) |> check_tx(state) |> success?
     end
   end
 
@@ -48,7 +48,7 @@ defmodule HonteD.ABCITest do
 
       %{state: state} =
         create_create_token(nonce: 0, issuer: issuer.addr)
-        |> sign(issuer.priv) |> deliver_tx(state) |> success?
+        |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
 
       assert {:reply, {:ResponseCommit, 0, newhash, _}, _} = handle_call({:RequestCommit}, nil, state)
       assert newhash != cleanhash
@@ -58,7 +58,7 @@ defmodule HonteD.ABCITest do
     test "commit overwrites local state with consensus state", %{empty_state: state, issuer: issuer} do
       %{state: updated_state} =
         create_create_token(nonce: 0, issuer: issuer.addr)
-        |> sign(issuer.priv) |> check_tx(state) |> success?
+        |> encode_sign(issuer.priv) |> check_tx(state) |> success?
       assert updated_state != state
 
       # No deliverTx transactions were applied since last commit;
@@ -72,7 +72,9 @@ defmodule HonteD.ABCITest do
   describe "generic transaction checks" do
     @tag fixtures: [:empty_state]
     test "too large transactions throw", %{empty_state: state} do
-      String.duplicate("a", 512)
+      String.duplicate("a", 1024)
+      |> ExRLP.encode()
+      |> Base.encode16()
       |> deliver_tx(state) |> fail?(1, 'transaction_too_large') |> same?(state)
     end
   end
@@ -155,7 +157,7 @@ defmodule HonteD.ABCITest do
 
       %{state: state} =
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, response_end_block(validator_updates: actual_diffs), new_state} =
         handle_call(request_end_block(), nil, state)
 
@@ -171,14 +173,14 @@ defmodule HonteD.ABCITest do
       # finalize prior (first) epoch change
       %{state: state} =
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, _, first_epoch_state} =
         handle_call(request_end_block(), nil, state)
 
       # continue to second epoch and test
       %{state: first_epoch_state} =
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
-        |> sign(alice.priv) |> deliver_tx(first_epoch_state)
+        |> encode_sign(alice.priv) |> deliver_tx(first_epoch_state)
 
       {:reply, response_end_block(validator_updates: actual_diffs), second_epoch_state} =
         handle_call(request_end_block(), nil, first_epoch_state)
@@ -232,7 +234,7 @@ defmodule HonteD.ABCITest do
       # FIXME: dry this finalization - a state of being in epoch 1
       %{state: state} =
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, _, state} =
         handle_call(request_end_block(), nil, state)
 
@@ -257,7 +259,7 @@ defmodule HonteD.ABCITest do
       # finalize prior (first) epoch change
       %{state: state} =
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, _, state} =
         handle_call(request_end_block(), nil, state)
 
@@ -273,7 +275,7 @@ defmodule HonteD.ABCITest do
       # at the same time epoch change happening
       %{state: state} =
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
 
       # the soft slashing didn't affect expected diffs arising from epoch change
       {:reply, response_end_block(validator_updates: actual_diffs), _} =
@@ -290,7 +292,7 @@ defmodule HonteD.ABCITest do
       # finalize prior (first) epoch change
       %{state: state} =
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, _, state} =
         handle_call(request_end_block(), nil, state)
 
@@ -309,7 +311,7 @@ defmodule HonteD.ABCITest do
       # later on epoch change happening, slashed validator should pop back in the set
       %{state: state} =
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
 
       {:reply, response_end_block(validator_updates: actual_diffs), _} =
         handle_call(request_end_block(), nil, state)
@@ -327,7 +329,7 @@ defmodule HonteD.ABCITest do
       # finalize prior (first) epoch change
       %{state: state} =
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, _, state} =
         handle_call(request_end_block(), nil, state)
 
@@ -338,7 +340,7 @@ defmodule HonteD.ABCITest do
       # finalize second epoch change, this removes one of the validators, who will misbehave later
       %{state: state} =
         create_epoch_change(nonce: 1, sender: alice.addr, epoch_number: 2)
-        |> sign(alice.priv) |> deliver_tx(state)
+        |> encode_sign(alice.priv) |> deliver_tx(state)
       {:reply, response_end_block(validator_updates: actual_diffs), state} =
         handle_call(request_end_block(), nil, state)
 

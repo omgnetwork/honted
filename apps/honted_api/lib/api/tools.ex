@@ -38,6 +38,11 @@ defmodule HonteD.API.Tools do
     |> Map.put(:status, get_tx_status(tx_info, client))
   end
 
+  def encode_tx(tx_info) do
+    tx_info
+    |> Map.update!("tx", &(Base.encode16(&1)))
+  end
+
   defp get_tx_status(tx_info, client) do
     with :committed <- get_tx_tendermint_status(tx_info),
          do: tx_info["tx"]

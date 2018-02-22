@@ -33,3 +33,9 @@ populus/build/
 callgrind.out.*
 
 /apps/honted_eth/local_staking_config.exs
+
+*.log
+
+#Rust target
+/apps/honted_abci/native/ethashcache/target/
+*.so

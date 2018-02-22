@@ -140,8 +140,10 @@ defmodule HonteD.Integration.Performance.Scenario do
   end
 
   defp signed_tx(tx, acc) do
-    {:ok, signature} = sign(tx, acc.priv)
-    tx <> " " <> signature
+    tx
+    |> HonteD.TxCodec.encode()
+    |> Base.encode16()
+    |> sign(acc.priv)
   end
 
 end

@@ -57,7 +57,7 @@ defmodule HonteD.ABCI.EventsTest do
         end
       )
 
-      params |> create_create_token |> sign(issuer.priv) |> deliver_tx(state)
+      params |> create_create_token |> encode_sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
 
@@ -71,7 +71,7 @@ defmodule HonteD.ABCI.EventsTest do
         end
       )
 
-      params |> create_issue |> sign(issuer.priv) |> deliver_tx(state)
+      params |> create_issue |> encode_sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
 
@@ -85,7 +85,7 @@ defmodule HonteD.ABCI.EventsTest do
         end
       )
 
-      params |> create_send |> sign(alice.priv) |> deliver_tx(state)
+      params |> create_send |> encode_sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
     end
 
@@ -95,7 +95,7 @@ defmodule HonteD.ABCI.EventsTest do
                                                            asset: asset} do
       setup_params = [nonce: 1, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true]
       %{state: state} =
-        setup_params |> create_allow |> sign(issuer.priv) |> deliver_tx(state)
+        setup_params |> create_allow |> encode_sign(issuer.priv) |> deliver_tx(state)
 
       params = [nonce: 0, height: 1, hash: hash, sender: alice.addr, signoffer: issuer.addr]
       server_pid = server_spawner.(
@@ -104,7 +104,7 @@ defmodule HonteD.ABCI.EventsTest do
         end
       )
 
-      params |> create_sign_off |> sign(alice.priv) |> deliver_tx(state)
+      params |> create_sign_off |> encode_sign(alice.priv) |> deliver_tx(state)
       join(server_pid)
     end
 
@@ -118,7 +118,7 @@ defmodule HonteD.ABCI.EventsTest do
         end
       )
 
-      params |> create_allow |> sign(issuer.priv) |> deliver_tx(state)
+      params |> create_allow |> encode_sign(issuer.priv) |> deliver_tx(state)
       join(server_pid)
     end
 
@@ -128,7 +128,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
 
-      params |> create_sign_off |> sign(issuer.priv) |> check_tx(state)
+      params |> create_sign_off |> encode_sign(issuer.priv) |> check_tx(state)
       join(server_pid)
     end
 
@@ -138,7 +138,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 1, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
 
-      params |> create_sign_off |> sign(issuer.priv) |> deliver_tx(state)
+      params |> create_sign_off |> encode_sign(issuer.priv) |> deliver_tx(state)
 
       join(server_pid)
     end
@@ -150,7 +150,7 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, height: 1, hash: hash, sender: issuer.addr]
       server_pid = server_spawner.(:expected_silence)
 
-      params |> create_sign_off |> sign(alice.priv) |> deliver_tx(state)
+      params |> create_sign_off |> encode_sign(alice.priv) |> deliver_tx(state)
 
       join(server_pid)
     end
