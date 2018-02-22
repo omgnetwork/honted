@@ -10,9 +10,8 @@ defmodule HonteD.ABCI do
   import HonteD.ABCI.Records
 
   alias HonteD.Staking
-  alias HonteD.ABCI.State
+  alias HonteD.ABCI.{State, ValidatorSet}
   alias HonteD.Transaction
-  alias HonteD.Validator
 
   @doc """
   Tracks state which is controlled by consensus and also tracks local (mempool related, transient) state.
@@ -54,19 +53,12 @@ defmodule HonteD.ABCI do
     abci_app = %HonteD.ABCI{abci_app | byzantine_validators_cache: nil}
 
     diffs = case epoch_changes_validators?(consensus_state, staking_state, initial_validators) do
-      {false, []} -> validators_slashes(byzantine_validators)
-      {true, diffs_from_epoch_change} -> diffs_from_epoch_change # disregard evidence
+      {false, []} -> ValidatorSet.diff_from_slash(byzantine_validators)
+      {true, diff_from_epoch_change} -> diff_from_epoch_change # disregard evidence
     end
 
     consensus_state = move_to_next_epoch_if_epoch_changed(consensus_state)
     {:reply, response_end_block(validator_updates: diffs), %{abci_app | consensus_state: consensus_state}}
-  end
-
-  # FIXME: move this elsewhere, possibly HonteD.ABCI.Validators
-  defp validators_slashes(nil), do: [] # in the absence of evidence, don't slash anyone
-  defp validators_slashes(byzantine_validators) do
-    byzantine_validators
-    |> Enum.map(fn evidence(pub_key: pub_key) -> validator(pub_key: pub_key, power: 0) end)
   end
 
   def handle_call(request_begin_block(header: header(height: height), byzantine_validators: byzantine_validators),
@@ -165,9 +157,8 @@ defmodule HonteD.ABCI do
 
   def handle_call(request_init_chain(validators: validators), _from, %HonteD.ABCI{} = abci_app) do
     initial_validators =
-      for validator(power: power, pub_key: pub_key) <- validators do
-        %Validator{stake: power, tendermint_address: encode_pub_key(pub_key)}
-      end
+      validators
+      |> Enum.map(&ValidatorSet.abci2staking_validator/1)
 
     state = %{abci_app | initial_validators: initial_validators}
     {:reply, response_init_chain(), state}
@@ -196,43 +187,14 @@ defmodule HonteD.ABCI do
         current_epoch_validators = staking_state.validators[current_epoch]
         next_epoch_validators = staking_state.validators[next_epoch]
 
-        {true, validators_diff(current_epoch_validators, next_epoch_validators)}
+        {true, ValidatorSet.diff_from_epoch(current_epoch_validators, next_epoch_validators)}
       epoch_change ->
         next_epoch_validators = staking_state.validators[next_epoch]
-        {true, validators_diff(initial_validators, next_epoch_validators)}
+        {true, ValidatorSet.diff_from_epoch(initial_validators, next_epoch_validators)}
       true ->
         {false, []}
     end
   end
-
-  defp validators_diff(current_epoch_validators, next_epoch_validators) do
-    removed_validators = removed_validators(current_epoch_validators, next_epoch_validators)
-    next_validators = next_validators(next_epoch_validators)
-
-    (removed_validators ++ next_validators)
-  end
-
-  defp removed_validators(current_epoch_validators, next_epoch_validators) do
-    removed_validators =
-      tendermint_addresses(current_epoch_validators) -- tendermint_addresses(next_epoch_validators)
-    Enum.map(removed_validators,
-             fn tm_addr -> validator(pub_key: decode_pub_key(tm_addr), power: 0) end)
-  end
-
-  defp tendermint_addresses(validators), do: Enum.map(validators, &(&1.tendermint_address))
-
-  defp next_validators(validators) do
-    Enum.map(validators,
-            fn %Validator{stake: stake, tendermint_address: tendermint_address} ->
-              validator(pub_key: decode_pub_key(tendermint_address), power: stake)
-            end)
-  end
-
-  # NOTE: <<1>> in this decode/encode functions, is tendermint/crypto's EC type 0x01, the only one we support now
-  #       c.f. HonteStaking.sol function join
-  defp decode_pub_key(pub_key), do: <<1>> <> Base.decode16!(pub_key)
-
-  defp encode_pub_key(<<1>> <> pub_key), do: Base.encode16(pub_key)
 
   defp encode_query_response(object) do
     object
