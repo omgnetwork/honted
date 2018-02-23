@@ -124,9 +124,10 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     @tag fixtures: [:state_with_initial_validators, :initial_validators]
     test "initial validator is removed during soft-slashing on evidence",
     %{state_with_initial_validators: state, initial_validators: validators} do
-      [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
-      # FIXME: dry
-      pub_key = <<1>> <> Base.decode16!(pub_key)
+      [validator(pub_key: pub_key) | _] =
+        validators
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+
       {:reply, _, state_after_evidence} =
         handle_call(request_begin_block(header: header(height: 1),
                                         byzantine_validators: [evidence(pub_key: pub_key, height: 1)]),
@@ -140,8 +141,10 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     @tag fixtures: [:state_with_initial_validators, :initial_validators]
     test "evidence must be delivered to slash (flushing)",
     %{state_with_initial_validators: state, initial_validators: validators} do
-      [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
-      pub_key = <<1>> <> Base.decode16!(pub_key)
+      [validator(pub_key: pub_key) | _] =
+        validators
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+
       {:reply, _, state_after_evidence} =
         handle_call(request_begin_block(header: header(height: 1),
                                         byzantine_validators: [evidence(pub_key: pub_key, height: 1)]),
@@ -159,10 +162,11 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     @tag fixtures: [:first_epoch_state, :epoch_1_validators, :alice]
     test "ordinary validators are removed during soft-slashing on evidence",
     %{first_epoch_state: state, epoch_1_validators: validators} do
+      [validator(pub_key: pub_key) | _] =
+        validators
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
 
       # slash em
-      [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
-      pub_key = <<1>> <> Base.decode16!(pub_key)
       {:reply, _, state_after_evidence} =
         handle_call(request_begin_block(header: header(height: 1),
                                         byzantine_validators: [evidence(pub_key: pub_key, height: 1)]),
@@ -177,10 +181,11 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     test "epoch change overrides removing soft-slashd validators",
     %{first_epoch_state: state, epoch_1_validators: validators,
       validators_diffs_2: expected_diffs, alice: alice} do
+      [validator(pub_key: pub_key) | _] =
+        validators
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
 
       # file evidence against a validator
-      [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
-      pub_key = <<1>> <> Base.decode16!(pub_key)
       {:reply, _, state} =
         handle_call(request_begin_block(header: header(height: 1),
                                         byzantine_validators: [evidence(pub_key: pub_key, height: 1)]),
@@ -203,10 +208,11 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     test "epoch change resets prior removing soft-slashd validators",
     %{first_epoch_state: state, epoch_1_validators: validators,
       validators_diffs_2: expected_diffs, alice: alice} do
+      [validator(pub_key: pub_key) | _] =
+        validators
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
 
       # file evidence against a validator AND FINALIZE IT (with sanity check)
-      [%HonteD.Validator{tendermint_address: pub_key} | _] = validators
-      pub_key = <<1>> <> Base.decode16!(pub_key)
       {:reply, _, state} =
         handle_call(request_begin_block(header: header(height: 1),
                                         byzantine_validators: [evidence(pub_key: pub_key, height: 1)]),
@@ -235,8 +241,9 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       # NOTE: we're assuming that removing absent validators is valid ABCI behavior
 
       # validator who misbehaves later, let's pick the second one
-      [_validator1, %HonteD.Validator{tendermint_address: pub_key} | _] = validators
-      pub_key = <<1>> <> Base.decode16!(pub_key)
+      [_validator1, validator(pub_key: pub_key) | _] =
+        validators
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
 
       # finalize second epoch change, this removes one of the validators, who will misbehave later
       %{state: state} =

@@ -31,6 +31,10 @@ defmodule HonteD.ABCI.ValidatorSet do
     %Validator{stake: power, tendermint_address: encode_pub_key(pub_key)}
   end
 
+  def staking2abci_validator(%Validator{stake: power, tendermint_address: pub_key}) do
+    validator(power: power, pub_key: decode_pub_key(pub_key))
+  end
+
   defp removed_validators(current_epoch_validators, next_epoch_validators) do
     removed_validators =
       tendermint_addresses(current_epoch_validators) -- tendermint_addresses(next_epoch_validators)
