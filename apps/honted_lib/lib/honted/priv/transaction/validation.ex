@@ -41,13 +41,13 @@ defmodule HonteD.Transaction.Validation do
     {:error, :missing_signature}
   end
 
-  def sender(%CreateToken{issuer: sender}), do: sender
-  def sender(%Issue{issuer: sender}), do: sender
-  def sender(%Unissue{issuer: sender}), do: sender
   def sender(%Send{from: sender}), do: sender
-  def sender(%SignOff{sender: sender}), do: sender
   def sender(%Allow{allower: sender}), do: sender
   def sender(%EpochChange{sender: sender}), do: sender
+  def sender(%SignOff{sender: sender}), do: sender
+  def sender(%Issue{issuer: sender}), do: sender
+  def sender(%Unissue{issuer: sender}), do: sender
+  def sender(%CreateToken{issuer: sender}), do: sender
 
   defp positive?(amount) when amount > 0, do: :ok
   defp positive?(_), do: {:error, :positive_amount_required}

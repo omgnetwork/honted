@@ -133,32 +133,21 @@ defmodule HonteD.ABCI.StateTest do
         |> success?
 
       %{state: state} =
-        create_unissue(nonce: 2, asset: asset, amount: 5, issuer: issuer.addr)
+        create_unissue(nonce: 2, asset: asset, amount: 3, issuer: issuer.addr)
         |> encode_sign(issuer.priv)
         |> deliver_tx(state)
         |> success?
 
-      query(state, '/tokens/#{asset}/total_supply') |> found?(5)
-      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(5)
+      query(state, '/tokens/#{asset}/total_supply') |> found?(7)
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(7)
     end
 
-    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
-    test "only issuer can unissue tokens", %{alice: alice, issuer: issuer, state_with_token: state, asset: asset} do
-      %{state: state} =
-        create_issue(nonce: 1, asset: asset, amount: 10, dest: alice.addr, issuer: issuer.addr)
-        |> encode_sign(issuer.priv)
-        |> deliver_tx(state)
-        |> success?
-
-      %{state: state} =
-        create_issue(nonce: 2, asset: asset, amount: 10, dest: issuer.addr, issuer: issuer.addr)
-        |> encode_sign(issuer.priv)
-        |> deliver_tx(state)
-        |> success?
-
-      create_unissue(nonce: 1, asset: asset, amount: 5, issuer: alice.addr)
+    @tag fixtures: [:alice, :state_alice_has_tokens, :asset]
+    test "only issuer can unissue tokens", %{alice: alice, state_alice_has_tokens: state, asset: asset} do
+     create_unissue(nonce: 1, asset: asset, amount: 3, issuer: alice.addr)
       |> encode_sign(alice.priv)
       |> deliver_tx(state)
+      |> fail?(1,'invalid_nonce')
       |> same?(state)
     end
 

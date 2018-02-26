@@ -46,7 +46,7 @@ defmodule HonteD.ABCI.State do
          :ok <- is_issuer?(state, tx.asset, tx.issuer),
          :ok <- not_too_much?(tx.amount, state["tokens/#{tx.asset}/total_supply"]),
          do: {:ok, state
-                   |> apply_issue(tx.asset, tx.amount, tx.dest)
+                   |> apply_change_asset(tx.asset, tx.amount, tx.dest)
                    |> bump_nonce_after(tx)}
   end
 
@@ -59,7 +59,7 @@ defmodule HonteD.ABCI.State do
          do:
            {:ok,
             state
-            |> apply_unissue(tx.asset, tx.amount, tx.issuer)
+            |> apply_change_asset(tx.asset, -tx.amount, tx.issuer)
             |> bump_nonce_after(tx)}
   end
 
@@ -172,19 +172,11 @@ defmodule HonteD.ABCI.State do
     |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
 
-  defp apply_issue(state, asset, amount, dest) do
+  defp apply_change_asset(state, asset, amount, dest) do
     key_dest = "accounts/#{asset}/#{dest}"
     state
     |> Map.update(key_dest, amount, &(&1 + amount))
     |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
-  end
-
-  defp apply_unissue(state, asset, amount, from) do
-    key_from = "accounts/#{asset}/#{from}"
-
-    state
-    |> Map.update(key_from, amount, &(&1 - amount))
-    |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 - amount))
   end
 
   defp apply_send(state, amount, key_src, key_dest) do
