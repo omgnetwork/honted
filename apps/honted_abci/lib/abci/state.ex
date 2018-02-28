@@ -17,8 +17,8 @@ defmodule HonteD.ABCI.State do
   def initial(db_name) do
     trie = MerklePatriciaTree.Trie.new(ProcessRegistryDB.init(db_name))
     trie
-    |> MPTState.set(@epoch_number_key, 0)
-    |> MPTState.set(@epoch_change_key, false)
+    |> MPTState.put(@epoch_number_key, 0)
+    |> MPTState.put(@epoch_change_key, false)
   end
 
   def lookup(state, key) do
@@ -130,20 +130,12 @@ defmodule HonteD.ABCI.State do
   end
 
   defp account_has_at_least?(state, key_src, amount) do
-    stored_amount =
-      case MPTState.get(state, key_src) do
-        nil -> 0
-        value -> value
-      end
+    {:ok, stored_amount} = lookup(state, key_src, 0)
     if stored_amount >= amount, do: :ok, else: {:error, :insufficient_funds}
   end
 
   defp nonce_valid?(state, src, nonce) do
-    stored_nonce =
-      case MPTState.get(state, "nonces/#{src}") do
-        nil -> 0
-        value -> value
-      end
+    {:ok, stored_nonce} = lookup(state, "nonces/#{src}", 0)
     if stored_nonce == nonce, do: :ok, else: {:error, :invalid_nonce}
   end
 
@@ -187,8 +179,8 @@ defmodule HonteD.ABCI.State do
   defp apply_create_token(state, issuer, nonce) do
     token_addr = HonteD.Token.create_address(issuer, nonce)
     state
-    |> MPTState.set("tokens/#{token_addr}/issuer", issuer)
-    |> MPTState.set("tokens/#{token_addr}/total_supply", 0)
+    |> MPTState.put("tokens/#{token_addr}/issuer", issuer)
+    |> MPTState.put("tokens/#{token_addr}/total_supply", 0)
     # NOTE: check for duplicate entries or don't care?
     |> MPTState.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
   end
@@ -202,35 +194,31 @@ defmodule HonteD.ABCI.State do
 
   defp apply_send(state, amount, key_src, key_dest) do
     state
-    |> MPTState.update(key_src, &(&1 - amount))
+    |> MPTState.update!(key_src, &(&1 - amount))
     |> MPTState.update(key_dest, amount, &(&1 + amount))
   end
 
   defp apply_sign_off(state, height, hash, signoffer) do
     state
-    |> MPTState.set("sign_offs/#{signoffer}", %{height: height, hash: hash})
+    |> MPTState.put("sign_offs/#{signoffer}", %{height: height, hash: hash})
   end
 
   defp apply_allow(state, allower, allowee, privilege, allow) do
     state
-    |> MPTState.set("delegations/#{allower}/#{allowee}/#{privilege}", allow)
+    |> MPTState.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
   end
 
   defp apply_epoch_change(state) do
     state
-    |> MPTState.set(@epoch_change_key, true)
-    |> MPTState.update(@epoch_number_key, &(&1 + 1))
+    |> MPTState.put(@epoch_change_key, true)
+    |> MPTState.update!(@epoch_number_key, &(&1 + 1))
   end
 
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)
     key = "nonces/#{sender}"
-    current_nonce =
-      case MPTState.get(state, key) do
-        nil -> 0
-        value -> value
-      end
-    MPTState.set(state, key, current_nonce + 1)
+    {:ok, current_nonce} = lookup(state, key, 0)
+    MPTState.put(state, key, current_nonce + 1)
   end
 
   def hash(state), do: state.root_hash
@@ -241,16 +229,18 @@ defmodule HonteD.ABCI.State do
   end
 
   def epoch_change?(state) do
-    case MPTState.get(state, @epoch_change_key) do
-      nil -> false
-      value -> value
-    end
+    {:ok, value} = lookup(state, @epoch_change_key, false)
+    value
   end
 
-  def not_change_epoch(state), do: MPTState.set(state, @epoch_change_key, false)
+  def not_change_epoch(state), do: MPTState.put(state, @epoch_change_key, false)
 
   def epoch_number(state), do: MPTState.get(state, @epoch_number_key)
 
+  @doc """
+  Returns copy of the first argument.
+  Copied database is stored in process dictionary under copy_name key.
+  """
   def copy_state(%Trie{db: {ProcessRegistryDB, db_name}, root_hash: root_hash},
                  %Trie{db: {ProcessRegistryDB, copy_name}} = copy) do
     :ok = ProcessRegistryDB.copy_db(db_name, copy_name)
