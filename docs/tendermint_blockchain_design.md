@@ -219,7 +219,7 @@ Kinds of byzantine behaviour that aren't slashing conditions:
 
   Tendermint might provide tools: https://github.com/tendermint/tendermint/issues/1134,
   however for now, we don't punish this,
-  as this only means that the byzantine proposer will crash in the next block (will not escalate)
+  as this only means that the byzantine proposer will crash in the next block (will not escalate).
 
   This can potentially be done in `DeliverTx` call to the `honted` ABCI app,
   but only if Tendermint sends the proposer's `pub_key`, which it currenlty doesn't.

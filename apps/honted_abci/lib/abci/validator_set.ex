@@ -1,6 +1,6 @@
 defmodule HonteD.ABCI.ValidatorSet do
   @moduledoc """
-  All internal handling of the tendermint validator set here
+  Handles internals of tendermint validator set by HonteD ABCI application
   """
   import HonteD.ABCI.Records
   alias HonteD.Validator
@@ -27,11 +27,14 @@ defmodule HonteD.ABCI.ValidatorSet do
   @doc """
   Converts abci's representation of a validator to our internal structure (compatible with staking utilities)
   """
-  def abci2staking_validator(validator(power: power, pub_key: pub_key)) do
+  def abci_to_staking_validator(validator(power: power, pub_key: pub_key)) do
     %Validator{stake: power, tendermint_address: encode_pub_key(pub_key)}
   end
 
-  def staking2abci_validator(%Validator{stake: power, tendermint_address: pub_key}) do
+  @doc """
+  Reverse of abci_to_staking_validator
+  """
+  def staking_to_abci_validator(%Validator{stake: power, tendermint_address: pub_key}) do
     validator(power: power, pub_key: decode_pub_key(pub_key))
   end
 

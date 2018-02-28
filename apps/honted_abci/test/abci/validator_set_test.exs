@@ -120,13 +120,13 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     end
   end
 
-  describe "handling evidence of byzantine validators. " do
+  describe "handling evidence of byzantine validators, " do
     @tag fixtures: [:state_with_initial_validators, :initial_validators]
     test "initial validator is removed during soft-slashing on evidence",
     %{state_with_initial_validators: state, initial_validators: validators} do
       [validator(pub_key: pub_key) | _] =
         validators
-        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking_to_abci_validator/1)
 
       {:reply, _, state_after_evidence} =
         handle_call(request_begin_block(header: header(height: 1),
@@ -143,7 +143,7 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     %{state_with_initial_validators: state, initial_validators: validators} do
       [validator(pub_key: pub_key) | _] =
         validators
-        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking_to_abci_validator/1)
 
       {:reply, _, state_after_evidence} =
         handle_call(request_begin_block(header: header(height: 1),
@@ -164,7 +164,7 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     %{first_epoch_state: state, epoch_1_validators: validators} do
       [validator(pub_key: pub_key) | _] =
         validators
-        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking_to_abci_validator/1)
 
       # slash em
       {:reply, _, state_after_evidence} =
@@ -178,12 +178,12 @@ defmodule HonteD.ABCI.ValidatorSetTest do
     end
 
     @tag fixtures: [:first_epoch_state, :epoch_1_validators, :validators_diffs_2, :alice]
-    test "epoch change overrides removing soft-slashd validators",
+    test "epoch change overrides removing soft-slashed validators",
     %{first_epoch_state: state, epoch_1_validators: validators,
       validators_diffs_2: expected_diffs, alice: alice} do
       [validator(pub_key: pub_key) | _] =
         validators
-        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking_to_abci_validator/1)
 
       # file evidence against a validator
       {:reply, _, state} =
@@ -210,7 +210,7 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       validators_diffs_2: expected_diffs, alice: alice} do
       [validator(pub_key: pub_key) | _] =
         validators
-        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking_to_abci_validator/1)
 
       # file evidence against a validator AND FINALIZE IT (with sanity check)
       {:reply, _, state} =
@@ -243,7 +243,7 @@ defmodule HonteD.ABCI.ValidatorSetTest do
       # validator who misbehaves later, let's pick the second one
       [_validator1, validator(pub_key: pub_key) | _] =
         validators
-        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking2abci_validator/1)
+        |> Enum.map(&HonteD.ABCI.ValidatorSet.staking_to_abci_validator/1)
 
       # finalize second epoch change, this removes one of the validators, who will misbehave later
       %{state: state} =
