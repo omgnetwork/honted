@@ -110,6 +110,57 @@ defmodule HonteD.ABCI.StateTest do
       query(state, '/accounts/#{asset}/#{alice.addr}') |> found?(9)
     end
 
+    @tag fixtures: [:issuer, :state_with_token, :asset]
+    test "can't unissue unqualified funds", %{issuer: issuer, state_with_token: state, asset: asset} do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 10, dest: issuer.addr, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      create_unissue(nonce: 2, asset: asset, amount: 20, issuer: issuer.addr)
+      |> encode_sign(issuer.priv)
+      |> deliver_tx(state)
+      |> same?(state)
+    end
+
+    @tag fixtures: [:issuer, :state_with_token, :asset]
+    test "can unissue tokens", %{issuer: issuer, state_with_token: state, asset: asset} do
+      %{state: state} =
+        create_issue(nonce: 1, asset: asset, amount: 10, dest: issuer.addr, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      %{state: state} =
+        create_unissue(nonce: 2, asset: asset, amount: 3, issuer: issuer.addr)
+        |> encode_sign(issuer.priv)
+        |> deliver_tx(state)
+        |> success?
+
+      query(state, '/tokens/#{asset}/total_supply') |> found?(7)
+      query(state, '/accounts/#{asset}/#{issuer.addr}') |> found?(7)
+    end
+
+    @tag fixtures: [:alice, :state_alice_has_tokens, :asset]
+    test "only issuer can unissue tokens", %{alice: alice, state_alice_has_tokens: state, asset: asset} do
+     create_unissue(nonce: 1, asset: asset, amount: 3, issuer: alice.addr)
+      |> encode_sign(alice.priv)
+      |> deliver_tx(state)
+      |> fail?(1,'invalid_nonce')
+      |> same?(state)
+    end
+
+    @tag fixtures: [:alice, :issuer, :state_with_token, :asset]
+    test "signature checking in unissue", %{state_with_token: state, alice: alice, issuer: issuer, asset: asset} do
+      {:ok, tx1} = create_unissue(nonce: 1, asset: asset, amount: 5, issuer: issuer.addr)
+      {:ok, tx2} = create_unissue(nonce: 1, asset: asset, amount: 4, issuer: issuer.addr)
+      fake_sig = misplaced_sign(tx1, tx2, issuer.priv)
+
+      fake_sig |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+      tx1 |> encode_sign(alice.priv) |> deliver_tx(state) |> fail?(1, 'invalid_signature') |> same?(state)
+    end
+
     @tag fixtures: [:issuer, :alice, :empty_state]
     test "can create and issue multiple tokens", %{issuer: issuer, alice: alice, empty_state: state} do
       %{state: state} =

@@ -18,10 +18,11 @@ defmodule HonteD.TxCodec do
   # tx type tags, wire representation
   @create_token <<1>>
   @issue <<2>>
-  @send <<3>>
-  @signoff <<4>>
-  @allow <<5>>
-  @epoch_change <<6>>
+  @unissue <<3>>
+  @send <<4>>
+  @signoff <<5>>
+  @allow <<6>>
+  @epoch_change <<7>>
 
   @doc """
   Encodes internal representation of transaction into a Tendermint transaction
@@ -58,6 +59,7 @@ defmodule HonteD.TxCodec do
   """
   def tx_tag(Transaction.CreateToken), do: @create_token
   def tx_tag(Transaction.Issue), do: @issue
+  def tx_tag(Transaction.Unissue), do: @unissue
   def tx_tag(Transaction.Send), do: @send
   def tx_tag(Transaction.SignOff), do: @signoff
   def tx_tag(Transaction.Allow), do: @allow
@@ -70,6 +72,7 @@ defmodule HonteD.TxCodec do
   defp fields(Transaction.Send), do: [:nonce, :asset, :amount, :from, :to]
   defp fields(Transaction.CreateToken), do: [:nonce, :issuer]
   defp fields(Transaction.Issue), do: [:nonce, :asset, :amount, :dest, :issuer]
+  defp fields(Transaction.Unissue), do: [:nonce, :asset, :amount, :issuer]
   defp fields(Transaction.SignOff), do: [:nonce, :height, :hash, :sender, :signoffer]
   defp fields(Transaction.Allow), do: [:nonce, :allower, :allowee, :privilege, :allow]
   defp fields(Transaction.EpochChange), do: [:nonce, :sender, :epoch_number]
@@ -118,6 +121,15 @@ defmodule HonteD.TxCodec do
            asset: asset,
            amount: int_parse(amount),
            dest: dest,
+           issuer: issuer
+         }, tail}
+
+      [@unissue, nonce, asset, amount, issuer | tail] ->
+        {:ok,
+         %Transaction.Unissue{
+           nonce: int_parse(nonce),
+           asset: asset,
+           amount: int_parse(amount),
            issuer: issuer
          }, tail}
 
