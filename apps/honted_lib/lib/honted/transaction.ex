@@ -153,7 +153,6 @@ defmodule HonteD.Transaction do
     create(Unissue, args)
   end
 
-
   @doc """
   Creates a Send transaction, ensures state-less validity and encodes
   """

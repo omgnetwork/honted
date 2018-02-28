@@ -147,7 +147,7 @@ defmodule HonteD.ABCI.StateTest do
      create_unissue(nonce: 1, asset: asset, amount: 3, issuer: alice.addr)
       |> encode_sign(alice.priv)
       |> deliver_tx(state)
-      |> fail?(1,'invalid_nonce')
+      |> fail?(1, 'invalid_nonce')
       |> same?(state)
     end
 
