@@ -5,8 +5,8 @@ defmodule HonteD.API.TestHelpers do
 
   alias HonteD.Crypto
 
-  def address1, do: "address1"
-  def address2, do: "address2"
+  def address1, do: "address1" |> String.pad_leading(20, ".") |> HonteD.Crypto.address_to_hex()
+  def address2, do: "address2" |> String.pad_leading(20, ".") |> HonteD.Crypto.address_to_hex()
 
   def event_send(receiver, fid, token \\ "asset", height \\ 0) do
     # NOTE: how can I distantiate from the implementation details (like codec/encoding/creation) some more?
@@ -14,6 +14,7 @@ defmodule HonteD.API.TestHelpers do
     priv = "8B804D5DE04A865FB1B8EE92632DC7288B804D5DE04A865FB1B8EE92632DC728" |> Base.decode16!()
     {:ok, pub} = Crypto.generate_public_key(priv)
     {:ok, addr} = Crypto.generate_address(pub)
+    receiver = maybe_hex_to_address(receiver)
     signed =
       %HonteD.Transaction.Send{nonce: 0, asset: token, amount: 1, from: addr, to: receiver}
       |> sign_unpack(priv)
@@ -50,16 +51,26 @@ defmodule HonteD.API.TestHelpers do
   def height2hash(n) when is_integer(n) and n > 0, do: "OK_HASH_" <> Integer.to_string(n)
   def height2hash(_), do: nil
 
+  def maybe_address_to_hex(bin) when byte_size(bin) == 20, do: HonteD.Crypto.address_to_hex(bin)
+  def maybe_address_to_hex(bin), do: bin
+
+  def maybe_hex_to_address(bin) when byte_size(bin) == 40, do: HonteD.Crypto.hex_to_address!(bin)
+  def maybe_hex_to_address(bin), do: bin
+
   @doc """
   Prepared based on documentation of HonteD.API.Events.notify
   """
 
   def receivable_for(%HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{} = tx} = signed, fid, height) do
-    hash =
+    signed_hash =
       signed
       |> HonteD.TxCodec.encode
       |> HonteD.API.Tendermint.Tx.hash
-    event = %HonteD.API.Events.Eventer.EventContentTx{tx: tx, hash: hash}
+    encoded_tx =
+      tx
+      |> HonteD.TxCodec.encode()
+      |> Base.encode16()
+    event = %HonteD.API.Events.Eventer.EventContentTx{tx: encoded_tx, hash: signed_hash}
 
     {:event, %{height: height, finality: :committed, source: fid, transaction: event}}
   end

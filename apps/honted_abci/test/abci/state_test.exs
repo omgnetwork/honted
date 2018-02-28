@@ -12,7 +12,6 @@ defmodule HonteD.ABCI.StateTest do
 
   import HonteD.ABCI.TestHelpers
 
-  import HonteD.Transaction
   alias HonteD.Transaction.{Issue, Send, SignOff, Allow, EpochChange}
   alias HonteD.TxCodec
 
@@ -121,9 +120,9 @@ defmodule HonteD.ABCI.StateTest do
       %{state: state} =
         create_create_token(nonce: 1, issuer: alice.addr) |> encode_sign(alice.priv) |> deliver_tx(state) |> success?
 
-      asset0 = HonteD.Token.create_address(issuer.addr, 0)
-      asset1 = HonteD.Token.create_address(issuer.addr, 1)
-      asset2 = HonteD.Token.create_address(alice.addr, 0)
+      asset0 = HonteD.Token.create_address(issuer.addr, 0) |> HonteD.Crypto.address_to_hex()
+      asset1 = HonteD.Token.create_address(issuer.addr, 1) |> HonteD.Crypto.address_to_hex()
+      asset2 = HonteD.Token.create_address(alice.addr, 0) |> HonteD.Crypto.address_to_hex()
 
       # check that they're different
       assert asset0 != asset1
@@ -168,8 +167,8 @@ defmodule HonteD.ABCI.StateTest do
         create_create_token(nonce: 1, issuer: issuer.addr) |> encode_sign(issuer.priv) |> deliver_tx(state) |> success?
       %{state: state} =
         create_create_token(nonce: 0, issuer: alice.addr) |> encode_sign(alice.priv) |> deliver_tx(state) |> success?
-      asset1 = HonteD.Token.create_address(issuer.addr, 1)
-      asset2 = HonteD.Token.create_address(alice.addr, 0)
+      asset1 = HonteD.Token.create_address(issuer.addr, 1) |> HonteD.Crypto.address_to_hex()
+      asset2 = HonteD.Token.create_address(alice.addr, 0) |> HonteD.Crypto.address_to_hex()
 
       query(state, '/issuers/#{issuer.addr}') |> found?([asset1, asset])
       query(state, '/issuers/#{alice.addr}') |> found?([asset2])
@@ -566,16 +565,16 @@ defmodule HonteD.ABCI.StateTest do
         create_epoch_change(nonce: 0, sender: alice.addr, epoch_number: 1)
         |> encode_sign(alice.priv) |> deliver_tx(state) |> success?
 
-      query(state, "/contract/epoch_change") |> found?(true)
-      query(state, "/contract/epoch_number") |> found?(1)
+      query(state, '/contract/epoch_change') |> found?(true)
+      query(state, '/contract/epoch_number') |> found?(1)
     end
   end
 
   describe "check epoch change transaction," do
     @tag fixtures: [:alice, :empty_state]
     test "initialize state with no epoch change and epoch number 0", %{empty_state: state} do
-      query(state, "/contract/epoch_change") |> found?(false)
-      query(state, "/contract/epoch_number") |> found?(0)
+      query(state, '/contract/epoch_change') |> found?(false)
+      query(state, '/contract/epoch_number') |> found?(0)
     end
 
     @tag fixtures: [:alice, :empty_state]

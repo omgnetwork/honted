@@ -11,7 +11,7 @@ defmodule HonteD.ABCI.TestHelpers do
     {:ok, priv} = HonteD.Crypto.generate_private_key
     {:ok, pub} = HonteD.Crypto.generate_public_key(priv)
     {:ok, addr} = HonteD.Crypto.generate_address(pub)
-    %{priv: priv, addr: addr}
+    %{priv: priv, addr: addr |> HonteD.Crypto.address_to_hex()}
   end
 
   def encode(tx) when is_map(tx) do
@@ -52,6 +52,25 @@ defmodule HonteD.ABCI.TestHelpers do
     tx2
     |> HonteD.Transaction.with_signature(sig)
     |> encode()
+  end
+
+  # wrappers around Transaction.tx (versions that accept encoded args)
+
+  def create_create_token(args), do: args |> recode() |> HonteD.Transaction.create_create_token()
+  def create_issue(args), do: args |> recode() |> HonteD.Transaction.create_issue()
+  def create_unissue(args), do: args |> recode() |> HonteD.Transaction.create_unissue()
+  def create_send(args), do: args |> recode() |> HonteD.Transaction.create_send()
+  def create_sign_off(args), do: args |> recode() |> HonteD.Transaction.create_sign_off()
+  def create_allow(args), do: args |> recode() |> HonteD.Transaction.create_allow()
+  def create_epoch_change(args), do: args |> recode() |> HonteD.Transaction.create_epoch_change()
+
+  def recode(kvs) do
+    for {k, v} <- kvs do
+      case is_binary(v) and byte_size(v) == 40 do
+        true -> {k, HonteD.Crypto.hex_to_address!(v)}
+        _ -> {k, v}
+      end
+    end
   end
 
   @doc """

@@ -20,7 +20,8 @@ defmodule HonteD.API do
   def create_create_token_transaction(issuer) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, issuer),
-         {:ok, tx} <- Transaction.create_create_token(nonce: nonce, issuer: issuer) do
+         {:ok, raw_issuer} <- HonteD.Crypto.hex_to_address(issuer),
+         {:ok, tx} <- Transaction.create_create_token(nonce: nonce, issuer: raw_issuer) do
       {:ok, tx |> TxCodec.encode() |> Base.encode16()}
     end
   end
@@ -37,8 +38,11 @@ defmodule HonteD.API do
   def create_issue_transaction(asset, amount, to, issuer) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, issuer),
-         {:ok, tx} <- Transaction.create_issue(nonce: nonce, asset: asset, amount: amount, dest: to,
-           issuer: issuer) do
+         {:ok, raw_asset} <- HonteD.Crypto.hex_to_address(asset),
+         {:ok, raw_to} <- HonteD.Crypto.hex_to_address(to),
+         {:ok, raw_issuer} <- HonteD.Crypto.hex_to_address(issuer),
+         {:ok, tx} <- Transaction.create_issue(nonce: nonce, asset: raw_asset, amount: amount, dest: raw_to,
+           issuer: raw_issuer) do
       {:ok, tx |> TxCodec.encode() |> Base.encode16()}
     end
   end
@@ -51,8 +55,11 @@ defmodule HonteD.API do
   def create_send_transaction(asset, amount, from, to) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, from),
-         {:ok, tx} <- Transaction.create_send(nonce: nonce, asset: asset, amount: amount,
-           from: from, to: to) do
+         {:ok, raw_asset} <- HonteD.Crypto.hex_to_address(asset),
+         {:ok, raw_from} <- HonteD.Crypto.hex_to_address(from),
+         {:ok, raw_to} <- HonteD.Crypto.hex_to_address(to),
+         {:ok, tx} <- Transaction.create_send(nonce: nonce, asset: raw_asset, amount: amount,
+           from: raw_from, to: raw_to) do
       {:ok, tx |> TxCodec.encode() |> Base.encode16()}
     end
   end
@@ -66,6 +73,8 @@ defmodule HonteD.API do
   def create_sign_off_transaction(height, hash, sender, signoffer) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
+         {:ok, sender} <- HonteD.Crypto.hex_to_address(sender),
+         {:ok, signoffer} <- HonteD.Crypto.hex_to_address(signoffer),
          {:ok, tx} <- Transaction.create_sign_off(nonce: nonce, height: height, hash: hash,
            sender: sender, signoffer: signoffer) do
       {:ok, tx |> TxCodec.encode() |> Base.encode16()}
@@ -81,7 +90,9 @@ defmodule HonteD.API do
   def create_allow_transaction(allower, allowee, privilege, allow) do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, allower),
-         {:ok, tx} <- Transaction.create_allow(nonce: nonce, allower: allower, allowee: allowee,
+         {:ok, raw_allower} <- HonteD.Crypto.hex_to_address(allower),
+         {:ok, raw_allowee} <- HonteD.Crypto.hex_to_address(allowee),
+         {:ok, tx} <- Transaction.create_allow(nonce: nonce, allower: raw_allower, allowee: raw_allowee,
            privilege: privilege, allow: allow) do
           {:ok, tx |> TxCodec.encode() |> Base.encode16()}
     end
@@ -92,10 +103,11 @@ defmodule HonteD.API do
   """
   @spec create_epoch_change_transaction(sender :: binary, epoch_number :: pos_integer)
         :: {:ok, binary} | {:error, map}
-  def create_epoch_change_transaction(sender, epoch_number) do
+  def create_epoch_change_transaction(sender, epoch_number) when byte_size(sender) == 40 do
     client = Tendermint.RPC.client()
     with {:ok, nonce} <- Tools.get_nonce(client, sender),
-         {:ok, tx} <- Transaction.create_epoch_change(nonce: nonce, sender: sender,
+         {:ok, raw_sender} <- HonteD.Crypto.hex_to_address(sender),
+         {:ok, tx} <- Transaction.create_epoch_change(nonce: nonce, sender: raw_sender,
          epoch_number: epoch_number) do
       {:ok, tx |> TxCodec.encode() |> Base.encode16()}
     end

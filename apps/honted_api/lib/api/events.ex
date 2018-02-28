@@ -3,7 +3,7 @@ defmodule HonteD.API.Events do
   Public API for the HonteD.API.Events.Eventer GenServer
   """
 
-  @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_string | :bad_block_height
+  @type badarg :: :subscriber_must_be_pid | :topic_must_be_a_hex_encoded_address | :bad_block_height
                 | :filter_id_must_be_a_binary
   @type event :: HonteD.Transaction.SignedTx.t | HonteD.API.Events.NewBlock.t
 
@@ -58,8 +58,9 @@ defmodule HonteD.API.Events do
     :: {:ok, %{new_filter: HonteD.filter_id, start_height: HonteD.block_height}} | {:error, badarg}
   def new_send_filter(server \\ @server, pid, receiver) do
     with true <- is_valid_subscriber(pid),
-         true <- is_valid_topic(receiver),
-    do: GenServer.call(server, {:new_filter, [receiver], pid})
+         true <- is_valid_topic(receiver) do
+      GenServer.call(server, {:new_filter, [receiver], pid})
+    end
   end
 
   @spec drop_filter(server :: atom | pid, filter_id :: HonteD.filter_id)
@@ -83,8 +84,13 @@ defmodule HonteD.API.Events do
   defp is_valid_subscriber(pid) when is_pid(pid), do: true
   defp is_valid_subscriber(_), do: {:error, :subscriber_must_be_pid}
 
-  defp is_valid_topic(topic) when is_binary(topic), do: true
-  defp is_valid_topic(_), do: {:error, :topic_must_be_a_string}
+  defp is_valid_topic(topic) when is_binary(topic) and byte_size(topic) == 40 do
+    case HonteD.Crypto.hex_to_address(topic) do
+      {:ok, _} -> :true
+      {:error, _} -> {:error, :topic_must_be_a_hex_encoded_address}
+    end
+  end
+  defp is_valid_topic(_), do: {:error, :topic_must_be_a_hex_encoded_address}
 
   defp is_valid_height(height) when is_integer(height) and height > 0, do: true
   defp is_valid_height(_), do: {:error, :bad_block_height}

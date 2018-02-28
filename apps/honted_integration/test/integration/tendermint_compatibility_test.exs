@@ -20,9 +20,11 @@ defmodule HonteD.Integration.TendermintCompatibilityTest do
   test "tendermint tx hash", %{} do
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
-    {:ok, issuer} = Crypto.generate_address(issuer_pub)
+    issuer = issuer_pub |> Crypto.generate_address() |> elem(1) |> HonteD.Crypto.address_to_hex()
 
+    IO.puts("issuer: #{inspect issuer}")
     {:ok, raw_tx} = API.create_create_token_transaction(issuer)
+    IO.puts("raw_tx: #{inspect raw_tx}")
     signed_tx = Transaction.sign(raw_tx, issuer_priv)
 
     {:ok, %{tx_hash: hash}} = API.submit_commit(signed_tx)

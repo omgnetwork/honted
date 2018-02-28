@@ -4,7 +4,6 @@ defmodule HonteD.ABCI.Fixtures do
 
   use ExUnitFixtures.FixtureModule
 
-  import HonteD.Transaction
   import HonteD.ABCI.TestHelpers
 
   deffixture staking_state do

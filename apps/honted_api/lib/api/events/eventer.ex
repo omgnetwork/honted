@@ -80,17 +80,23 @@ defmodule HonteD.API.Events.Eventer do
   @spec do_notify(:finalized | :committed, HonteD.Transaction.SignedTx.t, pos_integer, State.subs, State.filters)
     :: :ok
   def do_notify(finality_status, %HonteD.Transaction.SignedTx{raw_tx: tx} = signed, event_height, subs, filters) do
+    signed_hash =
+      signed
+      |> HonteD.TxCodec.encode()
+      |> HonteD.API.Tendermint.Tx.hash()
+    encoded_tx =
+      tx
+      |> HonteD.TxCodec.encode()
+      |> Base.encode16()
+
     # NOTE: we need to enrich the event with a Tendermint-specific hash here for reference
     #       albeit not perfect, this seems like the best place to do it
-    event_content = %EventContentTx{tx: tx, hash: signed
-                                                  |> HonteD.TxCodec.encode
-                                                  |> HonteD.API.Tendermint.Tx.hash
-    }
+    event_content = %EventContentTx{tx: encoded_tx, hash: signed_hash}
 
     event_topics = event_topics_for(tx)
     pids = subscribed(event_topics, subs, filters)
 
-    _ = Logger.debug(fn -> "do_notify: #{inspect event_topics} #{inspect finality_status}, " <>
+    _ = Logger.warn(fn -> "do_notify: #{inspect event_topics} #{inspect finality_status}, " <>
                            "#{inspect event_content}, pid: #{inspect pids}" end)
     for {filter_id, pid} <- pids do
       msg = message(finality_status, event_height, filter_id, event_content)
@@ -155,6 +161,7 @@ defmodule HonteD.API.Events.Eventer do
 
   def handle_call({:new_filter, topics, pid}, _from, state) do
     filter_id = make_filter_id()
+    topics = for topic <- topics, do: HonteD.Crypto.hex_to_address!(topic)
     {:reply,
      {:ok, %{new_filter: filter_id, start_height: state.height + 1}},
      %{state | pending_filters: [{filter_id, topics, pid} | state.pending_filters]}
@@ -163,6 +170,7 @@ defmodule HonteD.API.Events.Eventer do
 
   def handle_call({:new_filter_history, topics, pid, first, last}, _from, state) do
     filter_id = make_filter_id()
+    topics = for topic <- topics, do: HonteD.Crypto.hex_to_address!(topic)
     _ = Logger.warn("tendermint module is: #{inspect state.tendermint}")
     _ = Replay.spawn(filter_id, state.tendermint, first..last, topics, pid)
     {:reply, {:ok, %{history_filter: filter_id}}, state}
@@ -189,9 +197,9 @@ defmodule HonteD.API.Events.Eventer do
       {[], nil} ->
         {:reply, {:error, :notfound}, state}
       {[{topics, _}], _} ->
-        {:reply, {:ok, topics}, state}
+        {:reply, {:ok, topics |> Enum.map(&HonteD.Crypto.address_to_hex/1)}, state}
       {_, {_, topics, _}} ->
-        {:reply, {:ok, topics}, state}
+        {:reply, {:ok, topics |> Enum.map(&HonteD.Crypto.address_to_hex/1)}, state}
     end
   end
 
@@ -298,6 +306,7 @@ defmodule HonteD.API.Events.Eventer do
     make_ref()
     |> :erlang.term_to_binary
     |> HonteD.Crypto.hash
+    |> Base.encode16()
   end
 
 end

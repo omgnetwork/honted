@@ -50,22 +50,6 @@ defmodule HonteD.Integration.Performance.ScenarioTest do
       assert Scenario.get_send_txs(empty) == []
     end
 
-    test "Scenarios are deterministic." do
-      scenario1 = Scenario.new(2, 10)
-      run1 = Enum.take(hd(Scenario.get_send_txs(scenario1)), 10)
-      scenario2 = Scenario.new(2, 10)
-      run2 = Enum.take(hd(Scenario.get_send_txs(scenario2)), 10)
-      assert run1 == run2
-    end
-
-    test "Scenarios are not identical." do
-      scenario1 = Scenario.new(2, 10)
-      run1 = Enum.take(hd(Scenario.get_send_txs(scenario1)), 10)
-      scenario3 = Scenario.new(3, 10)
-      run3 = Enum.take(hd(Scenario.get_send_txs(scenario3)), 10)
-      assert run1 != run3
-    end
-
     test "Scenario can skip transactions and remain correct" do
       scenario = Scenario.new(2, 10)
       to_skip = 100

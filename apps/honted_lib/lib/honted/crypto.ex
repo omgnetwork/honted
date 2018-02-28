@@ -69,6 +69,7 @@ defmodule HonteD.Crypto do
   Generates private key. Internally uses OpenSSL RAND_bytes. May throw if there is not enough entropy.
   TODO: Think about moving to something dependent on /dev/urandom instead. Might be less portable.
   """
+  @spec generate_private_key() :: {:ok, <<_::256>>}
   def generate_private_key, do: {:ok, :crypto.strong_rand_bytes(32)}
 
   @doc """
@@ -87,6 +88,25 @@ defmodule HonteD.Crypto do
   def generate_address(<<pub :: binary-size(64)>>) do
     <<_ :: binary-size(12), address :: binary-size(20)>> = :keccakf1600.sha3_256(pub)
     {:ok, address}
+  end
+
+  @spec address_to_hex(binary) :: binary()
+  def address_to_hex(bin) when is_binary(bin) and byte_size(bin) == 20 do
+    Base.encode16(bin, case: :lower)
+  end
+
+  @spec hex_to_address(binary) :: {:ok, binary()} | {:error, :bad_hex_encoding_of_address}
+  def hex_to_address(hex) when is_binary(hex) and byte_size(hex) == 40 do
+    case Base.decode16(hex, case: :lower) do
+      {:ok, bin} -> {:ok, bin}
+      :error -> {:error, :bad_hex_encoding_of_address}
+    end
+  end
+
+  @spec hex_to_address!(binary) :: binary()
+  def hex_to_address!(hex) do
+    {:ok, address} = hex_to_address(hex)
+    address
   end
 
   # private

@@ -5,6 +5,8 @@ defmodule HonteD.ABCI.State do
   alias HonteD.Transaction
   alias HonteD.Staking
 
+  import HonteD.ABCI.Paths
+
   @max_amount round(:math.pow(2, 256))  # used to limit integers handled on-chain
   @epoch_number_key "contract/epoch_number"
   # indicates that epoch change is in progress, is set to true in epoch change transaction
@@ -23,10 +25,10 @@ defmodule HonteD.ABCI.State do
   end
 
   def issued_tokens(state, address) do
-    key = "issuers/" <> to_string(address)
+    key = key_issued_tokens(address)
     case get(state, key) do
       {:ok, value} ->
-        {:ok, value |> scan_potential_issued(state, to_string(address))}
+        {:ok, value |> scan_potential_issued(state, address)}
       nil ->
         nil
     end
@@ -44,15 +46,15 @@ defmodule HonteD.ABCI.State do
 
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          :ok <- is_issuer?(state, tx.asset, tx.issuer),
-         :ok <- not_too_much?(tx.amount, state["tokens/#{tx.asset}/total_supply"]),
+         :ok <- not_too_much?(tx.amount, state[key_token_supply(tx.asset)]),
          do: {:ok, state
                    |> apply_issue(tx.asset, tx.amount, tx.dest)
                    |> bump_nonce_after(tx)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx}) do
-    key_src = "accounts/#{tx.asset}/#{tx.from}"
-    key_dest = "accounts/#{tx.asset}/#{tx.to}"
+    key_src = key_asset_ownership(tx.asset, tx.from)
+    key_dest = key_asset_ownership(tx.asset, tx.to)
 
     with :ok <- nonce_valid?(state, tx.from, tx.nonce),
          :ok <- account_has_at_least?(state, key_src, tx.amount),
@@ -110,7 +112,7 @@ defmodule HonteD.ABCI.State do
   end
 
   defp nonce_valid?(state, src, nonce) do
-    if Map.get(state, "nonces/#{src}", 0) == nonce, do: :ok, else: {:error, :invalid_nonce}
+    if Map.get(state, key_nonces(src), 0) == nonce, do: :ok, else: {:error, :invalid_nonce}
   end
 
   defp not_too_much?(amount_entering, amount_present)
@@ -124,7 +126,7 @@ defmodule HonteD.ABCI.State do
   end
 
   defp is_issuer?(state, token_addr, address) do
-    case Map.get(state, "tokens/#{token_addr}/issuer") do
+    case Map.get(state, key_token_issuer(token_addr)) do
       nil -> {:error, :unknown_issuer}
       ^address -> :ok
       _ -> {:error, :incorrect_issuer}
@@ -132,7 +134,7 @@ defmodule HonteD.ABCI.State do
   end
 
   defp sign_off_incremental?(state, height, sender) do
-    case Map.get(state, "sign_offs/#{sender}") do
+    case Map.get(state, key_signoffs(sender)) do
       nil -> :ok  # first sign off ever always correct
       %{height: old_height} when is_integer(old_height) and old_height < height -> :ok
       %{height: old_height} when is_integer(old_height) -> {:error, :sign_off_not_incremental}
@@ -143,7 +145,7 @@ defmodule HonteD.ABCI.State do
     # checks whether allower allows allowee for privilege
 
     # always self-allow and in case allower != allowee - check delegations in state
-    if allower == allowee or Map.get(state, "delegations/#{allower}/#{allowee}/#{privilege}") do
+    if allower == allowee or Map.get(state, key_delegations(allower, allowee, privilege)) do
       :ok
     else
       {:error, :invalid_delegation}
@@ -153,17 +155,17 @@ defmodule HonteD.ABCI.State do
   defp apply_create_token(state, issuer, nonce) do
     token_addr = HonteD.Token.create_address(issuer, nonce)
     state
-    |> Map.put("tokens/#{token_addr}/issuer", issuer)
-    |> Map.put("tokens/#{token_addr}/total_supply", 0)
+    |> Map.put(key_token_issuer(token_addr), issuer)
+    |> Map.put(key_token_supply(token_addr), 0)
     # NOTE: check for duplicate entries or don't care?
-    |> Map.update("issuers/#{issuer}", [token_addr], fn previous -> [token_addr | previous] end)
+    |> Map.update(key_issued_tokens(issuer), [token_addr], fn previous -> [token_addr | previous] end)
   end
 
   defp apply_issue(state, asset, amount, dest) do
-    key_dest = "accounts/#{asset}/#{dest}"
+    key_dest = key_asset_ownership(asset, dest)
     state
     |> Map.update(key_dest, amount, &(&1 + amount))
-    |> Map.update("tokens/#{asset}/total_supply", amount, &(&1 + amount))
+    |> Map.update(key_token_supply(asset), amount, &(&1 + amount))
   end
 
   defp apply_send(state, amount, key_src, key_dest) do
@@ -174,12 +176,12 @@ defmodule HonteD.ABCI.State do
 
   defp apply_sign_off(state, height, hash, signoffer) do
     state
-    |> Map.put("sign_offs/#{signoffer}", %{height: height, hash: hash})
+    |> Map.put(key_signoffs(signoffer), %{height: height, hash: hash})
   end
 
   defp apply_allow(state, allower, allowee, privilege, allow) do
     state
-    |> Map.put("delegations/#{allower}/#{allowee}/#{privilege}", allow)
+    |> Map.put(key_delegations(allower, allowee, privilege), allow)
   end
 
   defp apply_epoch_change(state) do
@@ -191,10 +193,10 @@ defmodule HonteD.ABCI.State do
   defp bump_nonce_after(state, tx) do
     sender = Transaction.Validation.sender(tx)
     state
-    |> Map.update("nonces/#{sender}", 1, &(&1 + 1))
+    |> Map.update(key_nonces(sender), 1, &(&1 + 1))
   end
 
-  def hash(state) do
+  def hash(_state) do
     # NOTE: crudest of all app state hashes
     # state
     # |> OJSON.encode!  # using OJSON instead of inspect to have crypto-ready determinism
@@ -204,7 +206,7 @@ defmodule HonteD.ABCI.State do
 
   defp scan_potential_issued(unfiltered_tokens, state, issuer) do
     unfiltered_tokens
-    |> Enum.filter(fn token_addr -> state["tokens/#{token_addr}/issuer"] == issuer end)
+    |> Enum.filter(fn token_addr -> state[key_token_issuer(token_addr)] == issuer end)
   end
 
   def epoch_change?(state) do

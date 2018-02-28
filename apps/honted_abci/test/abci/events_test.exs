@@ -8,8 +8,6 @@ defmodule HonteD.ABCI.EventsTest do
   use ExUnitFixtures
   use ExUnit.Case, async: false  # modifies the ABCI's registered Eventer process
 
-  import HonteD.Transaction
-
   import HonteD.API.TestHelpers
   import HonteD.ABCI.TestHelpers
 
@@ -53,7 +51,8 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, issuer: issuer.addr]
       server_pid = server_spawner.(
         fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
-          raw_tx == struct(HonteD.Transaction.CreateToken, params)
+          {:ok, tx} = create_create_token(params)
+          raw_tx == tx
         end
       )
 
@@ -67,7 +66,8 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 1, asset: asset, amount: 5, dest: alice.addr, issuer: issuer.addr]
       server_pid = server_spawner.(
         fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
-          raw_tx == struct(HonteD.Transaction.Issue, params)
+          {:ok, tx} = create_issue(params)
+          raw_tx == tx
         end
       )
 
@@ -81,7 +81,8 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, asset: asset, amount: 5, from: alice.addr, to: bob.addr]
       server_pid = server_spawner.(
         fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
-          raw_tx == struct(HonteD.Transaction.Send, params)
+          {:ok, tx} = create_send(params)
+          raw_tx == tx
         end
       )
 
@@ -98,9 +99,11 @@ defmodule HonteD.ABCI.EventsTest do
         setup_params |> create_allow |> encode_sign(issuer.priv) |> deliver_tx(state)
 
       params = [nonce: 0, height: 1, hash: hash, sender: alice.addr, signoffer: issuer.addr]
+      raw_asset = asset |> HonteD.Crypto.hex_to_address!()
       server_pid = server_spawner.(
-        fn {:event_context, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}, [^asset]} ->
-          raw_tx == struct(HonteD.Transaction.SignOff, params)
+        fn {:event_context, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}, [^raw_asset]} ->
+          {:ok, expected} = create_sign_off(params)
+          raw_tx == expected
         end
       )
 
@@ -114,7 +117,8 @@ defmodule HonteD.ABCI.EventsTest do
       params = [nonce: 0, allower: issuer.addr, allowee: alice.addr, privilege: "signoff", allow: true]
       server_pid = server_spawner.(
         fn {:event, %HonteD.Transaction.SignedTx{raw_tx: raw_tx}} ->
-          raw_tx == struct(HonteD.Transaction.Allow, params)
+          {:ok, tx} = create_allow(params)
+          raw_tx == tx
         end
       )
 

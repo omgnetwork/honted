@@ -3,8 +3,6 @@ defmodule HonteD.TxCodecTest do
   @moduledoc """
   """
 
-  @moduletag :codec
-
   alias HonteD.Crypto
 
   test "encode for signed" do

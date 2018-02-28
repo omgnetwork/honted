@@ -97,15 +97,18 @@ defmodule HonteD.Integration.SmokeTest do
   test "demo smoke test", %{websocket: websocket, apis_caller: apis_caller} do
     {:ok, issuer_priv} = Crypto.generate_private_key()
     {:ok, issuer_pub} = Crypto.generate_public_key(issuer_priv)
-    {:ok, issuer} = Crypto.generate_address(issuer_pub)
+    {:ok, raw_issuer} = Crypto.generate_address issuer_pub
+    issuer = Crypto.address_to_hex(raw_issuer)
 
     {:ok, alice_priv} = Crypto.generate_private_key()
     {:ok, alice_pub} = Crypto.generate_public_key(alice_priv)
-    {:ok, alice} = Crypto.generate_address(alice_pub)
+    {:ok, raw_alice} = Crypto.generate_address alice_pub
+    alice = Crypto.address_to_hex(raw_alice)
 
     {:ok, bob_priv} = Crypto.generate_private_key()
     {:ok, bob_pub} = Crypto.generate_public_key(bob_priv)
-    {:ok, bob} = Crypto.generate_address(bob_pub)
+    {:ok, raw_bob} = Crypto.generate_address bob_pub
+    bob = Crypto.address_to_hex(raw_bob)
 
     # BROADCAST_TX_* SEMANTICS CHECKS
 
@@ -173,6 +176,7 @@ defmodule HonteD.Integration.SmokeTest do
 
     # LISTING TOKENS
     assert {:ok, [asset]} = API.tokens_issued_by(issuer)
+    raw_asset = Base.decode16!(asset, case: :lower)
 
     # check consistency of api exposers
     assert {:ok, [^asset]} =
@@ -226,19 +230,20 @@ defmodule HonteD.Integration.SmokeTest do
     # check event
     assert %{
       "transaction" => %{
-        "tx" => %{
-          "amount" => 5,
-          "asset" => ^asset,
-          "from" => ^alice,
-          "nonce" => 0,
-          "to" => ^bob
-        },
+        "tx" => received_tx,
         "hash" => ^tx_hash
       },
       "finality" => "committed",
       "height" => committed_at_height,
       "source" => ^filter_id,
     } = TestWebsocket.recv!(websocket)
+    assert HonteD.Transaction.create_send([
+      nonce: 0,
+      asset: raw_asset,
+      amount: 5,
+      from: raw_alice,
+      to: raw_bob
+    ]) == received_tx |> Base.decode16!() |> HonteD.TxCodec.decode()
     assert {
       :ok,
       %{
@@ -296,19 +301,20 @@ defmodule HonteD.Integration.SmokeTest do
 
     assert %{
       "transaction" => %{
-        "tx" => %{
-          "amount" => 5,
-          "asset" => ^asset,
-          "from" => ^alice,
-          "nonce" => 0,
-          "to" => ^bob
-        },
+        "tx" => encoded_tx,
         "hash" => ^tx_hash
       },
       "finality" => "finalized",
       "height" => _,
       "source" => _,
     } = TestWebsocket.recv!(websocket)
+    assert HonteD.Transaction.create_send([
+      nonce: 0,
+      asset: raw_asset,
+      amount: 5,
+      from: raw_alice,
+      to: raw_bob
+    ]) == encoded_tx |> Base.decode16!() |> HonteD.TxCodec.decode()
 
     assert {
       :ok,
@@ -324,19 +330,20 @@ defmodule HonteD.Integration.SmokeTest do
 
     assert %{
       "transaction" => %{
-        "tx" => %{
-          "amount" => 5,
-          "asset" => ^asset,
-          "from" => ^alice,
-          "nonce" => 0,
-          "to" => ^bob
-        },
+        "tx" => encoded_tx,
         "hash" => ^tx_hash
       },
       "finality" => "committed",
       "source" => ^filter_id,
       "height" => ^committed_at_height
     } = TestWebsocket.recv!(websocket)
+    assert HonteD.Transaction.create_send([
+      nonce: 0,
+      asset: raw_asset,
+      amount: 5,
+      from: raw_alice,
+      to: raw_bob
+    ]) == encoded_tx |> Base.decode16!() |> HonteD.TxCodec.decode()
   end
 
   @tag fixtures: [:tendermint, :apis_caller]
@@ -400,7 +407,7 @@ defmodule HonteD.Integration.SmokeTest do
 
     {:ok, alice_priv} = Crypto.generate_private_key
     {:ok, alice_pub} = Crypto.generate_public_key alice_priv
-    {:ok, alice} = Crypto.generate_address alice_pub
+    alice = alice_pub |> Crypto.generate_address() |> elem(1) |> Crypto.address_to_hex()
 
     {:ok, [alice_ethereum_address | _]} = Ethereumex.HttpClient.eth_accounts()
 

@@ -6,8 +6,6 @@ defmodule HonteD.CryptoTest do
 
   alias HonteD.Crypto
 
-  @moduletag :crypto
-
   test "sha3 library usage, address generation" do
     # test vectors below were generated using pyethereum's sha3 and privtoaddr
     priv = :keccakf1600.sha3_256(<<"11">>)

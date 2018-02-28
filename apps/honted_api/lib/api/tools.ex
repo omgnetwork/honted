@@ -71,7 +71,7 @@ defmodule HonteD.API.Tools do
   defp get_sign_off_status_for_committed(%HonteD.Transaction.SignedTx{raw_tx: %HonteD.Transaction.Send{} = tx},
                                          client,
                                          tx_height) do
-    {:ok, issuer} = get_issuer(client, tx.asset)
+    {:ok, issuer} = get_issuer(client, HonteD.Crypto.address_to_hex(tx.asset))
 
     case get_and_decode(client, "/sign_offs/#{issuer}") do
       {:ok, %{"response" => %{"code" => 1}}} ->

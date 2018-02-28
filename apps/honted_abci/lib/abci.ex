@@ -8,6 +8,7 @@ defmodule HonteD.ABCI do
   require Logger
   use GenServer
   import HonteD.ABCI.Records
+  import HonteD.ABCI.Paths
 
   alias HonteD.Staking
   alias HonteD.ABCI.State
@@ -106,25 +107,38 @@ defmodule HonteD.ABCI do
   @doc """
   Specific query for nonces which provides zero for unknown senders
   """
-  def handle_call(request_query(path: '/nonces' ++ address), _from,
+  def handle_call(request_query(path: '/nonces/' ++ hex_address = path), _from,
   %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
-    key = "nonces" <> to_string(address)
-    value = Map.get(consensus_state, key, 0)
-    reply = response_query(code: code(:ok), key: to_charlist(key), value: encode_query_response(value),
-      proof: 'no proof')
-    {:reply, reply, abci_app}
+    case decode_address(hex_address) do
+      {:ok, address} ->
+        key = key_nonces(address)
+        value = Map.get(consensus_state, key, 0)
+        reply = response_query(code: code(:ok), key: path, value: encode_query_response(value),
+          proof: 'no proof')
+        {:reply, reply, abci_app}
+      {:error, error} ->
+        {:reply, handle_query_error(path, error), abci_app}
+    end
   end
 
   @doc """
   Specialized query for issued tokens for an issuer
   """
-  def handle_call(request_query(path: '/issuers/' ++ address), _from,
+  def handle_call(request_query(path: '/issuers/' ++ hex_address = path), _from,
   %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
-    key = "issuers/" <> to_string(address)
-    {code, value, log} = handle_get(State.issued_tokens(consensus_state, address))
-    reply = response_query(code: code, key: to_charlist(key),
-      value: encode_query_response(value), proof: 'no proof', log: log)
-    {:reply, reply, abci_app}
+    case decode_address(hex_address) do
+      {:ok, address} ->
+        {code, tokens, log} = handle_get(State.issued_tokens(consensus_state, address))
+        tokens = case code do
+                   0 -> Enum.map(tokens, &encode_address/1)
+                   _ -> tokens
+                 end
+        reply = response_query(code: code, key: path,
+          value: encode_query_response(tokens), proof: 'no proof', log: log)
+        {:reply, reply, abci_app}
+      {:error, error} ->
+        {:reply, handle_query_error(path, error), abci_app}
+    end
   end
 
   @doc """
@@ -134,11 +148,20 @@ defmodule HonteD.ABCI do
   """
   def handle_call(request_query(path: path), _from,
   %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
-    "/" <> key = to_string(path)
-    {code, value, log} = lookup(consensus_state, key)
-    reply = response_query(code: code, key: to_charlist(key), value: encode_query_response(value),
-      proof: 'no proof', log: log)
-    {:reply, reply, abci_app}
+    '/' ++ short_path = path
+    case query_helper(short_path) do
+      {:error, error} ->
+        {:reply, handle_query_error(path, error), abci_app}
+      {key, value_fun} ->
+        {code, value, log} = lookup(consensus_state, key)
+        value = case code do
+                  0 -> value_fun.(value)
+                  _ -> value
+                end
+        reply = response_query(code: code, key: path, value: encode_query_response(value),
+          proof: 'no proof', log: log)
+        {:reply, reply, abci_app}
+    end
   end
 
   def handle_call(request_init_chain(validators: validators), _from, %HonteD.ABCI{} = abci_app) do
@@ -156,6 +179,79 @@ defmodule HonteD.ABCI do
   end
 
   ### END GenServer
+
+  defp id(any), do: any
+
+  @spec query_helper(charlist) :: {binary, (any -> Poison.Encoder.t)} | {:error, atom}
+  defp query_helper('nonces/' ++ hex_address) do
+    with {:ok, address} <- decode_address(hex_address), do: {key_nonces(address), &id/1}
+  end
+  defp query_helper('accounts/' ++ rest) do
+    case to_string(rest) do
+      <<hex_asset :: binary-size(40), "/", hex_owner :: binary-size(40)>> ->
+        with {:ok, asset} <- decode_address(hex_asset),
+             {:ok, owner} <- decode_address(hex_owner),
+        do: {key_asset_ownership(asset, owner), &id/1}
+      _ -> {:error, :unknown_path}
+    end
+  end
+  defp query_helper('issuers/' ++ hex_address) do
+    with {:ok, issuer} <- decode_address(hex_address) do
+      {key_issued_tokens(issuer), fn(tokens) -> Enum.map(tokens, &encode_address/1) end}
+    end
+  end
+  defp query_helper('tokens/' ++ rest) do
+    case to_string(rest) do
+      <<hex_address :: binary-size(40), "/issuer">> ->
+        with {:ok, address} <- decode_address(hex_address), do: {key_token_issuer(address), &encode_address/1}
+      <<hex_address :: binary-size(40), "/total_supply">> ->
+        with {:ok, address} <- decode_address(hex_address), do: {key_token_supply(address), &id/1}
+      _ -> {:error, :unknown_path}
+    end
+  end
+  defp query_helper('sign_offs/' ++ hex_address) do
+    with {:ok, address} <- decode_address(hex_address), do: {key_signoffs(address), &id/1}
+  end
+  defp query_helper('delegations/' ++ rest) do
+    case to_string(rest) do
+      <<hex_allower :: binary-size(40), "/", hex_allowee :: binary-size(40), "/", str_privilege :: binary>> ->
+        with {:ok, allower} <- decode_address(hex_allower),
+             {:ok, allowee} <- decode_address(hex_allowee),
+             :ok <- HonteD.Transaction.Validation.known?(str_privilege), do:
+        {key_delegations(allower, allowee, str_privilege), &id/1}
+      _ -> {:error, :unknown_path}
+    end
+  end
+  defp query_helper('contract/epoch_change' = path) do
+    {to_string(path), &id/1}
+  end
+  defp query_helper('contract/epoch_number' = path) do
+    {to_string(path), &id/1}
+  end
+
+  defp handle_query_error(path, error) do
+    response_query(code: code(error), key: path, value: '',
+      proof: 'no proof', log: '')
+  end
+
+  def known_atom(str) do
+    try do
+      {:ok, String.to_existing_atom(str)}
+    catch
+      :error, :badarg -> {:error, :bad_value_encoding}
+    end
+  end
+
+  defp decode_address(hex_list) when is_list(hex_list) do
+    decode_address(to_string(hex_list))
+  end
+  defp decode_address(hex_binary) do
+    HonteD.Crypto.hex_to_address(hex_binary)
+  end
+
+  defp encode_address(bin) do
+    HonteD.Crypto.address_to_hex(bin)
+  end
 
   defp move_to_next_epoch_if_epoch_changed(state) do
     if State.epoch_change?(state) do

@@ -100,8 +100,7 @@ defmodule HonteD.Integration.Performance.Scenario do
     number
     |> Integer.mod(n_receivers)
     |> Integer.to_string
-    |> String.pad_leading(37, "c")
-    |> Kernel.<>("pub")
+    |> String.pad_leading(20, "c")
   end
 
   # All seeds are a function of initial_seed, but they do not overlap in practice
@@ -129,7 +128,9 @@ defmodule HonteD.Integration.Performance.Scenario do
   defp create_token(issuer) do
     {:ok, tx} = create_create_token(nonce: 0, issuer: issuer.addr)
     tx = signed_tx(tx, issuer)
-    token_addr = HonteD.Token.create_address(issuer.addr, 0)
+    token_addr =
+      issuer.addr
+      |> HonteD.Token.create_address(0)
     {token_addr, {true, tx}}
   end
 

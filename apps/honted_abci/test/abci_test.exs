@@ -12,7 +12,6 @@ defmodule HonteD.ABCITest do
   import HonteD.ABCI.Records
 
   import HonteD.ABCI
-  import HonteD.Transaction
 
   alias HonteD.Validator
 
@@ -31,7 +30,7 @@ defmodule HonteD.ABCITest do
   #     %{state: state} =
   #       create_create_token(nonce: 0, issuer: issuer.addr)
   #       |> encode_sign(issuer.priv) |> check_tx(state) |> success?
-  #     asset = HonteD.Token.create_address(issuer.addr, 0)
+  #     asset = HonteD.Token.create_address(issuer.addr, 0) |> HonteD.Crypto.address_to_hex()
   #     %{state: ^state} =
   #       create_issue(nonce: 0, asset: asset, amount: 1, dest: issuer.addr, issuer: issuer.addr)
   #       |> encode_sign(issuer.priv) |> check_tx(state) |> fail?(1, 'invalid_nonce')
