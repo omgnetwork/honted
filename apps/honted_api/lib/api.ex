@@ -44,6 +44,19 @@ defmodule HonteD.API do
   end
 
   @doc """
+  Creates a signable, encoded transaction that unissues `amount` of `asset`-tokens, reducing total supply
+  """
+  @spec create_unissue_transaction(asset :: binary, amount :: pos_integer, issuer :: binary)
+        :: {:ok, binary} | {:error, map}
+  def create_unissue_transaction(asset, amount, issuer) do
+    client = Tendermint.RPC.client()
+    with {:ok, nonce} <- Tools.get_nonce(client, issuer),
+         {:ok, tx} <- Transaction.create_unissue(nonce: nonce, asset: asset, amount: amount, issuer: issuer) do
+      {:ok, tx |> TxCodec.encode() |> Base.encode16()}
+    end
+  end
+
+  @doc """
   Creates a signable, encoded transaction that sends `amount` of `asset` from `from` to `to`
   """
   @spec create_send_transaction(asset :: binary, amount :: pos_integer, from :: binary, to :: binary)
