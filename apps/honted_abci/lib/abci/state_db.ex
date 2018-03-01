@@ -2,7 +2,7 @@ defmodule HonteD.ABCI.State.ProcessRegistryDB do
   @moduledoc """
   Implementation of MerklePatriciaTree.DB which
   is backed by a map stored in process registry.
-  This implementation allows efficient copying of MerklePatriciaTree.Trie.
+  This implementation allows efficient copying of MerklePatriciaTree.Trie
   """
   alias MerklePatriciaTree.Trie
   alias MerklePatriciaTree.DB
