@@ -17,8 +17,8 @@ defmodule HonteD.ABCI do
   Tracks state which is controlled by consensus and also tracks local (mempool related, transient) state.
   Local state is being overwritten by consensus state on every commit.
   """
-  defstruct [consensus_state: State.initial(),
-             local_state: State.initial(),
+  defstruct [consensus_state: nil,
+             local_state: nil,
              staking_state: nil,
              initial_validators: nil,
              byzantine_validators_cache: nil,
@@ -34,7 +34,11 @@ defmodule HonteD.ABCI do
   end
 
   def init([staking_state]) do
-    abci_app = %{%__MODULE__{} | staking_state: staking_state}
+    abci_app =
+      %__MODULE__{}
+      |> Map.put(:consensus_state, State.initial("consensus_state"))
+      |> Map.put(:local_state, State.initial("local_state"))
+      |> Map.put(:staking_state, staking_state)
     {:ok, abci_app}
   end
 
@@ -71,10 +75,11 @@ defmodule HonteD.ABCI do
     {:reply, response_begin_block(), abci_app}
   end
 
-  def handle_call(request_commit(), _from, %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
-    hash = (consensus_state |> State.hash |> to_charlist)
+  def handle_call(request_commit(), _from,
+                  %HonteD.ABCI{consensus_state: consensus_state, local_state: local_state} = abci_app) do
+    hash = State.hash(consensus_state)
     reply = response_commit(code: code(:ok), data: hash, log: 'commit log: yo!')
-    {:reply, reply, %{abci_app | local_state: consensus_state}}
+    {:reply, reply, %{abci_app | local_state: State.copy_state(consensus_state, local_state)}}
   end
 
   def handle_call(request_check_tx(tx: tx), _from, %HonteD.ABCI{} = abci_app) do
@@ -123,7 +128,7 @@ defmodule HonteD.ABCI do
   def handle_call(request_query(path: '/nonces' ++ address), _from,
   %HonteD.ABCI{consensus_state: consensus_state} = abci_app) do
     key = "nonces" <> to_string(address)
-    value = Map.get(consensus_state, key, 0)
+    {:ok, value} = State.lookup(consensus_state, key, 0)
     reply = response_query(code: code(:ok), key: to_charlist(key), value: encode_query_response(value),
       proof: 'no proof')
     {:reply, reply, abci_app}
@@ -213,7 +218,7 @@ defmodule HonteD.ABCI do
   end
 
   defp lookup(state, key) do
-    state |> State.get(key) |> handle_get
+    state |> State.lookup(key) |> handle_get
   end
 
   defp handle_get({:ok, value}), do: {code(:ok), value, ''}

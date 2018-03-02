@@ -14,7 +14,7 @@ defmodule HonteD.Integration.Performance.ScenarioTest do
       scenario
       |> Scenario.get_setup()
       |> List.flatten()
-      |> Enum.reduce(State.initial(), &apply_tx/2)
+      |> Enum.reduce(State.initial(:test_db), &apply_tx/2)
 
     scenario
     |> Scenario.get_send_txs()

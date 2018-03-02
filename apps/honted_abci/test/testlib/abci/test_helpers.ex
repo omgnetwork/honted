@@ -106,7 +106,7 @@ defmodule HonteD.ABCI.TestHelpers do
     # NOTE: breaching of the "test via public API" rule, but this is the easiest way of testing behavior:
     #       "checktx and delivertx share the same state-modifying semantics"
     #       Rethink, in case this proves cumbersome
-    assert deliver_result.state.consensus_state == check_result.state.local_state
+    assert deliver_result.state.consensus_state.root_hash == check_result.state.local_state.root_hash
   end
 
   def commit(%{state: state}), do: commit(state)

@@ -13,3 +13,22 @@ Function start/0 has no local return
 Function launch/1 will never be called
 Function geth_os_pids/0 will never be called
 Function wait_for_geth_start/1 will never be called
+# following warnings are silenced because they are probably caused by invalid specs in {:merkle-patricia-tree} (https://github.com/exthereum/merkle_patricia_tree/issues/9)
+Function init/1 has no local return
+The pattern {'ok', Vnew_local_state@1} can never match the type {'error','amount_way_too_large' | 'incorrect_issuer' | 'insufficient_funds' | 'invalid_delegation' | 'invalid_epoch_change' | 'invalid_nonce' | 'invalid_signature' | 'missing_signature' | 'positive_amount_required' | 'sign_off_not_incremental' | 'unknown_issuer' | 'unknown_privilege' | 'validator_block_has_not_passed'}
+The pattern {'ok', Vnew_consensus_state@1} can never match the type {'error','amount_way_too_large' | 'incorrect_issuer' | 'insufficient_funds' | 'invalid_delegation' | 'invalid_epoch_change' | 'invalid_nonce' | 'invalid_signature' | 'missing_signature' | 'positive_amount_required' | 'sign_off_not_incremental' | 'unknown_issuer' | 'unknown_privilege' | 'validator_block_has_not_passed'}
+Function do_put/4 has no local return
+Function put/3 has no local return
+Function 'update!'/3 has no local return
+Function update/3 has no local return
+Function update/4 has no local return
+Function initial/1 has no local return
+Function apply_create_token/3 has no local return
+Function apply_issue/4 has no local return
+Function apply_send/4 has no local return
+Function apply_sign_off/4 has no local return
+Function apply_allow/5 has no local return
+Function apply_change_asset/4 has no local return
+Function apply_epoch_change/1 has no local return
+Function bump_nonce_after/2 will never be called
+Function not_change_epoch/1 has no local return

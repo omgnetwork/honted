@@ -9,7 +9,10 @@ Only **Linux** platforms supported now. Known to work with Ubuntu 16.04
 Install [Elixir](http://elixir-lang.github.io/install.html#unix-and-unix-like).
 Make sure `rebar` is in your path, e.g. `export PATH=$PATH:~/.mix` (mileage may vary).
 
+Install [Rust and cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+
 Install Tendermint [from source](https://tendermint.readthedocs.io/en/master/install.html#from-source) (`golang` > `v1.9` and `glide` is required).
+
 
 **NOTE** Validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
 Check out and install this, for example like this:

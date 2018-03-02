@@ -11,6 +11,10 @@ defmodule HonteD.ABCI.Ethereum.EthashCacheServer do
 
   alias HonteD.ABCI.Ethereum.EthashCache
 
+  def init(args) do
+     {:ok, args}
+   end
+
   @doc """
   Starts cache store
   """
