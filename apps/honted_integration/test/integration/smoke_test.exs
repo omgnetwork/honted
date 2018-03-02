@@ -190,15 +190,37 @@ defmodule HonteD.Integration.SmokeTest do
       %{asset: asset, amount: @supply, to: alice, issuer: issuer}
     )
 
+    # TODO: DRY refactor these into a separate function
     {:ok, _} =
       raw_tx
       |> Transaction.sign(issuer_priv)
       |> API.submit_commit()
 
+    # QUERYING BALANCE
     assert {:ok, @supply} = API.query_balance(asset, alice)
 
     # check consistency of api exposers
     assert {:ok, @supply} == apis_caller.(:query_balance, %{token: asset, address: alice})
+
+    # UNISSUING
+    {:ok, raw_tx} = API.create_issue_transaction(asset, @supply, issuer, issuer)
+    {:ok, _} =
+      raw_tx
+      |> Transaction.sign(issuer_priv)
+      |> API.submit_commit()
+
+    {:ok, raw_tx} = API.create_unissue_transaction(asset, @supply, issuer)
+
+    # check consistency of api exposers
+    assert {:ok, raw_tx} == apis_caller.(
+      :create_unissue_transaction,
+      %{asset: asset, amount: @supply, issuer: issuer}
+    )
+
+    {:ok, _} =
+      raw_tx
+      |> Transaction.sign(issuer_priv)
+      |> API.submit_commit()
 
     # EVENTS & Send TRANSACTION
     # subscribe to filter

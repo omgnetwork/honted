@@ -39,6 +39,12 @@ signed_tx = Transaction.sign(raw_tx, alice_priv)
 # check that transaction works as usual
 API.submit_commit(signed_tx)
 
+# Part IIb UNISSUING
+{:ok, raw_tx} = API.create_unissue_transaction(asset, 450, alice)
+raw_tx |> Transaction.sign(alice_priv) |> API.submit_commit()
+
+API.query_balance(asset, alice)
+
 # Part III trie in action
 # TODO (PawelG)
 # idea: run performance test and see that the throughput doesn't drop, which was previously caused by OJSON hashing
@@ -46,7 +52,7 @@ API.submit_commit(signed_tx)
 # Part IV Soft-slashing (removing from validator set)
 
 # get our validator's pub_key
-# cat ~/.tendermint/priv_validator.json
+System.cmd "cat", ["/home/user/.tendermint/priv_validator.json"]
 pub_key =
 
 # no public API to double-sign, we need to hack around

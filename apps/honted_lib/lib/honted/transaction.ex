@@ -102,7 +102,7 @@ defmodule HonteD.Transaction do
     }
   end
 
-  @type t :: CreateToken.t | Issue.t | Send.t | SignOff.t | Allow.t | EpochChange.t | SignedTx.t
+  @type t :: CreateToken.t | Issue.t | Unissue.t | Send.t | SignOff.t | Allow.t | EpochChange.t | SignedTx.t
 
   @doc """
   Creates a CreateToken transaction, ensures state-less validity and encodes
