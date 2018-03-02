@@ -190,6 +190,7 @@ defmodule HonteD.Integration.SmokeTest do
       %{asset: asset, amount: @supply, to: alice, issuer: issuer}
     )
 
+    # TODO: DRY refactor these into a separate function
     {:ok, _} =
       raw_tx
       |> Transaction.sign(issuer_priv)
