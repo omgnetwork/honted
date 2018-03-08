@@ -1,6 +1,6 @@
 ## Staking and validator set changes (+performance test bonus)
 
-(**NOTE** we need to tendermint validator nodes, so:)
+(**NOTE** we need two tendermint validator nodes, so:)
 
 1. Prepare the 2-node setup as follows:
         tendermint init --home ~/.tendermint1
@@ -12,8 +12,8 @@
 2. Run and keep running somewhere
         geth --dev --rpc
 
-2. in a separate shell deploy the contracts (shell: `iex -S mix run -no-start`) then leave `iex`
-        {:ok, token, staking} = HonteD.Integration.Contract.deploy_dev(30, 10, 1)
+2. in a separate shell deploy the contracts (shell: `iex -S mix run --no-start`) then leave `iex`
+        {:ok, token, staking} = HonteD.Integration.Contract.deploy(30, 10, 1)
 3. Do the following and run some commands:
 
         # modify config/config2.exs according to ports below, by adding
@@ -32,9 +32,9 @@
         # modify both config/config2.exs and config/config1.exs with the staking contract address and flag
         #
         config :honted_eth,
-        staking_contract_address:
+          staking_contract_address:
         config :honted_eth,
-        enabled: true
+          enabled: true
         #
         # at the bottom
 

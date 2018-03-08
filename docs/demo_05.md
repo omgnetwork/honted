@@ -1,4 +1,4 @@
-## Performance tests using `tm-bench` - not saturated yet
+## [OBSOLETE]] Performance tests using `tm-bench` - not saturated yet
 
 **NOTE** the results are meaningless at current stage. Do not pass them on in **any** form.
 
@@ -8,16 +8,16 @@ Performance test is done using a script that:
  - starts our HonteD ABCI app
  - starts `tm-bench` a tool that listens to a Tendermint node and counts transactions and blocks
  - "floods" Tendermint with transactions
- 
+
 **tl;dr**
 
  - the saturation point not found yet due to inefficiency of our link to Tendermint
-   
+
    to be fixed in https://phabricator.omisego.io/T415 using either
      - a persistent connection to the Tendermint RPC
      - doing https://phabricator.omisego.io/T148 (dependent transactions in a block)
-   
- 
+
+
 ### Simple case
 
 ```

@@ -1,4 +1,4 @@
-## Finalized events and richer sign-off transaction logic. Reliable replay of events
+## Signatures and encoding conformance, unissuing tokens, usage of Merkle Patricia Trees, soft-slashing
 
 1. Run a single node HonteD-Tendermint as usual (both apps!)
 7. in `iex`/`wscat`/shell:
@@ -46,7 +46,6 @@ raw_tx |> Transaction.sign(alice_priv) |> API.submit_commit()
 API.query_balance(asset, alice)
 
 # Part III trie in action
-# TODO (PawelG)
 # idea: run performance test and see that the throughput doesn't drop, which was previously caused by OJSON hashing
 
 # Part IV Soft-slashing (removing from validator set)
