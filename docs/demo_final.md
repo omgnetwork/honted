@@ -59,6 +59,9 @@
 
 alias HonteD.{Crypto, API, Transaction, Integration, Eth}
 
+require HonteD.ABCI.Records
+alias HonteD.ABCI.Records
+
 {:ok, alice_priv} = Crypto.generate_private_key; {:ok, alice_pub} = Crypto.generate_public_key alice_priv; {:ok, alice} = Crypto.generate_address alice_pub
 {:ok, bob_priv} = Crypto.generate_private_key; {:ok, bob_pub} = Crypto.generate_public_key bob_priv; {:ok, bob} = Crypto.generate_address bob_pub
 {:ok, ivan_priv} = Crypto.generate_private_key; {:ok, ivan_pub} = Crypto.generate_public_key ivan_priv; {:ok, ivan} = Crypto.generate_address ivan_pub
@@ -78,7 +81,7 @@ alias HonteD.{Crypto, API, Transaction, Integration, Eth}
 #   PoS network using Tendermint - validator set selection
 ###
 
-# Every epoch, there's a new set of validators, that have staked their OMG coing on ethereum
+# Every epoch, there's a new set of validators, that have staked their OMG coins on ethereum
 
 # first acknowledge in logs of the second node that the validator in commits coincides with validator1's address
 # stored in priv_validator.json in ~/.tendermint1
@@ -116,6 +119,7 @@ raw_tx |> Transaction.sign(alice_priv) |> API.submit_commit()
 
 {:ok, raw_tx} = API.create_create_token_transaction(ivan)
 {:ok, hash} = raw_tx |> Transaction.sign(ivan_priv) |> API.submit_commit()
+
 {:ok, [asset]} = API.tokens_issued_by(ivan)
 
 {:ok, raw_tx} = API.create_issue_transaction(asset, 500, ivan, ivan)
@@ -152,17 +156,17 @@ raw_tx |> Transaction.sign(ivan_priv) |> API.submit_commit()
 # Mention: NEW: issuers can also unissue tokens
 # Mention: NEW: tx encoding is RLP, which is the standard for ethereum
 # Mention: NEW: (refactors & merge pending, can't demonstrate) signatures and pub/priv keypairs are Eth-conformant
+# Mention: NEW: double-signing validators are removed from validators set
+# Mention: we are able to measure the performance of single HonteD, and to uncover bottlenecks
+
 
 # Extras:
 
 ###
 ###
 ###
-#   NEW: Soft slashing misbehaving validator
+#   NEW: Soft slashing (removing) misbehaving validator
 ###
-
-require HonteD.ABCI.Records
-alias HonteD.ABCI.Records
 
 # no public API to double-sign, we need to hack around
 encoded_pub_key = <<1>> <> Base.decode16!(new_validator_pubkey)
