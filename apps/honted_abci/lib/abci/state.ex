@@ -15,7 +15,9 @@ defmodule HonteD.ABCI.State do
   @epoch_change_key "contract/epoch_change"
 
   def initial(db_name) do
+    # TODO: this DB isn't persistent, see TODOs in README.md
     trie = MerklePatriciaTree.Trie.new(ProcessRegistryDB.init(db_name))
+
     trie
     |> MPTState.put(@epoch_number_key, 0)
     |> MPTState.put(@epoch_change_key, false)

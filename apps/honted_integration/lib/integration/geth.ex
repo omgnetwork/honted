@@ -25,7 +25,7 @@ defmodule HonteD.Integration.Geth do
     geth_pids = geth_os_pids()
     geth_proc = %Porcelain.Process{err: nil, out: geth_out} = Porcelain.spawn_shell(
       cmd,
-      out: :stream,
+      out: :stream
     )
     geth_pids_after = geth_os_pids()
     wait_for_geth_start(geth_out)

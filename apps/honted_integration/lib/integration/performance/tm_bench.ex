@@ -12,7 +12,7 @@ defmodule HonteD.Integration.Performance.TMBench do
     # start the benchmarking tool and capture the stdout
     tm_bench_proc = %Porcelain.Process{err: nil, out: tm_bench_out} = Porcelain.spawn_shell(
       "tm-bench -c 0 -T #{duration} localhost:46657",
-      out: :stream,
+      out: :stream
     )
     :ok = wait_for_tm_bench_start(tm_bench_out)
 

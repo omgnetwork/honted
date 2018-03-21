@@ -32,6 +32,9 @@ defmodule HonteD.Integration.PerformanceTest do
     end
   end
 
+  # TODO: flaky test caused by https://github.com/tendermint/tendermint/issues/1091
+  #       issue is fixed in TM 0.16, but that version is unavailable yet due to breaking changes
+  @tag :flaky
   @tag fixtures: [:tendermint]
   test "performance test should run with fill in", %{} do
     result = Performance.run(@nstreams, @fill_in, @duration)

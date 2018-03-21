@@ -2,11 +2,14 @@ defmodule HonteD.Integration.SmokeTest do
   @moduledoc """
   Smoke tests the integration of abci/ws/jsonrpc/elixir_api/eventer applications in the wild
 
-  FIXME: Main test is just one blob off tests taken from demos - consider engineering here
-  FIXME: In case API unit test come to existence, consider removing some of these tests here and becoming more targetted
+
   """
+  # TODO: Main test is just one blob off tests taken from demos - consider engineering here
+  # TODO: In case API unit test come to existence, consider removing some of these tests here and becoming more
+  #       targetted
 
   use ExUnitFixtures
+
   use ExUnit.Case, async: false
 
   alias HonteD.{Crypto, API, Integration, Eth, Transaction}
@@ -409,6 +412,8 @@ defmodule HonteD.Integration.SmokeTest do
     :ok
   end
 
+  # TODO: flaky test due to geth startup glitches
+  @tag :flaky
   @tag fixtures: [:geth, :tendermint, :contracts, :staking_contract_config]
   test "Sets validators with staking contract", %{contracts: {token, staking}} do
     # NOTE: for this to work, tendermint must start _after_ the configured, secondary honted start

@@ -1,5 +1,26 @@
 # HonteD
 
+## IMPORTANT NOTICE
+
+**tl;dr**: Don't expect this to work
+
+Development of this has been discontinued at a stage that still can't provide any real service.
+There are critical issues that have been punted, and not yet completed, among others:
+1. **Signatures** - in `develop` branch still mocks are used. Using Ethereum-compliant signature scheme has been done, but not yet merged!
+
+Other important development planned, but not yet done:
+
+1. **Transaction fee handling and slashing**
+2. **DEx**: do order placing, canceling, updating / batch matching & execution / performant, merkelized order book
+3. **More on token management**: transfer rights / AML-KYC support
+4. **State persistence**: checkpoint the ABCI app's state, instead of relying on Tendermint replaying transactions from genesis
+5. **PoW maturity proofs** (see `docs/tendermint_blockchain_design`): integrate with the epoch change transactions' logic
+6. **Consider alternative state merklization**: rethink application of Merkle Patricia Trees
+7. **Event system**: considerably overhaul and redesign
+8. **Known bugs**: unstable Websocket connection with Tendermint RPC / inability to restart node that did sign-offs
+
+For smaller items, see `TODO` comments in code.
+
 ## Installation
 
 ### Prerequisites
@@ -11,7 +32,7 @@ Make sure `rebar` is in your path, e.g. `export PATH=$PATH:~/.mix` (mileage may 
 
 Install [Rust and cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html).
 
-Install Tendermint [from source](https://tendermint.readthedocs.io/en/master/install.html#from-source) (`golang` > `v1.9` and `glide` is required).
+Install Tendermint [from source](https://tendermint.readthedocs.io/en/master/install.html#from-source) (`golang` >= `v1.9` and `glide` is required).
 
 
 **NOTE** Validator set updates work only with a temporary branch [here](https://github.com/omisego/tendermint/tree/v0.15.0_dirty_no_val_check).
@@ -81,6 +102,11 @@ for more details see the `moduledoc` therein.
 
 **NOTE** with this Tendermint version you may get weird `:invalid_nonce` errors sometimes.
 `v0.16` should fix this.
+To fix that, turn off nonce check for `Send` transactions in `abci/state.ex`,
+without loss of relevance of perf test results.
+
+**NOTE 2** due to [this](https://github.com/tendermint/tools/issues/74) the averaged performance test results won't be calculated.
+Only the raw information from Tendermint logs is available.
 
 ## Using the APIs
 

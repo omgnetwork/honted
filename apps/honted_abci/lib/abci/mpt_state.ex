@@ -2,9 +2,13 @@ defmodule HonteD.ABCI.MPTState do
   @moduledoc """
   Utility functions for state stored in Merkle Patricia Tree
   """
+  # TODO: this wrapper as well as the underlying Merkle Patricia Tree library needs some optimizations
+  #       according to profiler output takeaways
+
   alias MerklePatriciaTree.Trie
 
-  #TODO: do not encode value types, remove when ABCI is ready for that
+  # TODO: do not encode value types, remove when ABCI is ready for that.
+  #       That would be after the changes switching to use of real signatures were merged
   @encoded_bool "b"
   @encoded_int "i"
   @encoded_sign_off "s"
