@@ -48,7 +48,7 @@ defmodule HonteD.ABCI.State do
     with :ok <- nonce_valid?(state, tx.issuer, tx.nonce),
          do: {:ok, state
                    |> apply_create_token(tx.issuer, tx.nonce)
-                   |> bump_nonce_after(tx)}
+                   |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Issue{} = tx}) do
@@ -58,7 +58,7 @@ defmodule HonteD.ABCI.State do
          :ok <- not_too_much?(tx.amount, MPTState.get(state, "tokens/#{tx.asset}/total_supply")),
          do: {:ok, state
                    |> apply_change_asset(tx.asset, tx.amount, tx.dest)
-                   |> bump_nonce_after(tx)}
+                   |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Unissue{} = tx}) do
@@ -71,7 +71,7 @@ defmodule HonteD.ABCI.State do
            {:ok,
             state
             |> apply_change_asset(tx.asset, -tx.amount, tx.issuer)
-            |> bump_nonce_after(tx)}
+            |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Send{} = tx}) do
@@ -82,7 +82,7 @@ defmodule HonteD.ABCI.State do
          :ok <- account_has_at_least?(state, key_src, tx.amount),
          do: {:ok, state
                   |> apply_send(tx.amount, key_src, key_dest)
-                  |> bump_nonce_after(tx)}
+                  |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.SignOff{} = tx}) do
@@ -91,14 +91,14 @@ defmodule HonteD.ABCI.State do
          :ok <- sign_off_incremental?(state, tx.height, tx.signoffer),
          do: {:ok, state
                    |> apply_sign_off(tx.height, tx.hash, tx.signoffer)
-                   |> bump_nonce_after(tx)}
+                   |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.Allow{} = tx}) do
     with :ok <- nonce_valid?(state, tx.allower, tx.nonce),
          do: {:ok, state
                    |> apply_allow(tx.allower, tx.allowee, tx.privilege, tx.allow)
-                   |> bump_nonce_after(tx)}
+                   |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def exec(state, %Transaction.SignedTx{raw_tx: %Transaction.EpochChange{} = tx},
@@ -108,7 +108,7 @@ defmodule HonteD.ABCI.State do
          :ok <- epoch_valid?(state, tx.epoch_number),
          do: {:ok, state
                    |> apply_epoch_change
-                   |> bump_nonce_after(tx)}
+                   |> bump_nonce_after(tx, tx.nonce)}
   end
 
   def validator_block_passed?(staking, epoch) do
@@ -214,10 +214,9 @@ defmodule HonteD.ABCI.State do
     |> MPTState.update!(@epoch_number_key, &(&1 + 1))
   end
 
-  defp bump_nonce_after(state, tx) do
+  defp bump_nonce_after(state, tx, current_nonce) do
     sender = Transaction.Validation.sender(tx)
     key = "nonces/#{sender}"
-    {:ok, current_nonce} = lookup(state, key, 0)
     MPTState.put(state, key, current_nonce + 1)
   end
 
