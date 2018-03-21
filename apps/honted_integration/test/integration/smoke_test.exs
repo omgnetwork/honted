@@ -2,7 +2,6 @@ defmodule HonteD.Integration.SmokeTest do
   @moduledoc """
   Smoke tests the integration of abci/ws/jsonrpc/elixir_api/eventer applications in the wild
 
-
   """
   # TODO: Main test is just one blob off tests taken from demos - consider engineering here
   # TODO: In case API unit test come to existence, consider removing some of these tests here and becoming more

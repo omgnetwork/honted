@@ -14,13 +14,10 @@ Identifies each module of pre-existing source code used in developing source cod
   * `abci_server`, Apache 2.0, https://github.com/KrzysiekJ/abci_server
   * `bimap`, MIT, https://hex.pm/packages/bimap
   * `cowboy`, ISC, https://hex.pm/packages/cowboy
-  * `cowlib`, ISC, https://hex.pm/packages/cowlib
   * `credo`, MIT, https://hex.pm/packages/credo
   * `dialyxir`, Apache 2.0, https://hex.pm/packages/dialyxir
   * `ex_unit_fixtures`, MIT, https://hex.pm/packages/ex_unit_fixtures
   * `jsonrpc2`, Apache 2.0, https://hex.pm/packages/jsonrpc2
-  * `mime`, Apache 2.0, https://hex.pm/packages/mime
-  * **(!) but this is a temporary dependency** `ojson`, Mozilla Public 2.0, https://hex.pm/packages/ojson
   * `plug`, Apache 2.0, https://hex.pm/packages/plug
   * `poison`, CC0-1.0, https://hex.pm/packages/poison
   * `ranch`, ISC, https://hex.pm/packages/ranch
@@ -28,6 +25,20 @@ Identifies each module of pre-existing source code used in developing source cod
   * `mox`, Apache 2.0, https://hex.pm/packages/mox
   * `excoveralls`, MIT, https://hex.pm/packages/excoveralls
   * `eep`, MIT, https://github.com/virtan/eep
+  * `ex_rlp`, MIT, https://hex.pm/packages/ex_rlp
+  * `blockchain`, MIT, https://hex.pm/packages/blockchain
+  * `libsecp256k1`, MIT, https://hex.pm/packages/libsecp256k1
+  * `exleveldb`, Apache 2.0, https://hex.pm/packages/exleveldb
+  * `merkle_tree`, MIT, https://hex.pm/packages/merkle_tree
+  * `abi`, <license pending issue resolution>, https://github.com/omisego/abi.git
+  * `porcelain`, MIT, https://hex.pm/packages/porcelain
+  * `temp`, MIT, https://hex.pm/packages/temp
+  * `ethereumex`, MIT, https://github.com/omisego/ethereumex.git
+  * `keccakf1600_orig`, MPL 2.0 (**needs resolution before redistributing**), https://hex.pm/packages/keccakf1600_orig
+  * `rustler`, MIT, https://hex.pm/packages/rustler
+  * `merkle_patricia_tree`, MIT, https://hex.pm/packages/merkle_patricia_tree
+  * `socket`, WTFPL, https://hex.pm/packages/socket
+  * `hackney`, Apache 2.0, https://hex.pm/packages/hackney
 * `tendermint`, Apache 2.0, https://github.com/tendermint/tendermint
 
 ## Likely to be redistributed
