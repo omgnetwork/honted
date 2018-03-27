@@ -24,13 +24,29 @@ defmodule HonteD.Crypto do
 
   @doc """
   Produce a stand-alone signature.
+  TODO: these is most obviously a mock, doesn't do real cryptography
   """
   def signature(unsigned, priv) when is_binary(unsigned) do
     hash(unsigned <> priv <> "pub")
   end
 
+  @doc """
+  TODO: these is most obviously a mock, doesn't do real cryptography
+  """
   def verify(unsigned, signature, address), do: {:ok, hash(unsigned <> address) == signature}
+
+  @doc """
+  TODO: these is most obviously a mock, doesn't do real cryptography
+  """
   def generate_private_key, do: {:ok, :rand.uniform |> to_string |> hash |> Kernel.binary_part(0, 37)}
+
+  @doc """
+  TODO: these is most obviously a mock, doesn't do real cryptography
+  """
   def generate_public_key(priv), do: {:ok, priv <> "pub"}
+
+  @doc """
+  TODO: these is most obviously a mock, doesn't do real cryptography
+  """
   def generate_address(pub), do: {:ok, pub}
 end
