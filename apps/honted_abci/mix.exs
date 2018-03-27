@@ -62,7 +62,7 @@ defmodule HonteD.ABCI.Mixfile do
       {:ex_rlp, "~> 0.2.1"},
       {:keccakf1600, "~> 2.0.0", hex: :keccakf1600_orig},
       {:rustler, "~> 0.10.1"},
-      {:merkle_patricia_tree, git: "git@github.com:omisego/merkle_patricia_tree.git", branch: "pgebal/fixed_trie_get_spec"},
+      {:merkle_patricia_tree, github: "omisego/merkle_patricia_tree", branch: "pgebal/fixed_trie_get_spec"},
       {:ex_unit_fixtures, "~> 0.3.1", only: [:test]},
       #
       {:honted_eth, in_umbrella: true},
